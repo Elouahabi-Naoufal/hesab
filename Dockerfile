@@ -71,3 +71,4 @@ USER nextjs
 
 ENTRYPOINT ["docker-entrypoint.sh"]
 CMD ["node", "server.js"]
+# cache bust 1788500625
