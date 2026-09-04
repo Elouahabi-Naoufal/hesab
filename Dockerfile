@@ -7,9 +7,10 @@ WORKDIR /app
 # Dependencies stage
 FROM base AS deps
 RUN apk add --no-cache libc6-compat openssl
+COPY package.json package-lock.json ./
 # Use development env to ensure dev deps for build are installed
 ENV NODE_ENV=development
-RUN npm ci
+RUN npm ci || npm install
 # Approve prisma scripts (already in allowScripts, but ensure)
 RUN npm install-scripts approve --all || true
 
