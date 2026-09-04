@@ -20,7 +20,8 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 # Ensure data dir exists for prisma migrate at build time (will be mounted at runtime)
-RUN mkdir -p data prisma/data && ln -sf ../data prisma/data || true
+# Do NOT create symlink here - it causes Turbopack infinite loop (prisma/data/data)
+RUN mkdir -p data
 ENV DATABASE_URL="file:./data/app.db"
 ENV NEXT_TELEMETRY_DISABLED=1
 # Generate Prisma Client
