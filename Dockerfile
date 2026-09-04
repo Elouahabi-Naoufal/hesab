@@ -1,0 +1,72 @@
+# Hesab — Group Expense Settlement • Dockerfile (production)
+# Multi-stage build for Next.js standalone + Prisma + SQLite
+
+FROM node:20-alpine AS base
+WORKDIR /app
+
+# Dependencies stage
+FROM base AS deps
+RUN apk add --no-cache libc6-compat
+COPY package.json package-lock.json ./
+# Use development env to ensure dev deps for build are installed
+ENV NODE_ENV=development
+RUN npm ci
+# Approve prisma scripts (already in allowScripts, but ensure)
+RUN npm install-scripts approve --all || true
+
+# Builder stage
+FROM base AS builder
+WORKDIR /app
+COPY --from=deps /app/node_modules ./node_modules
+COPY . .
+# Ensure data dir exists for prisma migrate at build time (will be mounted at runtime)
+RUN mkdir -p data prisma/data && ln -sf ../data prisma/data || true
+ENV DATABASE_URL="file:./data/app.db"
+ENV NEXT_TELEMETRY_DISABLED=1
+# Generate Prisma Client
+RUN npx prisma generate
+# Build Next.js (standalone output)
+RUN npm run build
+
+# Runner stage
+FROM node:20-alpine AS runner
+WORKDIR /app
+ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
+
+RUN addgroup --system --gid 1001 nodejs \
+ && adduser --system --uid 1001 nextjs \
+ && apk add --no-cache sqlite
+
+# Copy built app
+COPY --from=builder /app/public ./public
+COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+
+# Copy prisma schema and migrations for runtime migrate
+COPY --from=builder /app/prisma ./prisma
+COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
+COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
+COPY --from=builder /app/package.json ./package.json
+
+# Data volume
+RUN mkdir -p /app/data && chown nextjs:nodejs /app/data
+VOLUME ["/app/data"]
+
+# Ensure prisma/data symlink points to /app/data (so both relative paths work)
+RUN rm -rf prisma/data && ln -s /app/data prisma/data
+
+EXPOSE 3000
+ENV PORT=3000
+ENV HOSTNAME="0.0.0.0"
+# Database URL for runtime (absolute, ensures correct volume)
+ENV DATABASE_URL="file:/app/data/app.db"
+
+# Entrypoint script
+COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+
+USER nextjs
+
+ENTRYPOINT ["docker-entrypoint.sh"]
+CMD ["node", "server.js"]
