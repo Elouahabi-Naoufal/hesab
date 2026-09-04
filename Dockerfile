@@ -59,7 +59,7 @@ VOLUME ["/app/data"]
 RUN rm -rf prisma/data && ln -s /app/data prisma/data
 
 EXPOSE 3000
-ENV PORT=3000
+ENV PORT=3003
 ENV HOSTNAME="0.0.0.0"
 # Database URL for runtime (absolute, ensures correct volume)
 ENV DATABASE_URL="file:/app/data/app.db"

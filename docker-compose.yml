@@ -3,10 +3,10 @@ services:
     image: hesab:latest
     restart: unless-stopped
     ports:
-      - "3001:3001"
+      - "3003:3003"
     environment:
       - DATABASE_URL=file:/app/data/app.db
       - NODE_ENV=production
-      - PORT=3001
+      - PORT=3003
     volumes:
       - ./data:/app/data
