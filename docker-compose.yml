@@ -1,33 +1,12 @@
 services:
   app:
-    build: .
     image: hesab:latest
-    container_name: hesab
     restart: unless-stopped
     ports:
       - "3001:3001"
-    volumes:
-      - ./data:/app/data
-    env_file:
-      - .env
     environment:
       - DATABASE_URL=file:/app/data/app.db
       - NODE_ENV=production
       - PORT=3001
-    # Labels for Traefik/Dokploy routing
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.hesab.entrypoints=https"
-      - "traefik.http.routers.hesab.rule=Host(`hesab.naoufalelouahabi.com`)"
-      - "traefik.http.services.hesab.loadbalancer.server.port=3001"
-      - "traefik.http.routers.hesab.tls.certresolver="
-    # Healthcheck
-    healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3001/"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 20s
-
-volumes:
-  data:
+    volumes:
+      - ./data:/app/data
