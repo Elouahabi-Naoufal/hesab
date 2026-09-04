@@ -6,8 +6,7 @@ WORKDIR /app
 
 # Dependencies stage
 FROM base AS deps
-RUN apk add --no-cache libc6-compat
-COPY package.json package-lock.json ./
+RUN apk add --no-cache libc6-compat openssl
 # Use development env to ensure dev deps for build are installed
 ENV NODE_ENV=development
 RUN npm ci
@@ -16,6 +15,7 @@ RUN npm install-scripts approve --all || true
 
 # Builder stage
 FROM base AS builder
+RUN apk add --no-cache openssl
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
@@ -37,7 +37,7 @@ ENV NEXT_TELEMETRY_DISABLED=1
 
 RUN addgroup --system --gid 1001 nodejs \
  && adduser --system --uid 1001 nextjs \
- && apk add --no-cache sqlite
+ && apk add --no-cache sqlite openssl
 
 # Copy built app
 COPY --from=builder /app/public ./public
