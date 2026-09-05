@@ -133,26 +133,57 @@ export async function acceptInvitationAction(invitationId: string, contribution?
   if (!group) return { error: "Group not found" };
   if (group.status !== "PLANNING" && group.status !== "ACTIVE") return { error: "Group not accepting members" };
 
-  await prisma.$transaction(async (tx) => {
-    await tx.groupInvitation.update({ where: { id: inv.id }, data: { status: "ACCEPTED" } });
-    await tx.groupMember.create({
-      data: {
-        groupId: inv.groupId,
-        userId: session.userId,
-        role: "MEMBER",
-        contribution: contribution ?? inv.suggestedContribution,
-      },
+  const amount = contribution ?? inv.suggestedContribution;
+
+  try {
+    await prisma.$transaction(async (tx) => {
+      // Wallet deduction - must have enough balance
+      if (amount > 0) {
+        let wallet = await tx.wallet.findUnique({ where: { userId: session.userId } });
+        if (!wallet) {
+          wallet = await tx.wallet.create({ data: { userId: session.userId, balance: 0 } });
+        }
+        if (wallet.balance < amount) {
+          throw new Error(`Insufficient wallet: need ${(amount / 100).toFixed(2)} DH, have ${(wallet.balance / 100).toFixed(2)} DH. Deposit at /wallet.`);
+        }
+        await tx.wallet.update({
+          where: { id: wallet.id },
+          data: { balance: { decrement: amount } },
+        });
+        await tx.walletTransaction.create({
+          data: {
+            walletId: wallet.id,
+            amount: -amount,
+            type: "CONTRIBUTION",
+            description: `Contribution to ${group.name}`,
+            groupId: group.id,
+          },
+        });
+      }
+
+      await tx.groupInvitation.update({ where: { id: inv.id }, data: { status: "ACCEPTED" } });
+      await tx.groupMember.create({
+        data: {
+          groupId: inv.groupId,
+          userId: session.userId,
+          role: "MEMBER",
+          contribution: amount,
+        },
+      });
+      await tx.activityEvent.create({
+        data: {
+          groupId: inv.groupId,
+          actorId: session.userId,
+          eventType: "MEMBER_JOINED",
+          entityType: "User",
+          entityId: session.userId,
+        },
+      });
     });
-    await tx.activityEvent.create({
-      data: {
-        groupId: inv.groupId,
-        actorId: session.userId,
-        eventType: "MEMBER_JOINED",
-        entityType: "User",
-        entityId: session.userId,
-      },
-    });
-  });
+  } catch (e: any) {
+    if (e.message?.includes("Insufficient wallet")) return { error: e.message };
+    throw e;
+  }
 
   revalidatePath(`/groups/${inv.groupId}`);
   revalidatePath("/dashboard");

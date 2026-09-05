@@ -12,6 +12,9 @@ export default async function Dashboard() {
   const user = await prisma.user.findUnique({ where: { id: session.userId } });
   if (!user) redirect("/login");
 
+  let wallet = await prisma.wallet.findUnique({ where: { userId: user.id } });
+  if (!wallet) wallet = await prisma.wallet.create({ data: { userId: user.id, balance: 0 } });
+
   const memberships = await prisma.groupMember.findMany({
     where: { userId: session.userId },
     include: { group: true },
@@ -47,6 +50,8 @@ export default async function Dashboard() {
           </Link>
           <div className="flex items-center gap-3">
             <span className="hidden sm:inline text-sm text-zinc-500">{user.displayName} • <span className="font-mono text-xs bg-zinc-100 dark:bg-zinc-800 px-2 py-1 rounded">{user.publicId}</span></span>
+            <Link href="/profile" className="text-sm px-3 py-1 rounded-full border">Profile</Link>
+            <Link href="/wallet" className="text-sm px-3 py-1 rounded-full bg-emerald-100 text-emerald-700">Wallet {(wallet.balance/100).toFixed(0)} DH</Link>
             {user.isAdmin && <Link href="/admin" className="text-sm px-3 py-1 rounded-full bg-amber-100 text-amber-700 font-medium">Admin</Link>}
             <form action={logoutAction}><button className="text-sm px-3 py-1 rounded-full border border-zinc-200 dark:border-zinc-700">Logout</button></form>
           </div>
@@ -79,10 +84,19 @@ export default async function Dashboard() {
                 <div key={inv.id} className="bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div>
                     <div className="font-medium">{inv.group.name}</div>
-                    <div className="text-sm text-zinc-600 dark:text-zinc-400">Suggested: {(inv.suggestedContribution / 100).toFixed(0)} DH • From {inv.group.ownerId}</div>
+                    <div className="text-sm text-zinc-600 dark:text-zinc-400">Suggested: {(inv.suggestedContribution / 100).toFixed(0)} DH • Wallet: {(wallet.balance/100).toFixed(2)} DH</div>
+                    {wallet.balance < inv.suggestedContribution && <div className="text-xs text-red-600">Insufficient wallet — <Link href="/wallet" className="underline">deposit</Link></div>}
                   </div>
-                  <div className="flex gap-2">
-                    <form action={async () => { "use server"; await acceptInvitationAction(inv.id); }}><button className="px-4 py-2 rounded-xl bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 text-sm font-medium">Accept</button></form>
+                  <div className="flex gap-2 items-center">
+                    <form action={async (formData: FormData) => {
+                      "use server";
+                      const v = parseInt((formData.get("contribution") as string) || `${inv.suggestedContribution}`, 10);
+                      const res = await acceptInvitationAction(inv.id, isNaN(v) ? inv.suggestedContribution : v);
+                      if (res?.error) throw new Error(res.error);
+                    }} className="flex gap-2 items-center">
+                      <input name="contribution" type="number" min={0} step={100} defaultValue={inv.suggestedContribution} className="w-24 px-2 py-2 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-sm" />
+                      <button className="px-4 py-2 rounded-xl bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 text-sm font-medium">Accept</button>
+                    </form>
                     <form action={async () => { "use server"; await declineInvitationAction(inv.id); }}><button className="px-4 py-2 rounded-xl border border-zinc-200 dark:border-zinc-700 text-sm">Decline</button></form>
                   </div>
                 </div>
