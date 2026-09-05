@@ -38,7 +38,7 @@ ENV NEXT_TELEMETRY_DISABLED=1
 
 RUN addgroup --system --gid 1001 nodejs \
  && adduser --system --uid 1001 nextjs \
- && apk add --no-cache sqlite openssl
+ && apk add --no-cache sqlite openssl su-exec
 
 # Copy built app
 COPY --from=builder /app/public ./public
@@ -66,12 +66,10 @@ ENV HOSTNAME="0.0.0.0"
 # Database URL for runtime (absolute, ensures correct volume)
 ENV DATABASE_URL="file:/app/data/app.db"
 
-# Entrypoint script
+# Entrypoint script (runs as root to fix /app/data ownership, then drops to nextjs)
 COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
-USER nextjs
-
 ENTRYPOINT ["docker-entrypoint.sh"]
 CMD ["node", "server.js"]
-# cache bust 1788500625
+# cache bust 1788569000

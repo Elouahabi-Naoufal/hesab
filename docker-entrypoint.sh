@@ -3,8 +3,10 @@ set -e
 
 echo ">> Hesab starting..."
 
-# Ensure data dir exists
+# Ensure data dir exists and is writable by nextjs (fix bind-mount root ownership)
 mkdir -p /app/data
+chown -R nextjs:nodejs /app/data 2>/dev/null || true
+chmod -R 775 /app/data 2>/dev/null || true
 
 # Ensure symlink
 if [ ! -L /app/prisma/data ]; then
@@ -28,4 +30,9 @@ sqlite3 /app/data/app.db "PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON;" || e
 # Generate client if needed (already generated at build)
 
 echo ">> Starting server..."
-exec "$@"
+# Drop privileges: run as nextjs if we are root
+if [ "$(id -u)" = "0" ]; then
+  exec su-exec nextjs:nodejs "$@"
+else
+  exec "$@"
+fi
