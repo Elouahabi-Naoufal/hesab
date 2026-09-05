@@ -1,437 +1,259 @@
+/**
+ * Settlement Engine Tests — Outing-centric model
+ * Tests the core settlement logic with FIXED and VARIABLE activities
+ */
 import { describe, it, expect } from "vitest";
-import { calculateSettlement } from "../settlement";
-import { allocateEqual, allocatePercentage, allocatePortions } from "../money";
+import { calculateSettlement, simplifyDebts, type OutingInput, type SettlementResult } from "../settlement";
 
-// Helper to convert DH to centimes
-const dh = (amount: number) => Math.round(amount * 100);
+describe("calculateSettlement", () => {
+  it("simple 2-person split: one pays for both", () => {
+    const input: OutingInput = {
+      members: [
+        { userId: "a", displayName: "Alice" },
+        { userId: "b", displayName: "Bob" },
+      ],
+      activities: [
+        {
+          id: "act1",
+          name: "Dinner",
+          pricingModel: "VARIABLE",
+          status: "CLOSED",
+          lineItems: [
+            { userId: "a", priceCentimes: 5000 },
+            { userId: "b", priceCentimes: 5000 },
+          ],
+          payments: [{ userId: "a", amountCentimes: 10000 }],
+        },
+      ],
+    };
 
-describe("Required Financial Test 1 - Friday Pool Night", () => {
-  it("should match spec example exactly", () => {
-    const members = [
-      { userId: "naoufal", displayName: "Naoufal" },
-      { userId: "mohamed", displayName: "Mohamed" },
-      { userId: "yassine", displayName: "Yassine" },
-      { userId: "anour", displayName: "Anour" },
-    ];
+    const result = calculateSettlement(input);
+    expect(result.isComplete).toBe(true);
+    expect(result.totalExpenses).toBe(10000);
+    expect(result.totalPaid).toBe(10000);
 
-    const expenses = [
-      {
-        id: "exp1",
-        totalCentimes: dh(120),
-        allocations: [
-          { userId: "naoufal", amountCentimes: dh(40) },
-          { userId: "mohamed", amountCentimes: dh(40) },
-          { userId: "yassine", amountCentimes: dh(40) },
-        ],
-        payments: [{ userId: "naoufal", amountCentimes: dh(120) }],
-      },
-      {
-        id: "exp2",
-        totalCentimes: dh(60),
-        allocations: [
-          { userId: "yassine", amountCentimes: dh(30) },
-          { userId: "anour", amountCentimes: dh(30) },
-        ],
-        payments: [{ userId: "yassine", amountCentimes: dh(60) }],
-      },
-      {
-        id: "exp3",
-        totalCentimes: dh(40),
-        allocations: [
-          { userId: "naoufal", amountCentimes: dh(10) },
-          { userId: "mohamed", amountCentimes: dh(10) },
-          { userId: "yassine", amountCentimes: dh(10) },
-          { userId: "anour", amountCentimes: dh(10) },
-        ],
-        payments: [{ userId: "mohamed", amountCentimes: dh(40) }],
-      },
-    ];
+    const a = result.memberBalances.find(b => b.userId === "a")!;
+    const b = result.memberBalances.find(b => b.userId === "b")!;
 
-    const result = calculateSettlement({ members, expenses });
+    expect(a.totalPaid).toBe(10000);
+    expect(a.totalResponsibility).toBe(5000);
+    expect(a.netBalance).toBe(5000); // should receive
 
-    // Expected responsibility
-    const naoufal = result.memberBalances.find(b => b.userId === "naoufal")!;
-    const mohamed = result.memberBalances.find(b => b.userId === "mohamed")!;
-    const yassine = result.memberBalances.find(b => b.userId === "yassine")!;
-    const anour = result.memberBalances.find(b => b.userId === "anour")!;
-
-    expect(naoufal.totalResponsibility).toBe(dh(50));
-    expect(mohamed.totalResponsibility).toBe(dh(50));
-    expect(yassine.totalResponsibility).toBe(dh(80));
-    expect(anour.totalResponsibility).toBe(dh(40));
-
-    // Expected actual payments
-    expect(naoufal.totalPaid).toBe(dh(120));
-    expect(mohamed.totalPaid).toBe(dh(40));
-    expect(yassine.totalPaid).toBe(dh(60));
-    expect(anour.totalPaid).toBe(dh(0));
-
-    // Expected balances
-    expect(naoufal.netBalance).toBe(dh(70));
-    expect(mohamed.netBalance).toBe(dh(-10));
-    expect(yassine.netBalance).toBe(dh(-20));
-    expect(anour.netBalance).toBe(dh(-40));
-
-    // Expected settlement
-    // Sorting transfers for deterministic comparison
-    const transfers = result.transfers.sort((a, b) => b.amountCentimes - a.amountCentimes);
-    expect(transfers).toHaveLength(3);
-    // Anour -> Naoufal 40
-    expect(transfers.find(t => t.fromUserId === "anour" && t.toUserId === "naoufal")?.amountCentimes).toBe(dh(40));
-    // Yassine -> Naoufal 20
-    expect(transfers.find(t => t.fromUserId === "yassine" && t.toUserId === "naoufal")?.amountCentimes).toBe(dh(20));
-    // Mohamed -> Naoufal 10
-    expect(transfers.find(t => t.fromUserId === "mohamed" && t.toUserId === "naoufal")?.amountCentimes).toBe(dh(10));
-
-    // Total should be 70 DH
-    const totalTransferred = transfers.reduce((s, t) => s + t.amountCentimes, 0);
-    expect(totalTransferred).toBe(dh(70));
-
-    // Invariant: sum positive == sum negative
-    const positive = result.memberBalances.filter(b => b.netBalance > 0).reduce((s, b) => s + b.netBalance, 0);
-    const negative = result.memberBalances.filter(b => b.netBalance < 0).reduce((s, b) => s + Math.abs(b.netBalance), 0);
-    expect(positive).toBe(negative);
-  });
-});
-
-describe("Required Financial Test 2 - Simple 2 tables", () => {
-  it("should simplify without involving Mohamed", () => {
-    const members = [
-      { userId: "naoufal", displayName: "Naoufal" },
-      { userId: "mohamed", displayName: "Mohamed" },
-      { userId: "yassine", displayName: "Yassine" },
-    ];
-
-    const expenses = [
-      {
-        id: "t1",
-        totalCentimes: dh(100),
-        allocations: [
-          { userId: "naoufal", amountCentimes: dh(50) },
-          { userId: "mohamed", amountCentimes: dh(50) },
-        ],
-        payments: [{ userId: "naoufal", amountCentimes: dh(100) }],
-      },
-      {
-        id: "t2",
-        totalCentimes: dh(100),
-        allocations: [
-          { userId: "mohamed", amountCentimes: dh(50) },
-          { userId: "yassine", amountCentimes: dh(50) },
-        ],
-        payments: [{ userId: "mohamed", amountCentimes: dh(100) }],
-      },
-    ];
-
-    const result = calculateSettlement({ members, expenses });
-
-    const naoufal = result.memberBalances.find(b => b.userId === "naoufal")!;
-    const mohamed = result.memberBalances.find(b => b.userId === "mohamed")!;
-    const yassine = result.memberBalances.find(b => b.userId === "yassine")!;
-
-    expect(naoufal.totalResponsibility).toBe(dh(50));
-    expect(mohamed.totalResponsibility).toBe(dh(100));
-    expect(yassine.totalResponsibility).toBe(dh(50));
-
-    expect(naoufal.totalPaid).toBe(dh(100));
-    expect(mohamed.totalPaid).toBe(dh(100));
-    expect(yassine.totalPaid).toBe(dh(0));
-
-    expect(naoufal.netBalance).toBe(dh(50));
-    expect(mohamed.netBalance).toBe(dh(0));
-    expect(yassine.netBalance).toBe(dh(-50));
+    expect(b.totalPaid).toBe(0);
+    expect(b.totalResponsibility).toBe(5000);
+    expect(b.netBalance).toBe(-5000); // owes
 
     expect(result.transfers).toHaveLength(1);
-    expect(result.transfers[0].fromUserId).toBe("yassine");
-    expect(result.transfers[0].toUserId).toBe("naoufal");
-    expect(result.transfers[0].amountCentimes).toBe(dh(50));
-
-    // Ensure Mohamed not involved
-    expect(result.transfers.some(t => t.fromUserId === "mohamed" || t.toUserId === "mohamed")).toBe(false);
-  });
-});
-
-describe("Money allocation", () => {
-  it("equal split rounding: 100 DH among 3", () => {
-    const allocations = allocateEqual(dh(100), 3);
-    expect(allocations).toEqual([dh(33.34), dh(33.33), dh(33.33)]);
-    expect(allocations.reduce((a, b) => a + b, 0)).toBe(dh(100));
+    expect(result.transfers[0]).toEqual({
+      fromUserId: "b",
+      toUserId: "a",
+      amountCentimes: 5000,
+      fromDisplayName: "Bob",
+      toDisplayName: "Alice",
+    });
   });
 
-  it("equal split exact: 120 among 3", () => {
-    expect(allocateEqual(dh(120), 3)).toEqual([dh(40), dh(40), dh(40)]);
+  it("3-person: one pays for all, equal split", () => {
+    const input: OutingInput = {
+      members: [
+        { userId: "a", displayName: "Alice" },
+        { userId: "b", displayName: "Bob" },
+        { userId: "c", displayName: "Charlie" },
+      ],
+      activities: [
+        {
+          id: "act1",
+          name: "Pool",
+          pricingModel: "FIXED",
+          status: "CLOSED",
+          usageRecords: [
+            { id: "u1", totalCentimes: 1500, status: "CONFIRMED", participantIds: ["a", "b", "c"] },
+          ],
+          payments: [{ userId: "a", amountCentimes: 1500 }],
+        },
+      ],
+    };
+
+    const result = calculateSettlement(input);
+    expect(result.isComplete).toBe(true);
+
+    const a = result.memberBalances.find(b => b.userId === "a")!;
+    expect(a.totalPaid).toBe(1500);
+    expect(a.totalResponsibility).toBe(500);
+    expect(a.netBalance).toBe(1000);
+
+    expect(result.transfers).toHaveLength(2);
   });
 
-  it("percentage split 50/25/25", () => {
-    const allocations = allocatePercentage(dh(160), [5000, 2500, 2500]);
-    expect(allocations).toEqual([dh(80), dh(40), dh(40)]);
-    expect(allocations.reduce((a, b) => a + b, 0)).toBe(dh(160));
-  });
+  it("multi-activity outing: mixed FIXED and VARIABLE", () => {
+    const input: OutingInput = {
+      members: [
+        { userId: "a", displayName: "Alice" },
+        { userId: "b", displayName: "Bob" },
+        { userId: "c", displayName: "Charlie" },
+      ],
+      activities: [
+        {
+          id: "act1",
+          name: "InDrive",
+          pricingModel: "VARIABLE",
+          status: "CLOSED",
+          lineItems: [
+            { userId: "a", priceCentimes: 333 },
+            { userId: "b", priceCentimes: 333 },
+            { userId: "c", priceCentimes: 334 },
+          ],
+          payments: [{ userId: "a", amountCentimes: 1000 }],
+        },
+        {
+          id: "act2",
+          name: "Pool",
+          pricingModel: "FIXED",
+          status: "CLOSED",
+          usageRecords: [
+            { id: "u1", totalCentimes: 500, status: "CONFIRMED", participantIds: ["a", "b"] },
+          ],
+          payments: [{ userId: "b", amountCentimes: 500 }],
+        },
+        {
+          id: "act3",
+          name: "Restaurant",
+          pricingModel: "VARIABLE",
+          status: "CLOSED",
+          lineItems: [
+            { userId: "a", priceCentimes: 4000 },
+            { userId: "b", priceCentimes: 5000 },
+            { userId: "c", priceCentimes: 3000 },
+          ],
+          payments: [{ userId: "c", amountCentimes: 12000 }],
+        },
+      ],
+    };
 
-  it("percentage must sum to 10000", () => {
-    expect(() => allocatePercentage(dh(100), [5000, 4000])).toThrow();
-  });
+    const result = calculateSettlement(input);
+    expect(result.isComplete).toBe(true);
 
-  it("portions split", () => {
-    const allocations = allocatePortions(dh(120), [2, 3, 1]);
-    expect(allocations).toEqual([dh(40), dh(60), dh(20)]);
-  });
+    // A: paid 1000, resp 333+250+4000 = 4583 → net = -3583
+    // B: paid 500, resp 333+250+5000 = 5583 → net = -5083
+    // C: paid 12000, resp 334+0+3000 = 3334 → net = +8666
 
-  it("many participants equal split sums correctly", () => {
-    for (let n = 1; n <= 10; n++) {
-      const total = dh(100);
-      const allocs = allocateEqual(total, n);
-      expect(allocs.reduce((a, b) => a + b, 0)).toBe(total);
-    }
-  });
-});
-
-describe("Settlement invariants", () => {
-  it("zero balance case: everyone paid exactly responsibility", () => {
-    const members = [
-      { userId: "a" }, { userId: "b" }
-    ];
-    const expenses = [
-      {
-        id: "e1",
-        totalCentimes: dh(100),
-        allocations: [{ userId: "a", amountCentimes: dh(50) }, { userId: "b", amountCentimes: dh(50) }],
-        payments: [{ userId: "a", amountCentimes: dh(50) }, { userId: "b", amountCentimes: dh(50) }],
-      }
-    ];
-    const result = calculateSettlement({ members, expenses });
-    expect(result.transfers).toHaveLength(0);
-    expect(result.memberBalances.every(b => b.netBalance === 0)).toBe(true);
-  });
-
-  it("multiple payers for single expense", () => {
-    const members = [{ userId: "a" }, { userId: "b" }, { userId: "c" }];
-    const expenses = [
-      {
-        id: "e1",
-        totalCentimes: dh(120),
-        allocations: [{ userId: "a", amountCentimes: dh(40) }, { userId: "b", amountCentimes: dh(40) }, { userId: "c", amountCentimes: dh(40) }],
-        payments: [{ userId: "a", amountCentimes: dh(60) }, { userId: "b", amountCentimes: dh(60) }],
-      }
-    ];
-    const result = calculateSettlement({ members, expenses });
     const a = result.memberBalances.find(b => b.userId === "a")!;
     const b = result.memberBalances.find(b => b.userId === "b")!;
     const c = result.memberBalances.find(b => b.userId === "c")!;
-    expect(a.netBalance).toBe(dh(20));
-    expect(b.netBalance).toBe(dh(20));
-    expect(c.netBalance).toBe(dh(-40));
-    expect(result.transfers).toHaveLength(2);
+
+    expect(a.netBalance).toBe(1000 - 4583);
+    expect(b.netBalance).toBe(500 - 5583);
+    expect(c.netBalance).toBe(12000 - 3334);
+
+    // Sum of all net = 0
+    const sum = a.netBalance + b.netBalance + c.netBalance;
+    expect(sum).toBe(0);
   });
 
-  it("after applying transfers all balances zero", () => {
-    const members = [
-      { userId: "naoufal" }, { userId: "mohamed" }, { userId: "yassine" }, { userId: "anour" }
-    ];
-    const expenses = [
-      {
-        id: "exp1",
-        totalCentimes: dh(120),
-        allocations: [{ userId: "naoufal", amountCentimes: dh(40) }, { userId: "mohamed", amountCentimes: dh(40) }, { userId: "yassine", amountCentimes: dh(40) }],
-        payments: [{ userId: "naoufal", amountCentimes: dh(120) }],
-      },
-      {
-        id: "exp2",
-        totalCentimes: dh(60),
-        allocations: [{ userId: "yassine", amountCentimes: dh(30) }, { userId: "anour", amountCentimes: dh(30) }],
-        payments: [{ userId: "yassine", amountCentimes: dh(60) }],
-      },
-      {
-        id: "exp3",
-        totalCentimes: dh(40),
-        allocations: [{ userId: "naoufal", amountCentimes: dh(10) }, { userId: "mohamed", amountCentimes: dh(10) }, { userId: "yassine", amountCentimes: dh(10) }, { userId: "anour", amountCentimes: dh(10) }],
-        payments: [{ userId: "mohamed", amountCentimes: dh(40) }],
-      },
-    ];
-    const result = calculateSettlement({ members, expenses });
-    // Simulate applying transfers
-    const balances = new Map(result.memberBalances.map(b => [b.userId, b.netBalance]));
-    for (const t of result.transfers) {
-      balances.set(t.fromUserId, balances.get(t.fromUserId)! + t.amountCentimes);
-      balances.set(t.toUserId, balances.get(t.toUserId)! - t.amountCentimes);
-    }
-    for (const [_, bal] of balances) {
-      expect(bal).toBe(0);
-    }
+  it("disputed usage records excluded from calculation", () => {
+    const input: OutingInput = {
+      members: [
+        { userId: "a", displayName: "Alice" },
+        { userId: "b", displayName: "Bob" },
+      ],
+      activities: [
+        {
+          id: "act1",
+          name: "Pool",
+          pricingModel: "FIXED",
+          status: "OPEN",
+          usageRecords: [
+            { id: "u1", totalCentimes: 500, status: "CONFIRMED", participantIds: ["a", "b"] },
+            { id: "u2", totalCentimes: 1000, status: "DISPUTED", participantIds: ["a", "b"] },
+          ],
+          payments: [{ userId: "a", amountCentimes: 500 }],
+        },
+      ],
+    };
+
+    const result = calculateSettlement(input);
+    expect(result.isComplete).toBe(true);
+    expect(result.totalExpenses).toBe(500); // only the confirmed record
+
+    const a = result.memberBalances.find(b => b.userId === "a")!;
+    expect(a.totalResponsibility).toBe(250);
+  });
+
+  it("no payments → incomplete", () => {
+    const input: OutingInput = {
+      members: [
+        { userId: "a", displayName: "Alice" },
+        { userId: "b", displayName: "Bob" },
+      ],
+      activities: [
+        {
+          id: "act1",
+          name: "Dinner",
+          pricingModel: "VARIABLE",
+          status: "OPEN",
+          lineItems: [
+            { userId: "a", priceCentimes: 5000 },
+          ],
+          payments: [],
+        },
+      ],
+    };
+
+    const result = calculateSettlement(input);
+    expect(result.isComplete).toBe(false);
+    expect(result.incompleteActivityIds).toContain("act1");
+  });
+
+  it("partial payments → incomplete", () => {
+    const input: OutingInput = {
+      members: [
+        { userId: "a", displayName: "Alice" },
+        { userId: "b", displayName: "Bob" },
+      ],
+      activities: [
+        {
+          id: "act1",
+          name: "Dinner",
+          pricingModel: "VARIABLE",
+          status: "OPEN",
+          lineItems: [
+            { userId: "a", priceCentimes: 5000 },
+            { userId: "b", priceCentimes: 5000 },
+          ],
+          payments: [{ userId: "a", amountCentimes: 3000 }],
+        },
+      ],
+    };
+
+    const result = calculateSettlement(input);
+    expect(result.isComplete).toBe(false);
   });
 });
 
-describe("Optional payment - Responsibility vs Payment distinction (Hesab core model)", () => {
-  it("Case 1: Everyone pays for themselves - no settlement", () => {
-    const members = [
-      { userId: "naoufal" }, { userId: "mohamed" }, { userId: "yassine" },
+describe("simplifyDebts", () => {
+  it("eliminates intermediaries", () => {
+    const balances = [
+      { userId: "a", totalPaid: 10000, totalResponsibility: 3333, netBalance: 6667 },
+      { userId: "b", totalPaid: 0, totalResponsibility: 3333, netBalance: -3333 },
+      { userId: "c", totalPaid: 0, totalResponsibility: 3334, netBalance: -3334 },
     ];
-    const expenses = [
-      {
-        id: "pizza",
-        totalCentimes: dh(120),
-        allocations: [
-          { userId: "naoufal", amountCentimes: dh(40) },
-          { userId: "mohamed", amountCentimes: dh(40) },
-          { userId: "yassine", amountCentimes: dh(40) },
-        ],
-        payments: [
-          { userId: "naoufal", amountCentimes: dh(40) },
-          { userId: "mohamed", amountCentimes: dh(40) },
-          { userId: "yassine", amountCentimes: dh(40) },
-        ],
-      },
-    ];
-    const result = calculateSettlement({ members, expenses });
-    expect(result.isComplete).toBe(true);
-    expect(result.memberBalances.every(b => b.netBalance === 0)).toBe(true);
-    expect(result.transfers).toHaveLength(0);
+
+    const transfers = simplifyDebts(balances);
+    expect(transfers).toHaveLength(2);
+    // B → A: 3333, C → A: 3334
+    expect(transfers[0].fromUserId).toBe("c");
+    expect(transfers[0].amountCentimes).toBe(3334);
+    expect(transfers[1].fromUserId).toBe("b");
+    expect(transfers[1].amountCentimes).toBe(3333);
   });
 
-  it("Case 2: One person pays for everyone", () => {
-    const members = [
-      { userId: "naoufal" }, { userId: "mohamed" }, { userId: "yassine" },
+  it("no transfers when all settled", () => {
+    const balances = [
+      { userId: "a", totalPaid: 5000, totalResponsibility: 5000, netBalance: 0 },
+      { userId: "b", totalPaid: 5000, totalResponsibility: 5000, netBalance: 0 },
     ];
-    const expenses = [
-      {
-        id: "pizza",
-        totalCentimes: dh(120),
-        allocations: [
-          { userId: "naoufal", amountCentimes: dh(40) },
-          { userId: "mohamed", amountCentimes: dh(40) },
-          { userId: "yassine", amountCentimes: dh(40) },
-        ],
-        payments: [{ userId: "naoufal", amountCentimes: dh(120) }],
-      },
-    ];
-    const result = calculateSettlement({ members, expenses });
-    const naoufal = result.memberBalances.find(b => b.userId === "naoufal")!;
-    const mohamed = result.memberBalances.find(b => b.userId === "mohamed")!;
-    const yassine = result.memberBalances.find(b => b.userId === "yassine")!;
-    expect(naoufal.netBalance).toBe(dh(80)); // 120 - 40
-    expect(mohamed.netBalance).toBe(dh(-40));
-    expect(yassine.netBalance).toBe(dh(-40));
-    expect(result.transfers).toHaveLength(2);
-    expect(result.transfers.some(t => t.fromUserId === "mohamed" && t.toUserId === "naoufal" && t.amountCentimes === dh(40))).toBe(true);
-    expect(result.transfers.some(t => t.fromUserId === "yassine" && t.toUserId === "naoufal" && t.amountCentimes === dh(40))).toBe(true);
-  });
 
-  it("Case 3: Multiple people pay (80+40) - partial reimbursement", () => {
-    const members = [
-      { userId: "naoufal" }, { userId: "mohamed" }, { userId: "yassine" },
-    ];
-    const expenses = [
-      {
-        id: "pizza",
-        totalCentimes: dh(120),
-        allocations: [
-          { userId: "naoufal", amountCentimes: dh(40) },
-          { userId: "mohamed", amountCentimes: dh(40) },
-          { userId: "yassine", amountCentimes: dh(40) },
-        ],
-        payments: [
-          { userId: "naoufal", amountCentimes: dh(80) },
-          { userId: "mohamed", amountCentimes: dh(40) },
-        ],
-      },
-    ];
-    const result = calculateSettlement({ members, expenses });
-    // Naoufal +40, Mohamed 0, Yassine -40 => Yassine -> Naoufal 40
-    expect(result.memberBalances.find(b => b.userId === "naoufal")!.netBalance).toBe(dh(40));
-    expect(result.memberBalances.find(b => b.userId === "mohamed")!.netBalance).toBe(0);
-    expect(result.memberBalances.find(b => b.userId === "yassine")!.netBalance).toBe(dh(-40));
-    expect(result.transfers).toHaveLength(1);
-    expect(result.transfers[0]).toEqual(expect.objectContaining({ fromUserId: "yassine", toUserId: "naoufal", amountCentimes: dh(40) }));
-  });
-
-  it("Case 4: Payment not recorded - unknown payer distinct from 0", () => {
-    const members = [
-      { userId: "naoufal" }, { userId: "mohamed" }, { userId: "yassine" },
-    ];
-    const expenses = [
-      {
-        id: "pool",
-        totalCentimes: dh(90),
-        allocations: [
-          { userId: "naoufal", amountCentimes: dh(30) },
-          { userId: "mohamed", amountCentimes: dh(30) },
-          { userId: "yassine", amountCentimes: dh(30) },
-        ],
-        payments: [], // unknown payer
-      },
-    ];
-    const result = calculateSettlement({ members, expenses });
-    expect(result.isComplete).toBe(false);
-    expect(result.totalUnrecorded).toBe(dh(90));
-    expect(result.incompleteExpenseIds).toContain("pool");
-    // Each owes 30, but no one paid, so no transfers possible (no creditor)
-    expect(result.memberBalances.every(b => b.netBalance === dh(-30))).toBe(true);
-    expect(result.transfers).toHaveLength(0);
-    // This is distinct from "everyone paid 0" vs "unknown": if we explicitly set 0, same balances but isComplete false signals unknown
-  });
-
-  it("Percentage responsibility independent from payment: Pizza 200 DH with unequal shares, Mohamed paid all", () => {
-    const members = [
-      { userId: "naoufal" }, { userId: "yassine" }, { userId: "mohamed" },
-    ];
-    // Responsibility: Naoufal 20% =40, Yassine 30%=60, Mohamed 50%=100, Payment: Mohamed 200
-    const expenses = [
-      {
-        id: "pizza",
-        totalCentimes: dh(200),
-        allocations: [
-          { userId: "naoufal", amountCentimes: dh(40) },
-          { userId: "yassine", amountCentimes: dh(60) },
-          { userId: "mohamed", amountCentimes: dh(100) },
-        ],
-        payments: [{ userId: "mohamed", amountCentimes: dh(200) }],
-      },
-    ];
-    const result = calculateSettlement({ members, expenses });
-    expect(result.memberBalances.find(b => b.userId === "naoufal")!.netBalance).toBe(dh(-40));
-    expect(result.memberBalances.find(b => b.userId === "yassine")!.netBalance).toBe(dh(-60));
-    expect(result.memberBalances.find(b => b.userId === "mohamed")!.netBalance).toBe(dh(100));
-    // Mohamed receives 40+60, his own 100 already covered
-    expect(result.transfers).toHaveLength(2);
-    expect(result.transfers.some(t => t.fromUserId === "naoufal" && t.toUserId === "mohamed")).toBe(true);
-    expect(result.transfers.some(t => t.fromUserId === "yassine" && t.toUserId === "mohamed")).toBe(true);
-  });
-
-  it("Multiple payers for restaurant 300 DH with 25% each: Naoufal 200, Yassine 100", () => {
-    const members = [
-      { userId: "naoufal" }, { userId: "yassine" }, { userId: "mohamed" }, { userId: "anour" },
-    ];
-    const expenses = [
-      {
-        id: "resto",
-        totalCentimes: dh(300),
-        allocations: [
-          { userId: "naoufal", amountCentimes: dh(75) },
-          { userId: "yassine", amountCentimes: dh(75) },
-          { userId: "mohamed", amountCentimes: dh(75) },
-          { userId: "anour", amountCentimes: dh(75) },
-        ],
-        payments: [
-          { userId: "naoufal", amountCentimes: dh(200) },
-          { userId: "yassine", amountCentimes: dh(100) },
-        ],
-      },
-    ];
-    const result = calculateSettlement({ members, expenses });
-    // Naoufal +125, Yassine +25, Mohamed -75, Anour -75
-    expect(result.memberBalances.find(b => b.userId === "naoufal")!.netBalance).toBe(dh(125));
-    expect(result.memberBalances.find(b => b.userId === "yassine")!.netBalance).toBe(dh(25));
-    expect(result.memberBalances.find(b => b.userId === "mohamed")!.netBalance).toBe(dh(-75));
-    expect(result.memberBalances.find(b => b.userId === "anour")!.netBalance).toBe(dh(-75));
-    // Settlement minimizes transfers, should be 3 transfers covering 150
-    const totalTransferred = result.transfers.reduce((s, t) => s + t.amountCentimes, 0);
-    expect(totalTransferred).toBe(dh(150));
-    // Verify all balances zero after applying
-    const balances = new Map(result.memberBalances.map(b => [b.userId, b.netBalance]));
-    for (const t of result.transfers) {
-      balances.set(t.fromUserId, balances.get(t.fromUserId)! + t.amountCentimes);
-      balances.set(t.toUserId, balances.get(t.toUserId)! - t.amountCentimes);
-    }
-    for (const bal of balances.values()) expect(bal).toBe(0);
+    const transfers = simplifyDebts(balances);
+    expect(transfers).toHaveLength(0);
   });
 });

@@ -4,10 +4,9 @@ async function test(){
   console.log("Test unknown payer");
   let r = calculateSettlement({
     members: [{userId:"a"},{userId:"b"},{userId:"c"}],
-    expenses: [{
-      id:"pool",
-      totalCentimes: dh(90),
-      allocations: [{userId:"a",amountCentimes:dh(30)},{userId:"b",amountCentimes:dh(30)},{userId:"c",amountCentimes:dh(30)}],
+    activities: [{
+      id:"pool", name:"Pool", pricingModel:"FIXED", status:"OPEN",
+      usageRecords: [{id:"u1",totalCentimes:dh(90),status:"CONFIRMED",participantIds:["a","b","c"]}],
       payments: []
     }]
   });
@@ -17,10 +16,9 @@ async function test(){
   console.log("\nTest everyone pays themselves");
   r = calculateSettlement({
     members: [{userId:"a"},{userId:"b"},{userId:"c"}],
-    expenses: [{
-      id:"pizza",
-      totalCentimes: dh(120),
-      allocations: [{userId:"a",amountCentimes:dh(40)},{userId:"b",amountCentimes:dh(40)},{userId:"c",amountCentimes:dh(40)}],
+    activities: [{
+      id:"pizza", name:"Pizza", pricingModel:"VARIABLE", status:"CLOSED",
+      lineItems: [{userId:"a",priceCentimes:dh(40)},{userId:"b",priceCentimes:dh(40)},{userId:"c",priceCentimes:dh(40)}],
       payments: [{userId:"a",amountCentimes:dh(40)},{userId:"b",amountCentimes:dh(40)},{userId:"c",amountCentimes:dh(40)}]
     }]
   });
@@ -30,10 +28,9 @@ async function test(){
   console.log("\nTest one pays for everyone");
   r = calculateSettlement({
     members: [{userId:"a"},{userId:"b"},{userId:"c"}],
-    expenses: [{
-      id:"pizza",
-      totalCentimes: dh(120),
-      allocations: [{userId:"a",amountCentimes:dh(40)},{userId:"b",amountCentimes:dh(40)},{userId:"c",amountCentimes:dh(40)}],
+    activities: [{
+      id:"pizza", name:"Pizza", pricingModel:"VARIABLE", status:"CLOSED",
+      lineItems: [{userId:"a",priceCentimes:dh(40)},{userId:"b",priceCentimes:dh(40)},{userId:"c",priceCentimes:dh(40)}],
       payments: [{userId:"a",amountCentimes:dh(120)}]
     }]
   });
@@ -43,10 +40,9 @@ async function test(){
   console.log("\nTest multiple payers");
   r = calculateSettlement({
     members: [{userId:"a"},{userId:"b"},{userId:"c"}],
-    expenses: [{
-      id:"pizza",
-      totalCentimes: dh(120),
-      allocations: [{userId:"a",amountCentimes:dh(40)},{userId:"b",amountCentimes:dh(40)},{userId:"c",amountCentimes:dh(40)}],
+    activities: [{
+      id:"pizza", name:"Pizza", pricingModel:"VARIABLE", status:"CLOSED",
+      lineItems: [{userId:"a",priceCentimes:dh(40)},{userId:"b",priceCentimes:dh(40)},{userId:"c",priceCentimes:dh(40)}],
       payments: [{userId:"a",amountCentimes:dh(80)},{userId:"b",amountCentimes:dh(40)}]
     }]
   });

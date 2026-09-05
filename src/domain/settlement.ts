@@ -1,6 +1,10 @@
 /**
  * Settlement Engine - Pure domain logic, no framework dependencies
  * Deterministic, integer centimes only
+ *
+ * Calculates settlement for an OUTING (not a group).
+ * Aggregates responsibility from activities (FIXED usage + VARIABLE line items)
+ * and payments from activity payments.
  */
 
 export type Centimes = number;
@@ -10,17 +14,33 @@ export interface SettlementMember {
   displayName?: string;
 }
 
-export interface ExpenseInput {
+export interface ActivityInput {
   id: string;
-  totalCentimes: Centimes;
-  allocations: { userId: string; amountCentimes: Centimes }[];
-  payments: { userId: string; amountCentimes: Centimes }[];
+  name: string;
+  pricingModel: "FIXED" | "VARIABLE";
+  status: string;
+  // For FIXED: usage records with participants
+  usageRecords?: {
+    id: string;
+    totalCentimes: Centimes;
+    status: string;
+    participantIds: string[];
+  }[];
+  // For VARIABLE: line items per participant
+  lineItems?: {
+    userId: string;
+    priceCentimes: Centimes;
+  }[];
+  // Payments for this activity
+  payments: {
+    userId: string;
+    amountCentimes: Centimes;
+  }[];
 }
 
-export interface SettlementInput {
+export interface OutingInput {
   members: SettlementMember[];
-  expenses: ExpenseInput[];
-  contributions?: { userId: string; amountCentimes: Centimes }[];
+  activities: ActivityInput[];
 }
 
 export interface MemberBalance {
@@ -29,7 +49,6 @@ export interface MemberBalance {
   totalPaid: Centimes;
   totalResponsibility: Centimes;
   netBalance: Centimes; // positive = should receive, negative = owes
-  contribution?: Centimes;
 }
 
 export interface Transfer {
@@ -44,20 +63,19 @@ export interface SettlementResult {
   totalExpenses: Centimes;
   totalPaid: Centimes;
   totalUnrecorded: Centimes;
-  totalContributions: Centimes;
   memberBalances: MemberBalance[];
   transfers: Transfer[];
-  incompleteExpenseIds: string[];
-  isComplete: boolean; // false if any expense has no payer recorded
+  incompleteActivityIds: string[];
+  isComplete: boolean;
 }
 
 /**
- * Calculate settlement from inputs
- * Pure function - deterministic
+ * Calculate settlement for an outing.
+ * Pure function - deterministic.
  */
-export function calculateSettlement(input: SettlementInput): SettlementResult {
-  const { members, expenses } = input;
-  
+export function calculateSettlement(input: OutingInput): SettlementResult {
+  const { members, activities } = input;
+
   // Initialize balances
   const balanceMap = new Map<string, MemberBalance>();
   for (const m of members) {
@@ -67,60 +85,67 @@ export function calculateSettlement(input: SettlementInput): SettlementResult {
       totalPaid: 0,
       totalResponsibility: 0,
       netBalance: 0,
-      contribution: 0,
     });
   }
 
-  // Contributions
-  let totalContributions = 0;
-  if (input.contributions) {
-    for (const c of input.contributions) {
-      const b = balanceMap.get(c.userId);
-      if (b) {
-        b.contribution = c.amountCentimes;
-        totalContributions += c.amountCentimes;
-      }
-    }
-  }
-
-  // Aggregate from expenses
   let totalExpenses = 0;
   let totalPaid = 0;
   let totalUnrecorded = 0;
-  const incompleteExpenseIds: string[] = [];
+  const incompleteActivityIds: string[] = [];
 
-  for (const exp of expenses) {
-    totalExpenses += exp.totalCentimes;
+  for (const activity of activities) {
+    let activityResponsibility = 0;
+    let activityPaid = 0;
+    let hasUnrecordedPayments = false;
 
-    // Validate invariants: allocations must always sum to total
-    const allocSum = exp.allocations.reduce((s, a) => s + a.amountCentimes, 0);
-    const paySum = exp.payments.reduce((s, p) => s + p.amountCentimes, 0);
-    
-    if (allocSum !== exp.totalCentimes) {
-      throw new Error(`Expense ${exp.id}: allocation sum ${allocSum} != total ${exp.totalCentimes}`);
+    if (activity.pricingModel === "FIXED") {
+      // Process usage records (exclude disputed ones)
+      for (const record of (activity.usageRecords || [])) {
+        if (record.status === "DISPUTED") continue;
+
+        if (record.participantIds.length === 0) continue;
+        const sharePerPerson = Math.floor(record.totalCentimes / record.participantIds.length);
+
+        for (const pid of record.participantIds) {
+          const b = balanceMap.get(pid);
+          if (!b) throw new Error(`Unknown user in usage record: ${pid}`);
+          b.totalResponsibility += sharePerPerson;
+        }
+        activityResponsibility += sharePerPerson * record.participantIds.length;
+      }
+    } else {
+      // VARIABLE: sum line items
+      for (const item of (activity.lineItems || [])) {
+        const b = balanceMap.get(item.userId);
+        if (!b) throw new Error(`Unknown user in line item: ${item.userId}`);
+        b.totalResponsibility += item.priceCentimes;
+        activityResponsibility += item.priceCentimes;
+      }
     }
-    // Payments are OPTIONAL:
-    // - If no payments recorded => unrecorded (unknown payer), not automatically 0
-    // - If payments recorded => must sum to total (supports multiple payers)
-    if (exp.payments.length === 0) {
-      totalUnrecorded += exp.totalCentimes;
-      incompleteExpenseIds.push(exp.id);
-      // still count responsibility, but no paid amount
-    } else if (paySum !== exp.totalCentimes) {
-      throw new Error(`Expense ${exp.id}: payment sum ${paySum} != total ${exp.totalCentimes} (if payer is recorded, it must equal total for multiple payers)`);
-    }
 
-    for (const alloc of exp.allocations) {
-      const b = balanceMap.get(alloc.userId);
-      if (!b) throw new Error(`Unknown user in allocation: ${alloc.userId}`);
-      b.totalResponsibility += alloc.amountCentimes;
-    }
-
-    for (const pay of exp.payments) {
+    // Process payments
+    for (const pay of activity.payments) {
       const b = balanceMap.get(pay.userId);
       if (!b) throw new Error(`Unknown user in payment: ${pay.userId}`);
       b.totalPaid += pay.amountCentimes;
-      totalPaid += pay.amountCentimes;
+      activityPaid += pay.amountCentimes;
+    }
+
+    totalExpenses += activityResponsibility;
+    totalPaid += activityPaid;
+
+    // Check if payments are complete for this activity
+    if (activity.payments.length === 0 && activityResponsibility > 0) {
+      totalUnrecorded += activityResponsibility;
+      incompleteActivityIds.push(activity.id);
+      hasUnrecordedPayments = true;
+    } else if (activityPaid !== activityResponsibility && activityResponsibility > 0) {
+      // Partial payments — still incomplete
+      if (activityPaid < activityResponsibility) {
+        totalUnrecorded += activityResponsibility - activityPaid;
+        incompleteActivityIds.push(activity.id);
+        hasUnrecordedPayments = true;
+      }
     }
   }
 
@@ -131,31 +156,24 @@ export function calculateSettlement(input: SettlementInput): SettlementResult {
     memberBalances.push(b);
   }
 
-  // If any expense has unrecorded payer, settlement is incomplete
-  // In that case sum(positive) != sum(|negative|) is expected: difference == unrecorded
-  // We do NOT throw; we generate partial settlement and flag incomplete
+  // Validate completeness
+  const isComplete = incompleteActivityIds.length === 0;
   const positiveSum = memberBalances.filter(b => b.netBalance > 0).reduce((s, b) => s + b.netBalance, 0);
   const negativeSum = memberBalances.filter(b => b.netBalance < 0).reduce((s, b) => s + Math.abs(b.netBalance), 0);
-  const isComplete = incompleteExpenseIds.length === 0;
+
   if (isComplete && positiveSum !== negativeSum) {
     throw new Error(`Settlement invariant violated: positive ${positiveSum} != negative ${negativeSum}`);
   }
 
-  // Generate simplified transfers: match debtors to creditors
-  // When incomplete, this will produce partial settlement (only matched portion)
   const transfers = simplifyDebts(memberBalances);
-
-  // Validate after transfers all zero (simulation)
-  // Not mutating original, just validation concept
 
   return {
     totalExpenses,
     totalPaid,
     totalUnrecorded,
-    totalContributions,
     memberBalances,
     transfers,
-    incompleteExpenseIds,
+    incompleteActivityIds,
     isComplete,
   };
 }
@@ -167,7 +185,6 @@ export function calculateSettlement(input: SettlementInput): SettlementResult {
  * Operates in integer centimes
  */
 export function simplifyDebts(balances: MemberBalance[]): Transfer[] {
-  // Clone and sort
   const creditors = balances
     .filter(b => b.netBalance > 0)
     .map(b => ({ userId: b.userId, displayName: b.displayName, amount: b.netBalance }))
@@ -179,14 +196,12 @@ export function simplifyDebts(balances: MemberBalance[]): Transfer[] {
     .sort((a, b) => b.amount - a.amount);
 
   const transfers: Transfer[] = [];
-
-  let i = 0; // debtors index
-  let j = 0; // creditors index
+  let i = 0;
+  let j = 0;
 
   while (i < debtors.length && j < creditors.length) {
     const debtor = debtors[i];
     const creditor = creditors[j];
-
     const amount = Math.min(debtor.amount, creditor.amount);
 
     if (amount > 0) {
@@ -210,20 +225,41 @@ export function simplifyDebts(balances: MemberBalance[]): Transfer[] {
 }
 
 /**
- * Format settlement for WhatsApp sharing
+ * Generate explanation for a settlement.
+ * Shows per-person: paid, responsible, net, and resulting transfer.
  */
-export function formatSettlementMessage(
-  groupName: string,
+export function explainSettlement(
   transfers: Transfer[],
-  totalCentimes: number,
+  memberBalances: MemberBalance[],
   userMap?: Map<string, string>
 ): string {
-  const lines = transfers.map(t => {
-    const from = userMap?.get(t.fromUserId) || t.fromDisplayName || t.fromUserId;
-    const to = userMap?.get(t.toUserId) || t.toDisplayName || t.toUserId;
-    const amount = (t.amountCentimes / 100).toFixed(0);
-    return `${from} → ${to}: ${amount} DH`;
-  });
+  const lines: string[] = [];
 
-  return `🎱 ${groupName}\n\nFinal settlement:\n\n${lines.join("\n")}\n\nTotal: ${(totalCentimes / 100).toFixed(0)} DH`;
+  for (const b of memberBalances) {
+    const name = userMap?.get(b.userId) || b.userId;
+    const paid = (b.totalPaid / 100).toFixed(2);
+    const resp = (b.totalResponsibility / 100).toFixed(2);
+    const net = b.netBalance;
+    const netStr = net >= 0 ? `+${(net / 100).toFixed(2)}` : (net / 100).toFixed(2);
+
+    lines.push(`${name}:`);
+    lines.push(`  Paid: ${paid} DH`);
+    lines.push(`  Responsible for: ${resp} DH`);
+    lines.push(`  Net: ${netStr} DH`);
+    lines.push("");
+  }
+
+  if (transfers.length > 0) {
+    lines.push("Transfers:");
+    for (const t of transfers) {
+      const from = userMap?.get(t.fromUserId) || t.fromUserId;
+      const to = userMap?.get(t.toUserId) || t.toUserId;
+      const amount = (t.amountCentimes / 100).toFixed(2);
+      lines.push(`  ${from} -> ${to}: ${amount} DH`);
+    }
+  } else {
+    lines.push("Everyone is settled up!");
+  }
+
+  return lines.join("\n");
 }

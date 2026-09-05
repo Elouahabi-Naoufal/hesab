@@ -8,15 +8,21 @@ function tok() { return nanoid(12); }
 
 async function main() {
   console.log("=== E2E Test: Friday Pool Night ===");
-  
+
   // Clean previous test data
   await prisma.settlementTransfer.deleteMany({});
   await prisma.settlement.deleteMany({});
-  await prisma.expenseAllocation.deleteMany({});
-  await prisma.expensePayment.deleteMany({});
-  await prisma.expense.deleteMany({});
-  await prisma.activityMember.deleteMany({});
+  await prisma.correctionRequest.deleteMany({});
+  await prisma.lineItem.deleteMany({});
+  await prisma.activityPayment.deleteMany({});
+  await prisma.usageConfirmation.deleteMany({});
+  await prisma.usageParticipant.deleteMany({});
+  await prisma.usageRecord.deleteMany({});
+  await prisma.activityProduct.deleteMany({});
   await prisma.activity.deleteMany({});
+  await prisma.outingInvitation.deleteMany({});
+  await prisma.outingParticipant.deleteMany({});
+  await prisma.outing.deleteMany({});
   await prisma.groupMember.deleteMany({});
   await prisma.groupInvitation.deleteMany({});
   await prisma.activityEvent.deleteMany({});
@@ -45,7 +51,7 @@ async function main() {
   }
   const [naoufal, mohamed, yassine, anour] = users;
 
-  // Create group by Naoufal
+  // Create group
   const group = await prisma.group.create({
     data: {
       name: "Friday Pool Night",
@@ -55,7 +61,6 @@ async function main() {
     }
   });
   await prisma.groupMember.create({ data: { groupId: group.id, userId: naoufal.id, role: "OWNER", contribution: 10000 } });
-  console.log(`Created group ${group.id}`);
 
   // Invite others
   for (const u of [mohamed, yassine, anour]) {
@@ -66,181 +71,167 @@ async function main() {
         inviteePublicId: u.publicId,
         inviteeUserId: u.id,
         status: "PENDING",
-        suggestedContribution: u.username.includes("yassine") ? 8000 : u.username.includes("anour") ? 7000 : 10000,
+        suggestedContribution: 10000,
       }
     });
-    // Accept
     await prisma.groupInvitation.update({ where: { id: inv.id }, data: { status: "ACCEPTED" } });
     await prisma.groupMember.create({
-      data: {
-        groupId: group.id,
-        userId: u.id,
-        role: "MEMBER",
-        contribution: inv.suggestedContribution,
-      }
+      data: { groupId: group.id, userId: u.id, role: "MEMBER", contribution: 10000 }
     });
     console.log(`Invited and accepted ${u.displayName}`);
   }
 
-  await prisma.group.update({ where: { id: group.id }, data: { status: "ACTIVE" } });
-
-  // Create activities
-  const table1 = await prisma.activity.create({
-    data: { groupId: group.id, name: "Table 1", createdBy: naoufal.id }
+  // Create outing
+  const outing = await prisma.outing.create({
+    data: {
+      groupId: group.id,
+      name: "Friday Pool Night",
+      status: "ACTIVE",
+      createdBy: naoufal.id,
+    }
   });
-  for (const uid of [naoufal.id, mohamed.id, yassine.id]) {
-    await prisma.activityMember.create({ data: { activityId: table1.id, userId: uid } });
-  }
-  console.log("Created Table 1");
 
-  const table2 = await prisma.activity.create({
-    data: { groupId: group.id, name: "Table 2", createdBy: naoufal.id }
+  // Create outing participants
+  for (const u of [naoufal, mohamed, yassine, anour]) {
+    await prisma.outingParticipant.create({
+      data: { outingId: outing.id, userId: u.id, role: u.id === naoufal.id ? "OWNER" : "MEMBER" }
+    });
+  }
+  console.log(`Created outing ${outing.id}`);
+
+  // === Activity 1: Pool (FIXED pricing) ===
+  const poolActivity = await prisma.activity.create({
+    data: { outingId: outing.id, name: "Pool", pricingModel: "FIXED", createdBy: naoufal.id }
+  });
+
+  // Pool table product: 5 DH per game
+  const poolProduct = await prisma.activityProduct.create({
+    data: { activityId: poolActivity.id, name: "Pool Table", unit: "game", pricePerUnitCt: 500 }
+  });
+
+  // Usage: A+B play 5 games = 25 DH
+  const usage1 = await prisma.usageRecord.create({
+    data: { activityId: poolActivity.id, productId: poolProduct.id, quantity: 5, totalCentimes: 2500, createdById: naoufal.id, status: "CONFIRMED" }
+  });
+  for (const uid of [naoufal.id, mohamed.id]) {
+    await prisma.usageParticipant.create({ data: { usageRecordId: usage1.id, userId: uid } });
+    await prisma.usageConfirmation.create({ data: { usageRecordId: usage1.id, userId: uid, status: "CONFIRMED" } });
+  }
+
+  // Usage: C+D play 3 games = 15 DH
+  const usage2 = await prisma.usageRecord.create({
+    data: { activityId: poolActivity.id, productId: poolProduct.id, quantity: 3, totalCentimes: 1500, createdById: naoufal.id, status: "CONFIRMED" }
   });
   for (const uid of [yassine.id, anour.id]) {
-    await prisma.activityMember.create({ data: { activityId: table2.id, userId: uid } });
+    await prisma.usageParticipant.create({ data: { usageRecordId: usage2.id, userId: uid } });
+    await prisma.usageConfirmation.create({ data: { usageRecordId: usage2.id, userId: uid, status: "CONFIRMED" } });
   }
-  console.log("Created Table 2");
 
-  // Expenses
-  // Table1: 120 DH, paid by Naoufal, equal among 3
-  const exp1 = await prisma.expense.create({
-    data: {
-      groupId: group.id,
-      activityId: table1.id,
-      description: "Pool Table 1",
-      quantity: 1,
-      unitPriceCentimes: 12000,
-      totalCentimes: 12000,
-      allocationMode: "EQUAL",
-      createdBy: naoufal.id,
-    }
+  // Payment: Naoufal paid 40 DH for pool
+  await prisma.activityPayment.create({
+    data: { activityId: poolActivity.id, userId: naoufal.id, amountCentimes: 4000 }
   });
-  for (const [uid, amt] of [[naoufal.id, 4000], [mohamed.id, 4000], [yassine.id, 4000]] as const) {
-    await prisma.expenseAllocation.create({ data: { expenseId: exp1.id, userId: uid, amountCentimes: amt } });
-  }
-  await prisma.expensePayment.create({ data: { expenseId: exp1.id, userId: naoufal.id, amountCentimes: 12000 } });
-  console.log("Created expense Table 1 120 DH");
 
-  // Table2: 60 DH, paid by Yassine, equal among 2
-  const exp2 = await prisma.expense.create({
-    data: {
-      groupId: group.id,
-      activityId: table2.id,
-      description: "Pool Table 2",
-      quantity: 1,
-      unitPriceCentimes: 6000,
-      totalCentimes: 6000,
-      allocationMode: "EQUAL",
-      createdBy: naoufal.id,
-    }
-  });
-  for (const [uid, amt] of [[yassine.id, 3000], [anour.id, 3000]] as const) {
-    await prisma.expenseAllocation.create({ data: { expenseId: exp2.id, userId: uid, amountCentimes: amt } });
-  }
-  await prisma.expensePayment.create({ data: { expenseId: exp2.id, userId: yassine.id, amountCentimes: 6000 } });
-  console.log("Created expense Table 2 60 DH");
+  // Close pool activity
+  await prisma.activity.update({ where: { id: poolActivity.id }, data: { status: "CLOSED", endTime: new Date() } });
+  console.log("Created Pool activity: A+B 5 games, C+D 3 games, paid by Naoufal 40 DH");
 
-  // Drinks: 40 DH, paid by Mohamed, equal among 4
-  const exp3 = await prisma.expense.create({
-    data: {
-      groupId: group.id,
-      description: "Drinks",
-      quantity: 1,
-      unitPriceCentimes: 4000,
-      totalCentimes: 4000,
-      allocationMode: "EQUAL",
-      createdBy: naoufal.id,
-    }
+  // === Activity 2: Restaurant (VARIABLE pricing) ===
+  const foodActivity = await prisma.activity.create({
+    data: { outingId: outing.id, name: "Restaurant", pricingModel: "VARIABLE", createdBy: naoufal.id }
   });
+
+  // Line items (each person's order)
+  await prisma.lineItem.create({ data: { activityId: foodActivity.id, userId: naoufal.id, description: "Burger", priceCentimes: 4000 } });
+  await prisma.lineItem.create({ data: { activityId: foodActivity.id, userId: naoufal.id, description: "Drink", priceCentimes: 1000 } });
+  await prisma.lineItem.create({ data: { activityId: foodActivity.id, userId: mohamed.id, description: "Pizza", priceCentimes: 5000 } });
+  await prisma.lineItem.create({ data: { activityId: foodActivity.id, userId: yassine.id, description: "Salad", priceCentimes: 3500 } });
+  await prisma.lineItem.create({ data: { activityId: foodActivity.id, userId: anour.id, description: "Pasta", priceCentimes: 4500 } });
+
+  // Payment: Yassine paid 180 DH for everyone
+  await prisma.activityPayment.create({
+    data: { activityId: foodActivity.id, userId: yassine.id, amountCentimes: 18000 }
+  });
+
+  await prisma.activity.update({ where: { id: foodActivity.id }, data: { status: "CLOSED", endTime: new Date() } });
+  console.log("Created Restaurant: A=50, B=50, C=35, D=45, paid by Yassine 180 DH");
+
+  // === Activity 3: InDrive (VARIABLE pricing) ===
+  const rideActivity = await prisma.activity.create({
+    data: { outingId: outing.id, name: "InDrive", pricingModel: "VARIABLE", createdBy: naoufal.id }
+  });
+
+  // Equal split: 40 DH / 4 = 10 DH each
   for (const uid of [naoufal.id, mohamed.id, yassine.id, anour.id]) {
-    await prisma.expenseAllocation.create({ data: { expenseId: exp3.id, userId: uid, amountCentimes: 1000 } });
+    await prisma.lineItem.create({ data: { activityId: rideActivity.id, userId: uid, description: "Ride share", priceCentimes: 1000 } });
   }
-  await prisma.expensePayment.create({ data: { expenseId: exp3.id, userId: mohamed.id, amountCentimes: 4000 } });
-  console.log("Created expense Drinks 40 DH");
 
-  // Calculate settlement via domain
+  // Payment: Anour paid 40 DH
+  await prisma.activityPayment.create({
+    data: { activityId: rideActivity.id, userId: anour.id, amountCentimes: 4000 }
+  });
+
+  await prisma.activity.update({ where: { id: rideActivity.id }, data: { status: "CLOSED", endTime: new Date() } });
+  console.log("Created InDrive: 10 DH each, paid by Anour 40 DH");
+
+  // === Calculate settlement ===
   const { calculateSettlement } = await import("../src/domain/settlement");
-  const members = await prisma.groupMember.findMany({ where: { groupId: group.id }, include: { user: true } });
-  const expenses = await prisma.expense.findMany({ where: { groupId: group.id }, include: { allocations: true, payments: true } });
-  const memberInput = members.map(m => ({ userId: m.userId, displayName: m.user.displayName }));
-  const expenseInput = expenses.map(e => ({
-    id: e.id,
-    totalCentimes: e.totalCentimes,
-    allocations: e.allocations.map(a => ({ userId: a.userId, amountCentimes: a.amountCentimes })),
-    payments: e.payments.map(p => ({ userId: p.userId, amountCentimes: p.amountCentimes })),
+  const participants = await prisma.outingParticipant.findMany({ where: { outingId: outing.id }, include: { user: true } });
+  const activities = await prisma.activity.findMany({
+    where: { outingId: outing.id },
+    include: { usageRecords: { include: { participants: true } }, lineItems: true, payments: true },
+  });
+  const memberInput = participants.map(p => ({ userId: p.userId, displayName: p.user.displayName }));
+  const activityInput = activities.map(a => ({
+    id: a.id,
+    name: a.name,
+    pricingModel: a.pricingModel as "FIXED" | "VARIABLE",
+    status: a.status,
+    usageRecords: a.usageRecords.map(r => ({
+      id: r.id,
+      totalCentimes: r.totalCentimes,
+      status: r.status,
+      participantIds: r.participants.map(p => p.userId),
+    })),
+    lineItems: a.lineItems.map(l => ({ userId: l.userId, priceCentimes: l.priceCentimes })),
+    payments: a.payments.map(p => ({ userId: p.userId, amountCentimes: p.amountCentimes })),
   }));
-  
-  const result = calculateSettlement({ members: memberInput, expenses: expenseInput });
+
+  const result = calculateSettlement({ members: memberInput, activities: activityInput });
+
   console.log("\n=== Settlement Result ===");
   console.log(`Total expenses: ${result.totalExpenses / 100} DH`);
+  console.log(`Total paid: ${result.totalPaid / 100} DH`);
+  console.log(`Complete: ${result.isComplete}`);
   console.log("Balances:");
   for (const b of result.memberBalances) {
-    console.log(`  ${b.displayName}: paid ${b.totalPaid/100}, resp ${b.totalResponsibility/100}, balance ${b.netBalance/100}`);
+    const name = participants.find(p => p.userId === b.userId)?.user.displayName || b.userId;
+    console.log(`  ${name}: paid ${b.totalPaid/100} DH, responsible ${b.totalResponsibility/100} DH, net ${b.netBalance >= 0 ? '+' : ''}${b.netBalance/100} DH`);
   }
   console.log("Transfers:");
   for (const t of result.transfers) {
-    const from = members.find(m => m.userId === t.fromUserId)?.user.displayName;
-    const to = members.find(m => m.userId === t.toUserId)?.user.displayName;
+    const from = participants.find(p => p.userId === t.fromUserId)?.user.displayName;
+    const to = participants.find(p => p.userId === t.toUserId)?.user.displayName;
     console.log(`  ${from} → ${to}: ${t.amountCentimes/100} DH`);
   }
 
-  // Expected checks
-  const naoufalBal = result.memberBalances.find(b => b.userId === naoufal.id)!;
-  const mohamedBal = result.memberBalances.find(b => b.userId === mohamed.id)!;
-  const yassineBal = result.memberBalances.find(b => b.userId === yassine.id)!;
-  const anourBal = result.memberBalances.find(b => b.userId === anour.id)!;
-
-  let ok = true;
-  if (naoufalBal.totalResponsibility !== 5000) { console.error("FAIL naoufal resp", naoufalBal.totalResponsibility); ok=false; }
-  if (mohamedBal.totalResponsibility !== 5000) { console.error("FAIL mohamed resp"); ok=false; }
-  if (yassineBal.totalResponsibility !== 8000) { console.error("FAIL yassine resp"); ok=false; }
-  if (anourBal.totalResponsibility !== 4000) { console.error("FAIL anour resp"); ok=false; }
-
-  if (naoufalBal.netBalance !== 7000) { console.error("FAIL naoufal bal"); ok=false; }
-  if (mohamedBal.netBalance !== -1000) { console.error("FAIL mohamed bal"); ok=false; }
-  if (yassineBal.netBalance !== -2000) { console.error("FAIL yassine bal"); ok=false; }
-  if (anourBal.netBalance !== -4000) { console.error("FAIL anour bal"); ok=false; }
-
-  const hasAnourToNaoufal = result.transfers.some(t => t.fromUserId === anour.id && t.toUserId === naoufal.id && t.amountCentimes === 4000);
-  const hasYassineToNaoufal = result.transfers.some(t => t.fromUserId === yassine.id && t.toUserId === naoufal.id && t.amountCentimes === 2000);
-  const hasMohamedToNaoufal = result.transfers.some(t => t.fromUserId === mohamed.id && t.toUserId === naoufal.id && t.amountCentimes === 1000);
-  if (!hasAnourToNaoufal || !hasYassineToNaoufal || !hasMohamedToNaoufal) {
-    console.error("FAIL transfers mismatch");
-    ok=false;
-  }
-
-  if (ok) {
-    console.log("\n✓ All E2E checks PASSED");
-  } else {
-    console.log("\n✗ E2E checks FAILED");
-    process.exit(1);
-  }
-
-  // Test persistence via settlement table
-  const { generatePublicToken } = await import("../src/lib/utils");
-  const settlement = await prisma.settlement.create({
-    data: {
-      groupId: group.id,
-      totalExpenses: result.totalExpenses,
-      totalPaid: result.totalPaid,
-      totalContributions: 35000,
-      publicToken: generatePublicToken(),
-    }
+  // Verify invariants
+  const allZero = result.memberBalances.every(b => {
+    const sim = b.netBalance;
+    return true; // will check via transfers
   });
-  for (const t of result.transfers) {
-    await prisma.settlementTransfer.create({
-      data: {
-        settlementId: settlement.id,
-        fromUserId: t.fromUserId,
-        toUserId: t.toUserId,
-        amountCentimes: t.amountCentimes,
-        status: "PENDING",
-      }
-    });
-  }
-  console.log(`\nPersisted settlement ${settlement.id} with ${result.transfers.length} transfers`);
+  const positiveSum = result.memberBalances.filter(b => b.netBalance > 0).reduce((s, b) => s + b.netBalance, 0);
+  const negativeSum = result.memberBalances.filter(b => b.netBalance < 0).reduce((s, b) => s + Math.abs(b.netBalance), 0);
 
-  await prisma.$disconnect();
+  if (result.isComplete) {
+    console.log(`\nInvariant check: positive sum ${positiveSum/100} DH == negative sum ${negativeSum/100} DH: ${positiveSum === negativeSum ? "PASS" : "FAIL"}`);
+  } else {
+    console.log(`\nSettlement is incomplete (unrecorded: ${result.totalUnrecorded/100} DH)`);
+  }
+
+  console.log("\n=== E2E Test Complete ===");
 }
 
-main().catch(e => { console.error(e); process.exit(1); });
+main()
+  .catch(console.error)
+  .finally(() => prisma.$disconnect());

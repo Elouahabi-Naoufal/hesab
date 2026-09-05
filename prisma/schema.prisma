@@ -21,15 +21,26 @@ model User {
 
   groupMembers       GroupMember[]
   invitationsSent    GroupInvitation[] @relation("Inviter")
-  activityMembers    ActivityMember[]
   expenseAllocations ExpenseAllocation[]
   expensePayments    ExpensePayment[]
   activitiesCreated  Activity[]        @relation("ActivityCreator")
+  activityMembers    ActivityMember[]
   expensesCreated    Expense[]         @relation("ExpenseCreator")
   settlementTransfersFrom SettlementTransfer[] @relation("TransferFrom")
   settlementTransfersTo   SettlementTransfer[] @relation("TransferTo")
   auditEvents        ActivityEvent[]   @relation("Actor")
   wallet             Wallet?
+  outingsCreated     Outing[]              @relation("OutingCreator")
+  outingParticipants OutingParticipant[]
+  outingInvitesSent  OutingInvitation[] @relation("OutingInviter")
+  outingInvitesRcvd  OutingInvitation[] @relation("OutingInvitee")
+  usageRecords       UsageRecord[]
+  usageParticipants  UsageParticipant[]
+  usageConfirmations UsageConfirmation[]
+  lineItems          LineItem[]
+  activityPayments   ActivityPayment[]
+  correctionRequests CorrectionRequest[]        @relation("CorrectionRequester")
+  correctionDecisions CorrectionRequest[]       @relation("CorrectionDecider")
 
   @@index([email])
   @@index([publicId])
@@ -62,6 +73,10 @@ model WalletTransaction {
   @@index([groupId])
 }
 
+// ──────────────────────────────────────────────────
+// GROUPS — persistent membership container
+// ──────────────────────────────────────────────────
+
 model Group {
   id          String   @id @default(cuid())
   name        String
@@ -74,9 +89,8 @@ model Group {
 
   members     GroupMember[]
   invitations GroupInvitation[]
-  activities  Activity[]
+  outings     Outing[]
   expenses    Expense[]
-  settlement  Settlement?
   events      ActivityEvent[]
 
   @@index([ownerId])
@@ -89,8 +103,6 @@ model GroupMember {
   userId       String
   role         String   @default("MEMBER")
   contribution Int      @default(0)
-  // Share of group costs in basis points (10000 = 100%). NULL = equal split
-  // with all other NULL members. See getEffectiveShares() in domain/shares.ts.
   shareBasisPoints Int?
   joinedAt     DateTime @default(now())
 
@@ -108,11 +120,9 @@ model GroupInvitation {
   inviterId             String
   inviteePublicId       String?
   inviteeUserId         String?
-  email                 String?
   status                String   @default("PENDING")
   suggestedContribution Int      @default(0)
   createdAt             DateTime @default(now())
-  expiresAt             DateTime?
 
   group   Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
   inviter User  @relation("Inviter", fields: [inviterId], references: [id], onDelete: Cascade)
@@ -120,6 +130,253 @@ model GroupInvitation {
   @@index([groupId])
   @@index([status])
 }
+
+// ──────────────────────────────────────────────────
+// OUTINGS — independent financial context
+// ──────────────────────────────────────────────────
+
+model Outing {
+  id          String   @id @default(cuid())
+  groupId     String
+  name        String
+  description String?
+  status      String   @default("PLANNING")
+  createdBy   String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  group         Group              @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  creator       User               @relation("OutingCreator", fields: [createdBy], references: [id])
+  participants  OutingParticipant[]
+  invitations   OutingInvitation[]
+  activities    Activity[]
+  settlement    Settlement?
+  corrections   CorrectionRequest[]
+
+  @@index([groupId])
+  @@index([status])
+}
+
+model OutingParticipant {
+  id       String  @id @default(cuid())
+  outingId String
+  userId   String
+  role     String  @default("MEMBER")
+  joinedAt DateTime @default(now())
+
+  outing Outing @relation(fields: [outingId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([outingId, userId])
+  @@index([outingId])
+  @@index([userId])
+}
+
+model OutingInvitation {
+  id              String   @id @default(cuid())
+  outingId        String
+  inviterId       String
+  inviteeUserId   String
+  status          String   @default("PENDING")
+  createdAt       DateTime @default(now())
+
+  outing   Outing @relation(fields: [outingId], references: [id], onDelete: Cascade)
+  inviter  User   @relation("OutingInviter", fields: [inviterId], references: [id], onDelete: Cascade)
+  invitee  User   @relation("OutingInvitee", fields: [inviteeUserId], references: [id], onDelete: Cascade)
+
+  @@unique([outingId, inviteeUserId])
+  @@index([outingId])
+  @@index([status])
+}
+
+// ──────────────────────────────────────────────────
+// ACTIVITIES — fixed or variable pricing
+// ──────────────────────────────────────────────────
+
+model Activity {
+  id            String   @id @default(cuid())
+  groupId       String?
+  outingId      String?
+  name          String
+  pricingModel  String   @default("FIXED")
+  status        String   @default("OPEN")
+  startTime     DateTime @default(now())
+  endTime       DateTime?
+  rate          Int?
+  notes         String?
+  createdBy     String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  outing         Outing?             @relation(fields: [outingId], references: [id], onDelete: SetNull)
+  creator        User                @relation("ActivityCreator", fields: [createdBy], references: [id])
+  products       ActivityProduct[]
+  usageRecords   UsageRecord[]
+  lineItems      LineItem[]
+  payments       ActivityPayment[]
+  members        ActivityMember[]
+  expenses       Expense[]
+
+  @@index([groupId])
+  @@index([outingId])
+  @@index([createdBy])
+  @@index([status])
+}
+
+// Temporary — used for data migration, will be removed
+model ActivityMember {
+  id         String @id @default(cuid())
+  activityId String
+  userId     String
+
+  activity Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([activityId, userId])
+  @@index([activityId])
+  @@index([userId])
+}
+
+model ActivityProduct {
+  id                String   @id @default(cuid())
+  activityId        String
+  name              String
+  unit              String   @default("unit")
+  pricePerUnitCt    Int
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  activity     Activity       @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  usageRecords UsageRecord[]
+
+  @@index([activityId])
+}
+
+// ──────────────────────────────────────────────────
+// FIXED PRICING — usage records + confirmations
+// ──────────────────────────────────────────────────
+
+model UsageRecord {
+  id             String   @id @default(cuid())
+  activityId     String
+  productId      String
+  quantity       Int
+  totalCentimes  Int
+  createdById    String
+  status         String   @default("PENDING")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  activity      Activity             @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  product       ActivityProduct      @relation(fields: [productId], references: [id], onDelete: Cascade)
+  createdBy     User                 @relation(fields: [createdById], references: [id])
+  participants  UsageParticipant[]
+  confirmations UsageConfirmation[]
+
+  @@index([activityId])
+  @@index([productId])
+  @@index([status])
+}
+
+model UsageParticipant {
+  id            String @id @default(cuid())
+  usageRecordId String
+  userId        String
+
+  usageRecord UsageRecord @relation(fields: [usageRecordId], references: [id], onDelete: Cascade)
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([usageRecordId, userId])
+  @@index([usageRecordId])
+  @@index([userId])
+}
+
+model UsageConfirmation {
+  id            String   @id @default(cuid())
+  usageRecordId String
+  userId        String
+  status        String   @default("PENDING")
+  notes         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  usageRecord UsageRecord @relation(fields: [usageRecordId], references: [id], onDelete: Cascade)
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([usageRecordId, userId])
+  @@index([usageRecordId])
+  @@index([status])
+}
+
+// ──────────────────────────────────────────────────
+// VARIABLE PRICING — line items
+// ──────────────────────────────────────────────────
+
+model LineItem {
+  id           String   @id @default(cuid())
+  activityId   String
+  userId       String
+  description  String
+  priceCentimes Int
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  activity Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([activityId])
+  @@index([userId])
+}
+
+// ──────────────────────────────────────────────────
+// ACTIVITY PAYMENTS — who paid what
+// ──────────────────────────────────────────────────
+
+model ActivityPayment {
+  id            String   @id @default(cuid())
+  activityId    String
+  userId        String
+  amountCentimes Int
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  activity Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([activityId])
+  @@index([userId])
+}
+
+// ──────────────────────────────────────────────────
+// CORRECTIONS — post-settlement change requests
+// ──────────────────────────────────────────────────
+
+model CorrectionRequest {
+  id            String   @id @default(cuid())
+  outingId      String
+  requesterId   String
+  deciderId     String?
+  entityType    String
+  entityId      String
+  field         String
+  oldValue      String
+  newValue      String
+  status        String   @default("PENDING")
+  decisionNote  String?
+  createdAt     DateTime @default(now())
+  decidedAt     DateTime?
+
+  outing   Outing @relation(fields: [outingId], references: [id], onDelete: Cascade)
+  requester User  @relation("CorrectionRequester", fields: [requesterId], references: [id])
+  decider   User? @relation("CorrectionDecider", fields: [deciderId], references: [id])
+
+  @@index([outingId])
+  @@index([status])
+}
+
+// ──────────────────────────────────────────────────
+// LEGACY — kept for data migration, will be removed
+// ──────────────────────────────────────────────────
 
 model ProductCategory {
   id        String    @id @default(cuid())
@@ -146,44 +403,10 @@ model Product {
   @@index([active])
 }
 
-model Activity {
-  id        String    @id @default(cuid())
-  groupId   String
-  name      String
-  type      String?
-  startTime DateTime?
-  endTime   DateTime?
-  rate      Int?
-  notes     String?
-  createdBy String
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-
-  group    Group            @relation(fields: [groupId], references: [id], onDelete: Cascade)
-  creator  User             @relation("ActivityCreator", fields: [createdBy], references: [id])
-  members  ActivityMember[]
-  expenses Expense[]
-
-  @@index([groupId])
-  @@index([createdBy])
-}
-
-model ActivityMember {
-  id         String @id @default(cuid())
-  activityId String
-  userId     String
-
-  activity Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
-  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@unique([activityId, userId])
-  @@index([activityId])
-  @@index([userId])
-}
-
 model Expense {
   id                String   @id @default(cuid())
   groupId           String
+  outingId          String?
   activityId        String?
   productId         String?
   description       String
@@ -205,6 +428,7 @@ model Expense {
   @@index([groupId])
   @@index([activityId])
   @@index([createdBy])
+  @@index([outingId])
 }
 
 model ExpenseAllocation {
@@ -237,9 +461,14 @@ model ExpensePayment {
   @@index([userId])
 }
 
+// ──────────────────────────────────────────────────
+// SETTLEMENT — tied to outing, not group
+// ──────────────────────────────────────────────────
+
 model Settlement {
   id                 String   @id @default(cuid())
-  groupId            String   @unique
+  outingId           String?  @unique
+  groupId            String?
   totalExpenses      Int
   totalPaid          Int
   totalContributions Int      @default(0)
@@ -247,8 +476,8 @@ model Settlement {
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 
-  group     Group                @relation(fields: [groupId], references: [id], onDelete: Cascade)
-  transfers SettlementTransfer[]
+  outing     Outing?              @relation(fields: [outingId], references: [id], onDelete: SetNull)
+  transfers  SettlementTransfer[]
 
   @@index([groupId])
 }
@@ -277,6 +506,7 @@ model SettlementTransfer {
 model ActivityEvent {
   id         String   @id @default(cuid())
   groupId    String
+  outingId   String?
   actorId    String?
   eventType  String
   entityType String?
@@ -284,10 +514,11 @@ model ActivityEvent {
   metadata   String?
   createdAt  DateTime @default(now())
 
-  group Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
-  actor User? @relation("Actor", fields: [actorId], references: [id], onDelete: SetNull)
+  group  Group  @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  actor  User?  @relation("Actor", fields: [actorId], references: [id], onDelete: SetNull)
 
   @@index([groupId])
   @@index([actorId])
   @@index([eventType])
+  @@index([outingId])
 }

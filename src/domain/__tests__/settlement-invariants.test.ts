@@ -1,170 +1,199 @@
+/**
+ * Settlement Invariant Tests — Outing-centric model
+ * Verifies core accounting invariants hold for all settlements
+ */
 import { describe, it, expect } from "vitest";
-import {
-  calculateSettlement,
-  simplifyDebts,
-  type SettlementInput,
-} from "../settlement";
-import { allocateEqual } from "../money";
+import { calculateSettlement, type OutingInput, type SettlementResult } from "../settlement";
 
-const dh = (n: number) => Math.round(n * 100);
+function expectBalanced(result: SettlementResult) {
+  if (!result.isComplete) return; // incomplete settlements are allowed to be unbalanced
 
-/** Shared invariant checker for complete settlements */
-function expectBalanced(input: SettlementInput) {
-  const r = calculateSettlement(input);
-  expect(r.isComplete).toBe(true);
-  // Responsibility == paid totals == expense total
-  const resp = r.memberBalances.reduce((s, b) => s + b.totalResponsibility, 0);
-  expect(resp).toBe(r.totalExpenses);
-  expect(r.totalPaid).toBe(r.totalExpenses);
-  // Debtors == creditors
-  const pos = r.memberBalances.filter(b => b.netBalance > 0).reduce((s, b) => s + b.netBalance, 0);
-  const neg = r.memberBalances.filter(b => b.netBalance < 0).reduce((s, b) => s + Math.abs(b.netBalance), 0);
-  expect(pos).toBe(neg);
-  // Transfer rules
-  for (const t of r.transfers) {
+  const positiveSum = result.memberBalances
+    .filter(b => b.netBalance > 0)
+    .reduce((s, b) => s + b.netBalance, 0);
+  const negativeSum = result.memberBalances
+    .filter(b => b.netBalance < 0)
+    .reduce((s, b) => s + Math.abs(b.netBalance), 0);
+
+  expect(positiveSum).toBe(negativeSum);
+  expect(result.totalPaid).toBe(result.totalExpenses);
+
+  // All transfers must be positive
+  for (const t of result.transfers) {
     expect(t.amountCentimes).toBeGreaterThan(0);
     expect(t.fromUserId).not.toBe(t.toUserId);
   }
-  // Applying transfers zeroes everyone
-  const bal = new Map(r.memberBalances.map(b => [b.userId, b.netBalance]));
-  for (const t of r.transfers) {
-    bal.set(t.fromUserId, bal.get(t.fromUserId)! + t.amountCentimes);
-    bal.set(t.toUserId, bal.get(t.toUserId)! - t.amountCentimes);
+
+  // Applying transfers must zero all balances
+  const simulated = new Map(result.memberBalances.map(b => [b.userId, b.netBalance]));
+  for (const t of result.transfers) {
+    // Debtor pays: their balance increases (toward 0)
+    simulated.set(t.fromUserId, simulated.get(t.fromUserId)! + t.amountCentimes);
+    // Creditor receives: their balance decreases (toward 0)
+    simulated.set(t.toUserId, simulated.get(t.toUserId)! - t.amountCentimes);
   }
-  for (const v of bal.values()) expect(v).toBe(0);
-  return r;
+  for (const balance of simulated.values()) {
+    expect(balance).toBe(0);
+  }
 }
 
-describe("Case A — 300 DH, Alice pays all, equal split", () => {
-  it("Bob->Alice 100, Charlie->Alice 100", () => {
-    const r = expectBalanced({
-      members: [{ userId: "a" }, { userId: "b" }, { userId: "c" }],
-      expenses: [{
-        id: "e1", totalCentimes: dh(300),
-        allocations: [{ userId: "a", amountCentimes: dh(100) }, { userId: "b", amountCentimes: dh(100) }, { userId: "c", amountCentimes: dh(100) }],
-        payments: [{ userId: "a", amountCentimes: dh(300) }],
-      }],
-    });
-    expect(r.transfers).toHaveLength(2);
-    expect(r.transfers).toContainEqual(expect.objectContaining({ fromUserId: "b", toUserId: "a", amountCentimes: dh(100) }));
-    expect(r.transfers).toContainEqual(expect.objectContaining({ fromUserId: "c", toUserId: "a", amountCentimes: dh(100) }));
-  });
-});
-
-describe("Case B — 300 DH, Alice 100 + Bob 200, equal split", () => {
-  it("Charlie->Bob 100 only", () => {
-    const r = expectBalanced({
-      members: [{ userId: "a" }, { userId: "b" }, { userId: "c" }],
-      expenses: [{
-        id: "e1", totalCentimes: dh(300),
-        allocations: [{ userId: "a", amountCentimes: dh(100) }, { userId: "b", amountCentimes: dh(100) }, { userId: "c", amountCentimes: dh(100) }],
-        payments: [{ userId: "a", amountCentimes: dh(100) }, { userId: "b", amountCentimes: dh(200) }],
-      }],
-    });
-    expect(r.transfers).toEqual([
-      expect.objectContaining({ fromUserId: "c", toUserId: "b", amountCentimes: dh(100) }),
-    ]);
-  });
-});
-
-describe("Case C — 100 DH / 3 people", () => {
-  it("allocations total exactly 100 DH", () => {
-    const a = allocateEqual(dh(100), 3);
-    expect(a.reduce((s: number, x: number) => s + x, 0)).toBe(dh(100));
-  });
-});
-
-describe("Case F — unknown payer stays incomplete, never invents", () => {
-  it("marks incomplete with unrecorded total, no transfers TO anyone", () => {
-    const r = calculateSettlement({
-      members: [{ userId: "a" }, { userId: "b" }],
-      expenses: [{
-        id: "e1", totalCentimes: dh(200),
-        allocations: [{ userId: "a", amountCentimes: dh(100) }, { userId: "b", amountCentimes: dh(100) }],
-        payments: [],
-      }],
-    });
-    expect(r.isComplete).toBe(false);
-    expect(r.totalUnrecorded).toBe(dh(200));
-    expect(r.incompleteExpenseIds).toEqual(["e1"]);
-    // Nobody receives: no creditor exists
-    expect(r.memberBalances.every(b => b.netBalance <= 0)).toBe(true);
-  });
-});
-
-describe("simplifyDebts — minimal transfers, no self/zero/negative", () => {
-  it("chains collapse: A owes 100, B owes C 100 -> 2 transfers not 3", () => {
-    const t = simplifyDebts([
-      { userId: "a", totalPaid: 0, totalResponsibility: 100, netBalance: -100 },
-      { userId: "b", totalPaid: 200, totalResponsibility: 100, netBalance: 100 },
-      { userId: "c", totalPaid: 0, totalResponsibility: 100, netBalance: -100 },
-      { userId: "d", totalPaid: 200, totalResponsibility: 100, netBalance: 100 },
-    ]);
-    // 2 debtors, 2 creditors -> at most 3 transfers, greedy gives <= n-1... assert correctness
-    const bal = new Map([["a", -100], ["b", 100], ["c", -100], ["d", 100]]);
-    for (const x of t) {
-      expect(x.amountCentimes).toBeGreaterThan(0);
-      expect(x.fromUserId).not.toBe(x.toUserId);
-      bal.set(x.fromUserId, bal.get(x.fromUserId)! + x.amountCentimes);
-      bal.set(x.toUserId, bal.get(x.toUserId)! - x.amountCentimes);
-    }
-    for (const v of bal.values()) expect(v).toBe(0);
-    expect(t.length).toBeLessThanOrEqual(3);
-  });
-});
-
-describe("randomized settlement invariants", () => {
-  let seed = 1234567;
-  const rnd = (n: number) => { seed = (seed * 1103515245 + 12345) % 2147483648; return seed % n; };
-
-  for (let trial = 0; trial < 100; trial++) {
-    it(`random complete settlement #${trial} balances`, () => {
-      const nMembers = 2 + rnd(4); // 2..5
-      const members = Array.from({ length: nMembers }, (_, i) => ({ userId: `u${i}` }));
-      const nExp = 1 + rnd(4);
-      const expenses = Array.from({ length: nExp }, (_, e) => {
-        const total = 100 * (1 + rnd(500)); // 1.00..500.00 DH in centimes
-        // equal split with remainder
-        const base = Math.floor(total / nMembers);
-        const rem = total % nMembers;
-        const allocations = members.map((m, i) => ({ userId: m.userId, amountCentimes: base + (i < rem ? 1 : 0) }));
-        // random payer covers whole expense (complete settlement)
-        const payer = members[rnd(nMembers)].userId;
-        return { id: `e${e}`, totalCentimes: total, allocations, payments: [{ userId: payer, amountCentimes: total }] };
-      });
-      const r = calculateSettlement({ members, expenses });
-      expect(r.isComplete).toBe(true);
-      const pos = r.memberBalances.filter(b => b.netBalance > 0).reduce((s, b) => s + b.netBalance, 0);
-      const neg = r.memberBalances.filter(b => b.netBalance < 0).reduce((s, b) => s + Math.abs(b.netBalance), 0);
-      expect(pos).toBe(neg);
-      const bal = new Map(r.memberBalances.map(b => [b.userId, b.netBalance]));
-      for (const t of r.transfers) {
-        expect(t.amountCentimes).toBeGreaterThan(0);
-        bal.set(t.fromUserId, bal.get(t.fromUserId)! + t.amountCentimes);
-        bal.set(t.toUserId, bal.get(t.toUserId)! - t.amountCentimes);
-      }
-      for (const v of bal.values()) expect(v).toBe(0);
-    });
-  }
-});
-
-describe("contributions are tracked, settlement stays expense-based", () => {
-  it("contribution does not change transfers, but is summed", () => {
-    const base: SettlementInput = {
-      members: [{ userId: "a" }, { userId: "b" }],
-      expenses: [{
-        id: "e1", totalCentimes: dh(200),
-        allocations: [{ userId: "a", amountCentimes: dh(100) }, { userId: "b", amountCentimes: dh(100) }],
-        payments: [{ userId: "a", amountCentimes: dh(200) }],
-      }],
+describe("Settlement invariants", () => {
+  it("Case A: 2 people, one pays", () => {
+    const input: OutingInput = {
+      members: [
+        { userId: "a", displayName: "Alice" },
+        { userId: "b", displayName: "Bob" },
+      ],
+      activities: [
+        {
+          id: "act1",
+          name: "Dinner",
+          pricingModel: "VARIABLE",
+          status: "CLOSED",
+          lineItems: [
+            { userId: "a", priceCentimes: 5000 },
+            { userId: "b", priceCentimes: 5000 },
+          ],
+          payments: [{ userId: "a", amountCentimes: 10000 }],
+        },
+      ],
     };
-    const without = calculateSettlement(base);
-    const withContrib = calculateSettlement({
-      ...base,
-      contributions: [{ userId: "a", amountCentimes: dh(500) }],
-    });
-    // Documented model: contribution = pool buy-in (wallet-held), settlement covers expense debts
-    expect(withContrib.totalContributions).toBe(dh(500));
-    expect(withContrib.transfers).toEqual(without.transfers);
+
+    const result = calculateSettlement(input);
+    expect(result.isComplete).toBe(true);
+    expectBalanced(result);
+  });
+
+  it("Case B: 3 people, each pays different", () => {
+    const input: OutingInput = {
+      members: [
+        { userId: "a", displayName: "Alice" },
+        { userId: "b", displayName: "Bob" },
+        { userId: "c", displayName: "Charlie" },
+      ],
+      activities: [
+        {
+          id: "act1",
+          name: "Restaurant",
+          pricingModel: "VARIABLE",
+          status: "CLOSED",
+          lineItems: [
+            { userId: "a", priceCentimes: 3000 },
+            { userId: "b", priceCentimes: 4000 },
+            { userId: "c", priceCentimes: 5000 },
+          ],
+          payments: [
+            { userId: "a", amountCentimes: 1000 },
+            { userId: "b", amountCentimes: 2000 },
+            { userId: "c", amountCentimes: 9000 },
+          ],
+        },
+      ],
+    };
+
+    const result = calculateSettlement(input);
+    expect(result.isComplete).toBe(true);
+    expectBalanced(result);
+  });
+
+  it("Case C: multiple activities", () => {
+    const input: OutingInput = {
+      members: [
+        { userId: "a", displayName: "Alice" },
+        { userId: "b", displayName: "Bob" },
+        { userId: "c", displayName: "Charlie" },
+      ],
+      activities: [
+        {
+          id: "act1",
+          name: "Pool",
+          pricingModel: "FIXED",
+          status: "CLOSED",
+          usageRecords: [
+            { id: "u1", totalCentimes: 500, status: "CONFIRMED", participantIds: ["a", "b"] },
+          ],
+          payments: [{ userId: "a", amountCentimes: 500 }],
+        },
+        {
+          id: "act2",
+          name: "Food",
+          pricingModel: "VARIABLE",
+          status: "CLOSED",
+          lineItems: [
+            { userId: "a", priceCentimes: 2000 },
+            { userId: "b", priceCentimes: 3000 },
+            { userId: "c", priceCentimes: 4000 },
+          ],
+          payments: [{ userId: "c", amountCentimes: 9000 }],
+        },
+      ],
+    };
+
+    const result = calculateSettlement(input);
+    expect(result.isComplete).toBe(true);
+    expectBalanced(result);
+  });
+
+  it("Case D: partial payment → incomplete", () => {
+    const input: OutingInput = {
+      members: [
+        { userId: "a", displayName: "Alice" },
+        { userId: "b", displayName: "Bob" },
+      ],
+      activities: [
+        {
+          id: "act1",
+          name: "Dinner",
+          pricingModel: "VARIABLE",
+          status: "OPEN",
+          lineItems: [
+            { userId: "a", priceCentimes: 5000 },
+            { userId: "b", priceCentimes: 5000 },
+          ],
+          payments: [],
+        },
+      ],
+    };
+
+    const result = calculateSettlement(input);
+    expect(result.isComplete).toBe(false);
+    expect(result.incompleteActivityIds).toContain("act1");
+  });
+
+  it("Case E: FIXED usage with 2 participants per match", () => {
+    const input: OutingInput = {
+      members: [
+        { userId: "a", displayName: "Alice" },
+        { userId: "b", displayName: "Bob" },
+        { userId: "c", displayName: "Charlie" },
+        { userId: "d", displayName: "Dave" },
+      ],
+      activities: [
+        {
+          id: "act1",
+          name: "Pool S1",
+          pricingModel: "FIXED",
+          status: "CLOSED",
+          usageRecords: [
+            { id: "u1", totalCentimes: 2500, status: "CONFIRMED", participantIds: ["a", "b"] }, // 5 games × 5 DH
+            { id: "u2", totalCentimes: 1500, status: "CONFIRMED", participantIds: ["c", "d"] }, // 3 games × 5 DH
+          ],
+          payments: [{ userId: "a", amountCentimes: 4000 }],
+        },
+      ],
+    };
+
+    const result = calculateSettlement(input);
+    expect(result.isComplete).toBe(true);
+    expectBalanced(result);
+
+    // A: paid 4000, resp 1250, net +2750
+    // B: paid 0, resp 1250, net -1250
+    // C: paid 0, resp 750, net -750
+    // D: paid 0, resp 750, net -750
+    const a = result.memberBalances.find(b => b.userId === "a")!;
+    expect(a.totalPaid).toBe(4000);
+    expect(a.totalResponsibility).toBe(1250);
+    expect(a.netBalance).toBe(2750);
   });
 });

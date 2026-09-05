@@ -35,7 +35,6 @@ export async function createGroupAction(formData: FormData) {
     },
   });
 
-  // Creator becomes owner member
   await prisma.groupMember.create({
     data: {
       groupId: group.id,
@@ -58,11 +57,6 @@ export async function createGroupAction(formData: FormData) {
   redirect(`/groups/${group.id}`);
 }
 
-/**
- * Update own contribution (DH input). The DELTA moves through the wallet
- * atomically: increasing locks more wallet money, decreasing refunds it.
- * Without this, balance and GroupMember.contribution diverge.
- */
 export async function updateContributionAction(groupId: string, amountDH: string | number) {
   const session = await requireSession();
   let amount: number;
@@ -73,15 +67,12 @@ export async function updateContributionAction(groupId: string, amountDH: string
   }
   const group = await prisma.group.findUnique({ where: { id: groupId } });
   if (!group) return { error: "Group not found" };
-  if (group.status !== "PLANNING" && group.status !== "ACTIVE") {
-    return { error: "Cannot change contribution after checkout begins" };
-  }
   const member = await prisma.groupMember.findUnique({
     where: { groupId_userId: { groupId, userId: session.userId } },
   });
   if (!member) return { error: "Not a member" };
 
-  const delta = amount - member.contribution; // >0 locks more, <0 refunds
+  const delta = amount - member.contribution;
   try {
     await prisma.$transaction(async (tx) => {
       if (delta > 0) {
@@ -117,20 +108,11 @@ export async function updateContributionAction(groupId: string, amountDH: string
   return { success: true };
 }
 
-/**
- * Save the FULL per-member share set (owner only, before checkout).
- * Input is a JSON list of {userId, percent} with percents in % ("25", "33.33").
- * Must cover exactly the current members and sum to exactly 100%.
- * Atomic: all members updated together or nothing changes.
- */
 export async function updateMemberSharesAction(groupId: string, sharesRaw: string) {
   const session = await requireSession();
   const group = await prisma.group.findUnique({ where: { id: groupId } });
   if (!group) return { error: "Group not found" };
   if (group.ownerId !== session.userId) return { error: "Only owner can edit shares" };
-  if (group.status !== "PLANNING" && group.status !== "ACTIVE") {
-    return { error: "Cannot change shares after checkout begins" };
-  }
   let parsed: unknown;
   try {
     parsed = JSON.parse(sharesRaw);
@@ -175,7 +157,6 @@ export async function inviteMemberAction(formData: FormData) {
   const session = await requireSession();
   const groupId = formData.get("groupId") as string;
   const publicId = formData.get("publicId") as string;
-  // DH-denominated (e.g. "100" or "7.50"); empty means 0
   const suggestedRaw = ((formData.get("suggestedContribution") as string) || "").trim();
   let suggested = 0;
   if (suggestedRaw !== "") {
@@ -189,7 +170,6 @@ export async function inviteMemberAction(formData: FormData) {
   const group = await prisma.group.findUnique({ where: { id: groupId } });
   if (!group) return { error: "Group not found" };
   if (group.ownerId !== session.userId) return { error: "Only owner can invite" };
-  if (group.status !== "PLANNING" && group.status !== "ACTIVE") return { error: "Cannot invite after checkout" };
 
   const invitedUser = await prisma.user.findUnique({ where: { publicId } });
   if (!invitedUser) return { error: "User not found with that ID" };
@@ -228,12 +208,6 @@ export async function inviteMemberAction(formData: FormData) {
   return { success: true };
 }
 
-/**
- * Accept invitation with a DH-denominated contribution taken from the wallet.
- * Atomic + idempotent: re-accepting (double-click, replay, refresh) returns a
- * friendly error and NEVER deducts twice. The unique (groupId, userId) member
- * constraint is the final backstop against concurrent double-accepts.
- */
 export async function acceptInvitationAction(invitationId: string, contributionDH?: string | number) {
   const session = await requireSession();
   const inv = await prisma.groupInvitation.findUnique({ where: { id: invitationId } });
@@ -243,9 +217,7 @@ export async function acceptInvitationAction(invitationId: string, contributionD
 
   const group = await prisma.group.findUnique({ where: { id: inv.groupId } });
   if (!group) return { error: "Group not found" };
-  if (group.status !== "PLANNING" && group.status !== "ACTIVE") return { error: "Group not accepting members" };
 
-  // DH input (e.g. "100" or "7.50"); falls back to the suggested amount
   let amount: number;
   const raw = contributionDH === undefined || contributionDH === null || String(contributionDH).trim() === ""
     ? null
@@ -258,7 +230,6 @@ export async function acceptInvitationAction(invitationId: string, contributionD
 
   try {
     await prisma.$transaction(async (tx) => {
-      // Idempotency re-check INSIDE the transaction (double-click / replay safe)
       const fresh = await tx.groupInvitation.findUnique({ where: { id: inv.id } });
       if (!fresh || fresh.status !== "PENDING") throw new Error("This invitation was already answered.");
       const alreadyMember = await tx.groupMember.findUnique({
@@ -266,7 +237,6 @@ export async function acceptInvitationAction(invitationId: string, contributionD
       });
       if (alreadyMember) throw new Error("You are already a member of this group.");
 
-      // Wallet deduction - must have enough balance (NO OVERDRAFT)
       if (amount > 0) {
         await deductWalletTx(tx, session.userId, amount, {
           type: "CONTRIBUTION",
@@ -297,7 +267,6 @@ export async function acceptInvitationAction(invitationId: string, contributionD
   } catch (e: unknown) {
     if (errMsg(e).includes("Insufficient wallet")) return { error: errMsg(e) };
     if (errMsg(e).includes("already answered") || errMsg(e).includes("already a member")) return { error: errMsg(e) };
-    // Unique-constraint race on concurrent double-accept: tx rolled back, nothing deducted
     if (errCode(e) === "P2002") return { error: "You are already a member of this group." };
     throw e;
   }
@@ -317,16 +286,11 @@ export async function declineInvitationAction(invitationId: string) {
   return { success: true };
 }
 
-/**
- * Remove a member (owner only, before checkout). Their locked contribution is
- * REFUNDED to their wallet atomically — otherwise money silently vanishes.
- */
 export async function removeMemberAction(groupId: string, userId: string) {
   const session = await requireSession();
   const group = await prisma.group.findUnique({ where: { id: groupId } });
   if (!group) return { error: "Group not found" };
   if (group.ownerId !== session.userId) return { error: "Only owner" };
-  if (group.status !== "PLANNING" && group.status !== "ACTIVE") return { error: "Cannot remove after checkout" };
   if (userId === group.ownerId) return { error: "Cannot remove owner" };
 
   const member = await prisma.groupMember.findUnique({ where: { groupId_userId: { groupId, userId } } });
@@ -352,41 +316,5 @@ export async function removeMemberAction(groupId: string, userId: string) {
     });
   });
   revalidatePath(`/groups/${groupId}`);
-  return { success: true };
-}
-
-/**
- * Start checkout (owner only). Idempotent: calling it while CHECKOUT simply
- * regenerates the settlement instead of erroring, so a failed generation can
- * never leave the group permanently stuck. Status flip + settlement happen in
- * ONE transaction — a failed generation rolls everything back.
- */
-export async function startCheckoutAction(groupId: string) {
-  const session = await requireSession();
-  const group = await prisma.group.findUnique({ where: { id: groupId } });
-  if (!group) return { error: "Group not found" };
-  if (group.ownerId !== session.userId) return { error: "Only owner can start checkout" };
-  if (group.status === "SETTLED" || group.status === "ARCHIVED") {
-    return { error: "Group already settled. Use recalculate to refresh the settlement." };
-  }
-  if (group.status !== "PLANNING" && group.status !== "ACTIVE" && group.status !== "CHECKOUT") {
-    return { error: "Cannot checkout in this state" };
-  }
-
-  const { generateSettlement } = await import("@/server/settlement/actions");
-  try {
-    await prisma.$transaction(async (tx) => {
-      await tx.group.update({ where: { id: groupId }, data: { status: "CHECKOUT" } });
-      await tx.activityEvent.create({
-        data: { groupId, actorId: session.userId, eventType: "CHECKOUT_STARTED" },
-      });
-      await generateSettlement(groupId, tx);
-    });
-  } catch (e: unknown) {
-    return { error: errMsg(e) || "Checkout failed, nothing was changed. Try again." };
-  }
-
-  revalidatePath(`/groups/${groupId}`);
-  revalidatePath(`/groups/${groupId}/checkout`);
   return { success: true };
 }

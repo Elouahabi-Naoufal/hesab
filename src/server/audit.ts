@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 
 export async function logEvent(params: {
   groupId: string;
+  outingId?: string;
   actorId?: string;
   eventType: string;
   entityType?: string;
@@ -11,6 +12,7 @@ export async function logEvent(params: {
   await prisma.activityEvent.create({
     data: {
       groupId: params.groupId,
+      outingId: params.outingId,
       actorId: params.actorId,
       eventType: params.eventType,
       entityType: params.entityType,

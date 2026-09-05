@@ -3,118 +3,172 @@ import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/server/auth/session";
 import { logEvent } from "@/server/audit";
 import { revalidatePath } from "next/cache";
-import { parseDHToCentimes } from "@/domain/money";
 import { errMsg } from "@/lib/utils";
-import { z } from "zod";
 
-const createActivitySchema = z.object({
-  groupId: z.string(),
-  name: z.string().min(1).max(100),
-  type: z.string().optional(),
-  startTime: z.string().optional(),
-  endTime: z.string().optional(),
-  rate: z.coerce.number().optional(),
-  notes: z.string().optional(),
-  participantIds: z.array(z.string()).min(1),
-});
-
+/**
+ * Create an activity within an outing. Only outing OWNER can create.
+ * pricingModel: "FIXED" or "VARIABLE"
+ */
 export async function createActivityAction(formData: FormData) {
   const session = await requireSession();
-  const groupId = formData.get("groupId") as string;
-  const name = formData.get("name") as string;
-  const participantIdsRaw = formData.get("participantIds") as string; // JSON array
+  const outingId = formData.get("outingId") as string;
+  const name = ((formData.get("name") as string) || "").trim();
+  const pricingModel = (formData.get("pricingModel") as string) || "FIXED";
+  const notes = ((formData.get("notes") as string) || "").trim() || undefined;
 
-  const cleanName = ((formData.get("name") as string) || "").trim();
-  if (!cleanName) return { error: "Activity name is required." };
-
-  let participantIds: string[] = [];
-  try {
-    participantIds = JSON.parse(participantIdsRaw);
-  } catch {
-    return { error: "Invalid participants" };
-  }
-  if (!Array.isArray(participantIds) || participantIds.length === 0) {
-    return { error: "Select at least one participant." };
-  }
-  // Participants must be group members (never trust raw client IDs)
-  const memberRows = await prisma.groupMember.findMany({ where: { groupId }, select: { userId: true } });
-  const memberSet = new Set(memberRows.map(m => m.userId));
-  for (const pid of participantIds) {
-    if (typeof pid !== "string" || !memberSet.has(pid)) return { error: "Participants must be members of this group." };
+  if (!outingId) return { error: "Outing is required." };
+  if (!name) return { error: "Activity name is required." };
+  if (pricingModel !== "FIXED" && pricingModel !== "VARIABLE") {
+    return { error: "Pricing model must be FIXED or VARIABLE." };
   }
 
-  const group = await prisma.group.findUnique({ where: { id: groupId } });
-  if (!group) return { error: "Group not found" };
-  if (group.status === "SETTLED" || group.status === "ARCHIVED" || group.status === "CHECKOUT") {
-    return { error: "Cannot add activity after checkout" };
-  }
-  // Verify membership
-  const member = await prisma.groupMember.findUnique({ where: { groupId_userId: { groupId, userId: session.userId } } });
-  if (!member) return { error: "Not a member" };
-  if (group.ownerId !== session.userId) {
-    // For MVP, only owner can create activities, but allow members? spec says owner can, members can view
-    // We'll allow members for now but spec says owner only. Enforce owner.
-    return { error: "Only owner can create activities" };
-  }
+  const outing = await prisma.outing.findUnique({ where: { id: outingId } });
+  if (!outing) return { error: "Outing not found" };
+  if (outing.status === "SETTLED") return { error: "Outing is settled" };
 
-  // Recording time = server time at creation. No custom time input exists
-  // (a `type="time"` value like "14:30" is unparseable by `new Date()` and
-  // previously crashed with Invalid Date -> Prisma 500).
-  const startTime: Date = new Date();
-  const endTime: Date | null = null;
-  // Rate is DH-denominated (e.g. "60" or "59.99" per hour)
-  const rateRaw = ((formData.get("rateDH") as string) || "").trim();
-  let rate: number | null = null;
-  if (rateRaw !== "") {
-    try {
-      rate = parseDHToCentimes(rateRaw, { minCentimes: 0, field: "Rate" });
-    } catch (e: unknown) {
-      return { error: errMsg(e) };
-    }
+  const participant = await prisma.outingParticipant.findUnique({
+    where: { outingId_userId: { outingId, userId: session.userId } },
+  });
+  if (!participant || participant.role !== "OWNER") {
+    return { error: "Only outing owner can create activities" };
   }
 
   const activity = await prisma.activity.create({
     data: {
-      groupId,
-      name: cleanName,
-      type: (formData.get("type") as string) || null,
-      startTime,
-      endTime,
-      rate,
-      notes: (formData.get("notes") as string) || null,
+      outingId,
+      name,
+      pricingModel,
+      notes,
       createdBy: session.userId,
     },
   });
 
-  // Create members
-  for (const uid of participantIds) {
-    await prisma.activityMember.create({ data: { activityId: activity.id, userId: uid } });
-  }
-
   await logEvent({
-    groupId,
+    groupId: outing.groupId,
+    outingId,
     actorId: session.userId,
     eventType: "ACTIVITY_CREATED",
     entityType: "Activity",
     entityId: activity.id,
-    metadata: { name },
+    metadata: { name, pricingModel },
   });
 
-  revalidatePath(`/groups/${groupId}`);
+  revalidatePath(`/groups/${outing.groupId}/outings/${outingId}`);
   return { success: true, id: activity.id };
 }
 
+/**
+ * Update activity status (OPEN → CLOSED). Only owner.
+ * Closure validates: no disputed usage, all confirmations resolved, payments = responsibility.
+ */
+export async function closeActivityAction(activityId: string) {
+  const session = await requireSession();
+  const activity = await prisma.activity.findUnique({ where: { id: activityId } });
+  if (!activity) return { error: "Activity not found" };
+  if (activity.status !== "OPEN") return { error: "Activity is not open" };
+
+  const outing = await prisma.outing.findUnique({ where: { id: activity.outingId! } });
+  if (!outing) return { error: "Outing not found" };
+
+  const participant = await prisma.outingParticipant.findUnique({
+    where: { outingId_userId: { outingId: activity.outingId!, userId: session.userId } },
+  });
+  if (!participant || participant.role !== "OWNER") {
+    return { error: "Only outing owner can close activities" };
+  }
+
+  // Validate closure
+  const errors: string[] = [];
+
+  if (activity.pricingModel === "FIXED") {
+    // Check all usage records are confirmed or admin-confirmed
+    const usageRecords = await prisma.usageRecord.findMany({
+      where: { activityId },
+      include: { confirmations: true },
+    });
+
+    for (const record of usageRecords) {
+      if (record.status === "DISPUTED") {
+        errors.push(`Usage record "${record.id}" is disputed.`);
+      }
+      const pendingConfirmations = record.confirmations.filter(c => c.status === "PENDING");
+      if (pendingConfirmations.length > 0) {
+        errors.push(`Usage record "${record.id}" has ${pendingConfirmations.length} pending confirmation(s).`);
+      }
+    }
+  } else {
+    // VARIABLE: check all participants have at least one line item (optional per spec)
+    // Actually spec says participants can add items but it's not required
+  }
+
+  // Check payments cover responsibility
+  const payments = await prisma.activityPayment.findMany({ where: { activityId } });
+  const totalPaid = payments.reduce((sum, p) => sum + p.amountCentimes, 0);
+
+  let totalResponsibility = 0;
+  if (activity.pricingModel === "FIXED") {
+    const usageRecords = await prisma.usageRecord.findMany({
+      where: { activityId, status: { not: "DISPUTED" } },
+    });
+    for (const record of usageRecords) {
+      const participants = await prisma.usageParticipant.findMany({
+        where: { usageRecordId: record.id },
+      });
+      if (participants.length > 0) {
+        const share = Math.floor(record.totalCentimes / participants.length);
+        totalResponsibility += share * participants.length;
+      }
+    }
+  } else {
+    const lineItems = await prisma.lineItem.findMany({ where: { activityId } });
+    totalResponsibility = lineItems.reduce((sum, item) => sum + item.priceCentimes, 0);
+  }
+
+  if (totalPaid !== totalResponsibility) {
+    errors.push(`${totalPaid !== totalResponsibility ? Math.abs(totalResponsibility - totalPaid) : 0} DH of payments are missing (${totalPaid} paid vs ${totalResponsibility} responsibility).`);
+  }
+
+  if (errors.length > 0) {
+    return { error: `Cannot close activity:\n${errors.join("\n")}` };
+  }
+
+  await prisma.activity.update({
+    where: { id: activityId },
+    data: { status: "CLOSED", endTime: new Date() },
+  });
+
+  await logEvent({
+    groupId: outing.groupId,
+    outingId: activity.outingId!,
+    actorId: session.userId,
+    eventType: "ACTIVITY_CLOSED",
+    entityType: "Activity",
+    entityId: activityId,
+  });
+
+  revalidatePath(`/groups/${outing.groupId}/outings/${activity.outingId}`);
+  return { success: true };
+}
+
+/**
+ * Delete an activity. Owner only, before outing is settled.
+ */
 export async function deleteActivityAction(activityId: string) {
   const session = await requireSession();
   const activity = await prisma.activity.findUnique({ where: { id: activityId } });
   if (!activity) return { error: "Not found" };
-  const group = await prisma.group.findUnique({ where: { id: activity.groupId } });
-  if (!group) return { error: "Group not found" };
-  if (group.ownerId !== session.userId) return { error: "Only owner" };
-  if (group.status === "SETTLED" || group.status === "ARCHIVED") return { error: "Group settled" };
-  if (group.status === "CHECKOUT") return { error: "Group in checkout, cannot delete activities" };
+
+  const outing = await prisma.outing.findUnique({ where: { id: activity.outingId! } });
+  if (!outing) return { error: "Outing not found" };
+  if (outing.status === "SETTLED") return { error: "Outing is settled" };
+
+  const participant = await prisma.outingParticipant.findUnique({
+    where: { outingId_userId: { outingId: activity.outingId!, userId: session.userId } },
+  });
+  if (!participant || participant.role !== "OWNER") return { error: "Only owner" };
 
   await prisma.activity.delete({ where: { id: activityId } });
-  revalidatePath(`/groups/${group.id}`);
+
+  revalidatePath(`/groups/${outing.groupId}/outings/${activity.outingId}`);
   return { success: true };
 }
