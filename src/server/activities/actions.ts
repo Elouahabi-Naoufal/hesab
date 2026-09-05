@@ -24,11 +24,23 @@ export async function createActivityAction(formData: FormData) {
   const name = formData.get("name") as string;
   const participantIdsRaw = formData.get("participantIds") as string; // JSON array
 
+  const cleanName = ((formData.get("name") as string) || "").trim();
+  if (!cleanName) return { error: "Activity name is required." };
+
   let participantIds: string[] = [];
   try {
     participantIds = JSON.parse(participantIdsRaw);
   } catch {
     return { error: "Invalid participants" };
+  }
+  if (!Array.isArray(participantIds) || participantIds.length === 0) {
+    return { error: "Select at least one participant." };
+  }
+  // Participants must be group members (never trust raw client IDs)
+  const memberRows = await prisma.groupMember.findMany({ where: { groupId }, select: { userId: true } });
+  const memberSet = new Set(memberRows.map(m => m.userId));
+  for (const pid of participantIds) {
+    if (typeof pid !== "string" || !memberSet.has(pid)) return { error: "Participants must be members of this group." };
   }
 
   const group = await prisma.group.findUnique({ where: { id: groupId } });
@@ -45,8 +57,11 @@ export async function createActivityAction(formData: FormData) {
     return { error: "Only owner can create activities" };
   }
 
-  const startTime = formData.get("startTime") ? new Date(formData.get("startTime") as string) : null;
-  const endTime = formData.get("endTime") ? new Date(formData.get("endTime") as string) : null;
+  // Recording time = server time at creation. No custom time input exists
+  // (a `type="time"` value like "14:30" is unparseable by `new Date()` and
+  // previously crashed with Invalid Date -> Prisma 500).
+  const startTime: Date = new Date();
+  const endTime: Date | null = null;
   // Rate is DH-denominated (e.g. "60" or "59.99" per hour)
   const rateRaw = ((formData.get("rateDH") as string) || "").trim();
   let rate: number | null = null;
@@ -61,7 +76,7 @@ export async function createActivityAction(formData: FormData) {
   const activity = await prisma.activity.create({
     data: {
       groupId,
-      name,
+      name: cleanName,
       type: (formData.get("type") as string) || null,
       startTime,
       endTime,

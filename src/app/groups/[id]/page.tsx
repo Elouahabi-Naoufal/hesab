@@ -205,11 +205,10 @@ export default async function GroupPage({ params }: { params: Promise<{ id: stri
                 <input type="hidden" name="groupId" value={id} />
                 <input name="name" placeholder="Table 1" required className="w-full px-3 py-2 rounded-xl border bg-zinc-50 dark:bg-zinc-800 text-sm" />
                 <div className="grid grid-cols-2 gap-2">
-                  <input name="startTime" type="time" className="px-3 py-2 rounded-xl border bg-zinc-50 dark:bg-zinc-800 text-sm" />
-                  <input name="endTime" type="time" className="px-3 py-2 rounded-xl border bg-zinc-50 dark:bg-zinc-800 text-sm" />
-                  <input name="rateDH" type="number" min="0" step="0.5" placeholder="Rate DH/h (e.g. 60)" className="px-3 py-2 rounded-xl border bg-zinc-50 dark:bg-zinc-800 text-sm" />
+                  <input name="rateDH" type="number" min="0" step="0.01" placeholder="Rate DH/h (e.g. 60)" className="px-3 py-2 rounded-xl border bg-zinc-50 dark:bg-zinc-800 text-sm" />
                   <input name="type" placeholder="Type: TABLE/DRINKS" className="px-3 py-2 rounded-xl border bg-zinc-50 dark:bg-zinc-800 text-sm" />
                 </div>
+                <p className="text-xs text-zinc-500">Recorded at current time automatically.</p>
                 <div>
                   <p className="text-xs font-medium mb-1">Participants</p>
                   <div className="flex flex-wrap gap-2">
