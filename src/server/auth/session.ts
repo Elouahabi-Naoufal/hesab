@@ -2,15 +2,17 @@ import * as jose from "jose";
 import { cookies } from "next/headers";
 import { prisma } from "@/lib/prisma";
 
+// Lazy on purpose: evaluated on first auth use, NOT at import time, so
+// `next build` (NODE_ENV=production without runtime env) still succeeds.
+// At runtime without JWT_SECRET in production, the first sign/verify throws
+// loudly instead of silently forging sessions with a fallback.
 function getJwtSecret(): Uint8Array {
   const s = process.env.JWT_SECRET;
-  // Fail fast in production: a hardcoded fallback would let anyone forge sessions.
   if (!s && process.env.NODE_ENV === "production") {
-    throw new Error("JWT_SECRET is not set. Refusing to start without a session secret.");
+    throw new Error("JWT_SECRET is not set. Refusing to sign sessions without a secret.");
   }
   return new TextEncoder().encode(s || "dev-only-insecure-secret-change-me");
 }
-const secret = getJwtSecret();
 const alg = "HS256";
 
 export interface SessionPayload {
@@ -28,13 +30,13 @@ export async function createSession(payload: Omit<SessionPayload, "iat" | "exp">
     .setProtectedHeader({ alg })
     .setIssuedAt()
     .setExpirationTime("7d")
-    .sign(secret);
+    .sign(getJwtSecret());
   return jwt;
 }
 
 export async function verifySession(token: string): Promise<SessionPayload | null> {
   try {
-    const { payload } = await jose.jwtVerify(token, secret);
+    const { payload } = await jose.jwtVerify(token, getJwtSecret());
     return payload as unknown as SessionPayload;
   } catch {
     return null;

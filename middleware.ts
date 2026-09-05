@@ -2,18 +2,19 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import * as jose from "jose";
 
+// Lazy (see session.ts): build-time import must not throw; a missing secret
+// fails the first real verification instead, loudly.
 function getJwtSecret(): Uint8Array {
   const s = process.env.JWT_SECRET;
   if (!s && process.env.NODE_ENV === "production") {
-    throw new Error("JWT_SECRET is not set. Refusing to start without a session secret.");
+    throw new Error("JWT_SECRET is not set. Refusing to verify sessions without a secret.");
   }
   return new TextEncoder().encode(s || "dev-only-insecure-secret-change-me");
 }
-const secret = getJwtSecret();
 
 async function verify(token: string) {
   try {
-    await jose.jwtVerify(token, secret);
+    await jose.jwtVerify(token, getJwtSecret());
     return true;
   } catch {
     return false;
