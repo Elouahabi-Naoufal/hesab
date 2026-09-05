@@ -16,7 +16,8 @@ let walEnabled = false;
 export async function enableWalMode() {
   if (walEnabled) return;
   try {
-    await prisma.$executeRawUnsafe("PRAGMA journal_mode=WAL;");
+    // $queryRaw (not $executeRaw) because PRAGMA returns rows in SQLite
+    await prisma.$queryRawUnsafe("PRAGMA journal_mode=WAL;");
     await prisma.$executeRawUnsafe("PRAGMA foreign_keys=ON;");
     walEnabled = true;
   } catch (e) {
