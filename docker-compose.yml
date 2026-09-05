@@ -12,4 +12,11 @@ services:
       - NODE_ENV=production
       - PORT=3003
     volumes:
-      - ./data:/app/data
+      # Named volume (NOT ./data): Dokploy re-clones the repo on every deploy,
+      # which wipes anything inside the code directory. A named volume survives
+      # redeploys, so users/wallets/groups are never lost.
+      - hesab-data:/app/data
+
+volumes:
+  hesab-data:
+    name: hesab-data
