@@ -3,6 +3,7 @@ import { getSession } from "@/server/auth/session";
 import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
 import { formatDH } from "@/lib/utils";
+import { getEffectiveShares, formatPercent } from "@/domain/shares";
 
 export default async function GroupPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -18,6 +19,15 @@ export default async function GroupPage({ params }: { params: Promise<{ id: stri
   const isOwner = group.ownerId === session.userId;
 
   const members = await prisma.groupMember.findMany({ where: { groupId: id }, include: { user: true } });
+  // Effective cost shares (%): explicit per-member shares, or equal split.
+  // Used by the owner editor below and the expense form's "use shares" button.
+  let effectiveShares: Array<{ userId: string; basisPoints: number; percentDisplay: string }> = [];
+  try {
+    effectiveShares = getEffectiveShares(members.map(m => ({ userId: m.userId, shareBasisPoints: m.shareBasisPoints })));
+  } catch {
+    effectiveShares = [];
+  }
+  const shareMap: Record<string, number> = Object.fromEntries(effectiveShares.map(s => [s.userId, s.basisPoints]));
   const activities = await prisma.activity.findMany({ where: { groupId: id }, include: { members: { include: { user: true } }, expenses: true }, orderBy: { createdAt: "desc" } });
   const expenses = await prisma.expense.findMany({ where: { groupId: id }, include: { allocations: { include: { user: true } }, payments: { include: { user: true } }, activity: true }, orderBy: { createdAt: "desc" } });
   const invitations = await prisma.groupInvitation.findMany({ where: { groupId: id, status: "PENDING" } });
@@ -76,7 +86,7 @@ export default async function GroupPage({ params }: { params: Promise<{ id: stri
                   <div className="w-8 h-8 rounded-full bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 flex items-center justify-center text-sm font-bold">{member.user.displayName[0]}</div>
                   <div>
                     <div className="font-medium text-sm flex items-center gap-1">{member.user.displayName} {member.role === "OWNER" && <span className="text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded">owner</span>} <span className="font-mono text-xs text-zinc-500">{member.user.publicId}</span></div>
-                    <div className="text-xs text-zinc-500">Contrib: {formatDH(member.contribution)} • Paid: {formatDH(paid)} • Resp: {formatDH(responsibility)} • {balance >= 0 ? `+${formatDH(balance)} receives` : `${formatDH(balance)} owes`}</div>
+                    <div className="text-xs text-zinc-500">Share: {shareMap[member.userId] !== undefined ? formatPercent(shareMap[member.userId]) : "—"} • Contrib: {formatDH(member.contribution)} • Paid: {formatDH(paid)} • Resp: {formatDH(responsibility)} • {balance >= 0 ? `+${formatDH(balance)} receives` : `${formatDH(balance)} owes`}</div>
                   </div>
                 </div>
                 {isOwner && group.status !== "SETTLED" && group.status !== "CHECKOUT" && member.userId !== group.ownerId && (
@@ -125,6 +135,68 @@ export default async function GroupPage({ params }: { params: Promise<{ id: stri
                 <input name="amount" type="number" min="0" step="0.5" defaultValue={(member.contribution / 100).toString()} className="w-24 px-2 py-1 rounded-lg border text-sm" />
                 <button className="px-3 py-1 rounded-lg bg-zinc-100 dark:bg-zinc-800 text-sm">Save</button>
               </form>
+
+              {/* Contribution shares (%): who should bear what part of costs */}
+              <div className="space-y-2 pt-3 border-t border-zinc-200 dark:border-zinc-700">
+                <h4 className="font-medium text-sm">Cost shares (%)</h4>
+                <p className="text-xs text-zinc-500">
+                  {members.every(m => m.shareBasisPoints === null)
+                    ? "Equal split by default."
+                    : "Custom shares saved."}{" "}
+                  Must add up to exactly 100%. Used by the expense form&apos;s &ldquo;Use shares&rdquo; button.
+                </p>
+                <form action={async (formData: FormData) => {
+                  "use server";
+                  const { updateMemberSharesAction } = await import("@/server/groups/actions");
+                  const raw = formData.get("shares") as string;
+                  const res = await updateMemberSharesAction(id, raw);
+                  if (res?.error) throw new Error(res.error);
+                }} className="space-y-2" id="shares-form">
+                  {members.map(m => {
+                    const eff = shareMap[m.userId] ?? 0;
+                    return (
+                      <div key={m.userId} className="flex items-center gap-2 text-sm">
+                        <span className="flex-1 truncate">{m.user.displayName} <span className="font-mono text-xs text-zinc-500">{m.user.publicId}</span></span>
+                        <input
+                          type="number" min="0" max="100" step="0.01"
+                          defaultValue={(eff / 100).toString()}
+                          data-share-for={m.userId}
+                          className="share-input w-24 px-2 py-1 rounded-lg border text-sm"
+                        />
+                        <span className="text-xs text-zinc-500 w-8">%</span>
+                      </div>
+                    );
+                  })}
+                  <input type="hidden" name="shares" id="shares-json" />
+                  <div className="flex items-center gap-2">
+                    <button className="px-3 py-1 rounded-lg bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 text-sm font-medium">Save shares</button>
+                    <span className="text-xs text-zinc-500" id="shares-total"></span>
+                  </div>
+                </form>
+                <script dangerouslySetInnerHTML={{
+                  __html: `
+                  (function(){
+                    var form=document.getElementById('shares-form');
+                    if(!form) return;
+                    var inputs=[...form.querySelectorAll('.share-input')];
+                    var totalEl=document.getElementById('shares-total');
+                    var out=document.getElementById('shares-json');
+                    function refresh(){
+                      var sum=0, arr=[];
+                      inputs.forEach(function(el){
+                        var v=(el.value||'').trim().replace(',','.');
+                        var n=v==='' ? NaN : Number(v);
+                        arr.push({userId: el.getAttribute('data-share-for'), percent: v});
+                        if(!isNaN(n)) sum+=n;
+                      });
+                      if(totalEl) totalEl.textContent='Total: '+(Math.round(sum*100)/100)+'% (must be 100%)';
+                      if(out) out.value=JSON.stringify(arr);
+                    }
+                    inputs.forEach(function(el){ el.addEventListener('input', refresh); });
+                    refresh();
+                  })();`
+                }} />
+              </div>
             </div>
           )}
         </div>
@@ -334,7 +406,18 @@ export default async function GroupPage({ params }: { params: Promise<{ id: stri
 
                 <div className="rounded-xl border border-zinc-200 dark:border-zinc-700 p-3">
                   <p className="text-xs font-medium">Advanced — Percentage / Custom split (basis points: 10000 = 100%)</p>
-                  <input name="percentages" placeholder='For PERCENTAGE mode: e.g. [3333,3333,3334] (must sum to 10000)' className="mt-1 w-full px-3 py-1 rounded-xl border bg-zinc-50 dark:bg-zinc-800 text-xs" />
+                  <div className="flex items-center gap-2 mt-1">
+                    <input name="percentages" id="exp-percentages" placeholder='For PERCENTAGE mode: e.g. [3333,3333,3334] (must sum to 10000)' className="flex-1 px-3 py-1 rounded-xl border bg-zinc-50 dark:bg-zinc-800 text-xs" />
+                    <button
+                      type="button"
+                      id="use-shares-btn"
+                      title="Fill percentages from member cost shares, scaled to checked participants"
+                      className="px-3 py-1 rounded-xl border border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-300 text-xs font-medium whitespace-nowrap"
+                    >
+                      Use shares
+                    </button>
+                  </div>
+                  <input type="hidden" id="member-shares-map" value={JSON.stringify(shareMap)} />
                   <input name="customAmountsDH" placeholder='For CUSTOM mode: e.g. [80,40] in DH (must sum to Total)' className="mt-1 w-full px-3 py-1 rounded-xl border bg-zinc-50 dark:bg-zinc-800 text-xs" />
                   <input name="portions" placeholder='For PORTIONS mode: e.g. [2,1,1]' className="mt-1 w-full px-3 py-1 rounded-xl border bg-zinc-50 dark:bg-zinc-800 text-xs" />
                 </div>
@@ -382,6 +465,26 @@ export default async function GroupPage({ params }: { params: Promise<{ id: stri
                       const total=dhToC(e.target.value||'');
                       if(total!=null) amtEl.value=JSON.stringify([cToDH(total)]);
                     }
+                  });
+                  document.getElementById('use-shares-btn')?.addEventListener('click', ()=>{
+                    const checked=[...document.querySelectorAll('.exp-participant:checked')].map(c=>c.value);
+                    const pctEl=document.getElementById('exp-percentages');
+                    const mapEl=document.getElementById('member-shares-map');
+                    if(checked.length===0){ alert('Check at least one participant first.'); return; }
+                    let map={};
+                    try{ map=JSON.parse(mapEl&&mapEl.value||'{}'); }catch{ map={}; }
+                    // Scale checked members' effective shares to sum exactly 10000 (largest remainder)
+                    const raw=checked.map(id=> (typeof map[id]==='number'&&map[id]>=0) ? map[id] : 0);
+                    const rawSum=raw.reduce((a,b)=>a+b,0);
+                    if(rawSum<=0){ alert('No shares saved yet — set them in Cost shares first.'); return; }
+                    const exact=raw.map(b=> b*10000/rawSum);
+                    const floors=exact.map(Math.floor);
+                    let left=10000-floors.reduce((a,b)=>a+b,0);
+                    const order=exact.map((e,i)=>i).sort((a,b)=> (exact[b]-Math.floor(exact[b]))-(exact[a]-Math.floor(exact[a])));
+                    for(let k=0;k<left;k++){ floors[order[k%order.length]]+=1; }
+                    if(pctEl) pctEl.value=JSON.stringify(floors);
+                    const modeSel=document.querySelector('select[name="allocationMode"]');
+                    if(modeSel) modeSel.value='PERCENTAGE';
                   });
                   `
                 }} />

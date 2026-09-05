@@ -89,6 +89,9 @@ model GroupMember {
   userId       String
   role         String   @default("MEMBER")
   contribution Int      @default(0)
+  // Share of group costs in basis points (10000 = 100%). NULL = equal split
+  // with all other NULL members. See getEffectiveShares() in domain/shares.ts.
+  shareBasisPoints Int?
   joinedAt     DateTime @default(now())
 
   group Group @relation(fields: [groupId], references: [id], onDelete: Cascade)

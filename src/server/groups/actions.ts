@@ -5,6 +5,7 @@ import { z } from "zod";
 import { generateGroupPublicToken } from "@/lib/utils";
 import { parseDHToCentimes, formatDH } from "@/domain/money";
 import { deductWalletTx, creditWalletTx } from "@/server/wallet/ledger";
+import { parsePercentToBasisPoints, validateShareSet } from "@/domain/shares";
 import { errMsg, errCode } from "@/lib/utils";
 import { logEvent } from "@/server/audit";
 import { revalidatePath } from "next/cache";
@@ -113,6 +114,60 @@ export async function updateContributionAction(groupId: string, amountDH: string
   }
   revalidatePath(`/groups/${groupId}`);
   revalidatePath("/dashboard");
+  return { success: true };
+}
+
+/**
+ * Save the FULL per-member share set (owner only, before checkout).
+ * Input is a JSON list of {userId, percent} with percents in % ("25", "33.33").
+ * Must cover exactly the current members and sum to exactly 100%.
+ * Atomic: all members updated together or nothing changes.
+ */
+export async function updateMemberSharesAction(groupId: string, sharesRaw: string) {
+  const session = await requireSession();
+  const group = await prisma.group.findUnique({ where: { id: groupId } });
+  if (!group) return { error: "Group not found" };
+  if (group.ownerId !== session.userId) return { error: "Only owner can edit shares" };
+  if (group.status !== "PLANNING" && group.status !== "ACTIVE") {
+    return { error: "Cannot change shares after checkout begins" };
+  }
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(sharesRaw);
+  } catch {
+    return { error: "Invalid shares format." };
+  }
+  if (!Array.isArray(parsed)) return { error: "Invalid shares format." };
+  const members = await prisma.groupMember.findMany({ where: { groupId } });
+  const memberIds = members.map(m => m.userId);
+  let shares: Array<{ userId: string; basisPoints: number }>;
+  try {
+    shares = (parsed as Array<{ userId: string; percent: string | number }>).map(s => {
+      if (!s || typeof s.userId !== "string") throw new Error("Invalid shares format.");
+      return { userId: s.userId, basisPoints: parsePercentToBasisPoints(s.percent, "Share") };
+    });
+    validateShareSet(memberIds, shares);
+  } catch (e: unknown) {
+    return { error: errMsg(e) };
+  }
+  await prisma.$transaction(async (tx) => {
+    for (const s of shares) {
+      await tx.groupMember.update({
+        where: { groupId_userId: { groupId, userId: s.userId } },
+        data: { shareBasisPoints: s.basisPoints },
+      });
+    }
+    await tx.activityEvent.create({
+      data: {
+        groupId,
+        actorId: session.userId,
+        eventType: "SHARES_UPDATED",
+        entityType: "Group",
+        entityId: groupId,
+      },
+    });
+  });
+  revalidatePath(`/groups/${groupId}`);
   return { success: true };
 }
 
