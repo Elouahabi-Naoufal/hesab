@@ -14,18 +14,25 @@ if [ ! -L /app/prisma/data ]; then
   ln -s /app/data /app/prisma/data
 fi
 
-# Run migrations (prisma migrate deploy is for production)
+# Run migrations as nextjs so app.db is owned by nextjs (not root) —
+# otherwise SQLite is readonly for the server ("attempt to write a readonly database")
 echo ">> Running prisma migrate deploy..."
+run_as_nextjs() {
+  if [ "$(id -u)" = "0" ]; then su-exec nextjs:nodejs "$@"; else "$@"; fi
+}
 if [ -f /app/prisma/migrations/migration_lock.toml ] || ls /app/prisma/migrations/*/migration.sql >/dev/null 2>&1; then
   # Use local prisma 5.22.0 (avoid npx fetching prisma 8 RC which fails with npm 11)
-  ./node_modules/.bin/prisma migrate deploy || npx prisma@5.22.0 migrate deploy
+  run_as_nextjs ./node_modules/.bin/prisma migrate deploy || run_as_nextjs npx prisma@5.22.0 migrate deploy
 else
   echo ">> No migrations found, skipping"
 fi
+# Re-assert ownership after migrate (migrate may create new files)
+chown -R nextjs:nodejs /app/data 2>/dev/null || true
+chmod -R 775 /app/data 2>/dev/null || true
 
 # Enable WAL mode (best effort)
 echo ">> Enabling WAL mode..."
-sqlite3 /app/data/app.db "PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON;" || echo "WAL setup skipped (db may not exist yet)"
+run_as_nextjs sqlite3 /app/data/app.db "PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON;" || echo "WAL setup skipped (db may not exist yet)"
 
 # Generate client if needed (already generated at build)
 
