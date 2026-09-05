@@ -7,6 +7,12 @@ services:
     restart: unless-stopped
     ports:
       - "3003:3003"
+    # Dokploy (createEnvFile) writes its Environment tab into .env next to
+    # this file on every deploy. env_file loads it (JWT_SECRET, etc.).
+    # Explicit `environment:` below wins on conflict; keep DATABASE_URL here
+    # as a safe default so a missing Dokploy env can never point elsewhere.
+    env_file:
+      - .env
     environment:
       - DATABASE_URL=file:/app/data/app.db
       - NODE_ENV=production
