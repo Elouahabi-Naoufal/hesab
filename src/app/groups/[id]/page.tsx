@@ -138,8 +138,10 @@ export default async function GroupPage({ params }: { params: Promise<{ id: stri
             const session = await requireSession();
             const g = await prisma.group.findUnique({ where: { id } });
             if (!g || g.ownerId !== session.userId) throw new Error("Only owner");
-            if (g.status !== "PLANNING") throw new Error("Group already started");
-            await prisma.group.update({ where: { id }, data: { status: "ACTIVE" } });
+            // Idempotent: double-click safe, already-ACTIVE is success
+            if (g.status === "PLANNING") {
+              await prisma.group.update({ where: { id }, data: { status: "ACTIVE" } });
+            }
           }}>
             <button className="w-full py-3 rounded-2xl bg-emerald-600 text-white font-medium">Start Group (Active)</button>
           </form>
