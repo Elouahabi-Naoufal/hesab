@@ -2,7 +2,9 @@
 import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/server/auth/session";
 import { revalidatePath } from "next/cache";
-import { z } from "zod";
+import { parseDHToCentimes } from "@/domain/money";
+import { creditWalletTx } from "./ledger";
+import { errMsg } from "@/lib/utils";
 
 async function getOrCreateWallet(userId: string) {
   let wallet = await prisma.wallet.findUnique({ where: { userId } });
@@ -29,59 +31,21 @@ export async function getWalletWithTransactions() {
   return { wallet, transactions: txs };
 }
 
-const depositSchema = z.object({
-  amount: z.number().int().min(100).max(100000000), // 1 DH to 1M DH in centimes
-});
-
 export async function depositAction(formData: FormData) {
   const session = await requireSession();
-  const amount = parseInt((formData.get("amount") as string) || "0", 10);
-  const parsed = depositSchema.safeParse({ amount });
-  if (!parsed.success) return { error: parsed.error.issues[0].message };
-
-  const wallet = await getOrCreateWallet(session.userId);
+  // DH-denominated input (e.g. "50" or "7.50"); min 0.01 DH, rejects zero/negative/garbage
+  let amount: number;
+  try {
+    amount = parseDHToCentimes(formData.get("amount") as string, { minCentimes: 1, field: "Deposit amount" });
+  } catch (e: unknown) {
+    return { error: errMsg(e) };
+  }
 
   await prisma.$transaction(async (tx) => {
-    await tx.wallet.update({
-      where: { id: wallet.id },
-      data: { balance: { increment: amount } },
-    });
-    await tx.walletTransaction.create({
-      data: {
-        walletId: wallet.id,
-        amount,
-        type: "DEPOSIT",
-        description: "Wallet deposit",
-      },
-    });
+    await creditWalletTx(tx, session.userId, amount, { type: "DEPOSIT", description: "Wallet deposit" });
   });
 
   revalidatePath("/wallet");
   revalidatePath("/profile");
   return { success: true };
-}
-
-export async function deductContributionTx(tx: any, userId: string, groupId: string, amount: number) {
-  // Use within a transaction, tx is prisma transaction client
-  let wallet = await tx.wallet.findUnique({ where: { userId } });
-  if (!wallet) {
-    wallet = await tx.wallet.create({ data: { userId, balance: 0 } });
-  }
-  if (wallet.balance < amount) {
-    throw new Error(`Insufficient wallet balance: ${wallet.balance} < ${amount}. Please deposit first at /wallet.`);
-  }
-  await tx.wallet.update({
-    where: { id: wallet.id },
-    data: { balance: { decrement: amount } },
-  });
-  await tx.walletTransaction.create({
-    data: {
-      walletId: wallet.id,
-      amount: -amount,
-      type: "CONTRIBUTION",
-      description: `Contribution to group ${groupId}`,
-      groupId,
-    },
-  });
-  return wallet;
 }

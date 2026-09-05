@@ -2,8 +2,14 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import * as jose from "jose";
 
-const JWT_SECRET = process.env.JWT_SECRET || "change-me-in-production-use-long-random-string-32-chars-min";
-const secret = new TextEncoder().encode(JWT_SECRET);
+function getJwtSecret(): Uint8Array {
+  const s = process.env.JWT_SECRET;
+  if (!s && process.env.NODE_ENV === "production") {
+    throw new Error("JWT_SECRET is not set. Refusing to start without a session secret.");
+  }
+  return new TextEncoder().encode(s || "dev-only-insecure-secret-change-me");
+}
+const secret = getJwtSecret();
 
 async function verify(token: string) {
   try {

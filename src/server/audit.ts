@@ -6,7 +6,7 @@ export async function logEvent(params: {
   eventType: string;
   entityType?: string;
   entityId?: string;
-  metadata?: any;
+  metadata?: unknown;
 }) {
   await prisma.activityEvent.create({
     data: {

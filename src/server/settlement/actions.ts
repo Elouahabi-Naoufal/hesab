@@ -1,23 +1,30 @@
 "use server";
 import { prisma } from "@/lib/prisma";
-import { requireSession, getSession } from "@/server/auth/session";
+import { requireSession } from "@/server/auth/session";
 import { calculateSettlement } from "@/domain/settlement";
-import { generatePublicToken } from "@/lib/utils";
+import { generatePublicToken, errMsg } from "@/lib/utils";
+import type { LedgerDb } from "@/server/wallet/ledger";
 import { logEvent } from "@/server/audit";
 import { revalidatePath } from "next/cache";
 
-export async function generateSettlement(groupId: string) {
-  const group = await prisma.group.findUnique({ where: { id: groupId }, include: { members: true } });
+/**
+ * Generate (or regenerate) the settlement for a group.
+ * @param db Prisma client OR an enclosing transaction client, so callers
+ * (startCheckout) can make status-flip + settlement atomic. Upsert-based:
+ * repeated calls never duplicate settlements or transfers.
+ */
+export async function generateSettlement(groupId: string, db: LedgerDb = prisma) {
+  const group = await db.group.findUnique({ where: { id: groupId }, include: { members: true } });
   if (!group) throw new Error("Group not found");
 
-  const members = group.members.map(m => ({ userId: m.userId }));
+  const members: Array<{ userId: string }> = group.members.map(m => ({ userId: m.userId }));
   // Fetch display names
-  const users = await prisma.user.findMany({ where: { id: { in: members.map(m => m.userId) } } });
+  const users = await db.user.findMany({ where: { id: { in: members.map(m => m.userId) } } });
   const userMap = new Map(users.map(u => [u.id, u.displayName]));
 
   const membersWithNames = members.map(m => ({ userId: m.userId, displayName: userMap.get(m.userId) }));
 
-  const expenses = await prisma.expense.findMany({
+  const expenses = await db.expense.findMany({
     where: { groupId },
     include: { allocations: true, payments: true },
   });
@@ -37,11 +44,11 @@ export async function generateSettlement(groupId: string) {
     contributions,
   });
 
-  // Upsert settlement
-  const existing = await prisma.settlement.findUnique({ where: { groupId } });
+  // Upsert settlement (idempotent: same groupId reuses row + public token)
+  const existing = await db.settlement.findUnique({ where: { groupId } });
   const publicToken = existing?.publicToken || generatePublicToken();
 
-  const settlement = await prisma.settlement.upsert({
+  const settlement = await db.settlement.upsert({
     where: { groupId },
     update: {
       totalExpenses: result.totalExpenses,
@@ -58,10 +65,11 @@ export async function generateSettlement(groupId: string) {
     },
   });
 
-  // Replace transfers
-  await prisma.settlementTransfer.deleteMany({ where: { settlementId: settlement.id } });
+  // Replace transfers (delete-then-create inside the same tx: no duplicates,
+  // and confirmed/paid states reset only on explicit regeneration by owner)
+  await db.settlementTransfer.deleteMany({ where: { settlementId: settlement.id } });
   for (const t of result.transfers) {
-    await prisma.settlementTransfer.create({
+    await db.settlementTransfer.create({
       data: {
         settlementId: settlement.id,
         fromUserId: t.fromUserId,
@@ -72,17 +80,43 @@ export async function generateSettlement(groupId: string) {
     });
   }
 
-  await prisma.group.update({ where: { id: groupId }, data: { status: "SETTLED" } });
+  await db.group.update({ where: { id: groupId }, data: { status: "SETTLED" } });
 
-  await logEvent({
-    groupId,
-    eventType: "SETTLEMENT_GENERATED",
-    entityType: "Settlement",
-    entityId: settlement.id,
-    metadata: { totalExpenses: result.totalExpenses, transfers: result.transfers.length },
+  await db.activityEvent.create({
+    data: {
+      groupId,
+      eventType: "SETTLEMENT_GENERATED",
+      entityType: "Settlement",
+      entityId: settlement.id,
+      metadata: JSON.stringify({ totalExpenses: result.totalExpenses, transfers: result.transfers.length }),
+    },
   });
 
   return { settlement, result };
+}
+
+/**
+ * Owner-only finalize used by the checkout page. generateSettlement itself
+ * takes no session, so it must never be reachable from the client directly.
+ */
+export async function finalizeSettlementAction(groupId: string) {
+  const session = await requireSession();
+  const group = await prisma.group.findUnique({ where: { id: groupId } });
+  if (!group) return { error: "Group not found" };
+  if (group.ownerId !== session.userId) return { error: "Only owner can finalize settlement" };
+  if (group.status !== "CHECKOUT" && group.status !== "ACTIVE" && group.status !== "PLANNING") {
+    return { error: "Cannot finalize in this state" };
+  }
+  try {
+    await prisma.$transaction(async (tx) => {
+      await generateSettlement(groupId, tx);
+    });
+  } catch (e: unknown) {
+    return { error: errMsg(e) || "Finalize failed, nothing was changed." };
+  }
+  revalidatePath(`/groups/${groupId}`);
+  revalidatePath(`/groups/${groupId}/checkout`);
+  return { success: true };
 }
 
 export async function recalculateSettlementAction(groupId: string) {

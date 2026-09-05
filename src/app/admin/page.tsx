@@ -48,14 +48,25 @@ export default async function AdminPage() {
           <h3 className="font-semibold mb-3">Products</h3>
           <form action={async (formData: FormData) => {
             "use server";
+            const { requireSession } = await import("@/server/auth/session");
             const { prisma } = await import("@/lib/prisma");
-            const name = formData.get("name") as string;
-            const price = parseInt(formData.get("price") as string, 10);
+            const { parseDHToCentimes } = await import("@/domain/money");
+            const session = await requireSession();
+            const me = await prisma.user.findUnique({ where: { id: session.userId } });
+            if (!me?.isAdmin) throw new Error("Admin only");
+            const name = ((formData.get("name") as string) || "").trim();
+            if (!name) throw new Error("Product name is required.");
+            let price: number;
+            try {
+              price = parseDHToCentimes((formData.get("price") as string) || "", { minCentimes: 0, field: "Price" });
+            } catch (e: unknown) {
+              throw new Error(e instanceof Error ? e.message : String(e));
+            }
             const categoryId = (formData.get("categoryId") as string) || null;
             await prisma.product.create({ data: { name, defaultPriceCentimes: price, categoryId } });
           }} className="flex gap-2 mb-3">
             <input name="name" placeholder="Product name" className="px-3 py-2 rounded-xl border bg-zinc-50 dark:bg-zinc-800 text-sm flex-1" />
-            <input name="price" type="number" placeholder="price centimes" className="px-3 py-2 rounded-xl border bg-zinc-50 dark:bg-zinc-800 text-sm w-32" />
+            <input name="price" type="number" min="0" step="0.01" placeholder="Price DH (e.g. 60)" className="px-3 py-2 rounded-xl border bg-zinc-50 dark:bg-zinc-800 text-sm w-36" />
             <select name="categoryId" className="px-3 py-2 rounded-xl border bg-zinc-50 dark:bg-zinc-800 text-sm">
               <option value="">No category</option>
               {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
@@ -75,8 +86,13 @@ export default async function AdminPage() {
           <h4 className="font-medium mt-4 mb-2">Categories</h4>
           <form action={async (formData: FormData) => {
             "use server";
+            const { requireSession } = await import("@/server/auth/session");
             const { prisma } = await import("@/lib/prisma");
-            const name = formData.get("name") as string;
+            const session = await requireSession();
+            const me = await prisma.user.findUnique({ where: { id: session.userId } });
+            if (!me?.isAdmin) throw new Error("Admin only");
+            const name = ((formData.get("name") as string) || "").trim();
+            if (!name) throw new Error("Category name is required.");
             await prisma.productCategory.create({ data: { name } });
           }} className="flex gap-2">
             <input name="name" placeholder="Category" className="px-3 py-2 rounded-xl border bg-zinc-50 dark:bg-zinc-800 text-sm" />
@@ -89,7 +105,7 @@ export default async function AdminPage() {
 
         <div className="bg-white dark:bg-zinc-900 rounded-2xl border p-5">
           <h3 className="font-semibold mb-2">System</h3>
-          <p className="text-sm text-zinc-500">Database: SQLite • WAL mode enabled • Persistent volume ./data:/app/data</p>
+          <p className="text-sm text-zinc-500">Database: SQLite • WAL mode enabled • Persistent named volume hesab-data:/app/data (survives redeploys)</p>
           <p className="text-xs text-zinc-400 mt-2">Backup: copy data/app.db + WAL files using sqlite3 backup API or safe file copy after WAL checkpoint.</p>
         </div>
       </main>

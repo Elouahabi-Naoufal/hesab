@@ -17,7 +17,20 @@ export function cn(...classes: (string | boolean | undefined)[]) {
   return classes.filter(Boolean).join(" ");
 }
 
-export function formatDH(centimes: number): string {
-  if (centimes % 100 === 0) return `${(centimes / 100).toFixed(0)} DH`;
-  return `${(centimes / 100).toFixed(2)} DH`;
+// Canonical money helpers live in @/domain/money (single source of truth).
+export { formatDH, parseDHToCentimes, MAX_CENTIMES } from "@/domain/money";
+export type { Centimes } from "@/domain/money";
+
+/** Safe message extraction for `catch (e: unknown)` — never leaks internals by itself. */
+export function errMsg(e: unknown): string {
+  return e instanceof Error ? e.message : String(e);
+}
+
+/** Prisma-style error code probe (`P2002`, `P2025`, …) without using `any`. */
+export function errCode(e: unknown): string | undefined {
+  if (typeof e === "object" && e !== null && "code" in e) {
+    const code: unknown = (e as { code: unknown }).code;
+    return typeof code === "string" ? code : undefined;
+  }
+  return undefined;
 }

@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { logoutAction } from "@/server/auth/actions";
 import { acceptInvitationAction, declineInvitationAction } from "@/server/groups/actions";
+import SubmitButton from "@/app/components/SubmitButton";
 
 export default async function Dashboard() {
   const session = await getSession();
@@ -84,18 +85,19 @@ export default async function Dashboard() {
                 <div key={inv.id} className="bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div>
                     <div className="font-medium">{inv.group.name}</div>
-                    <div className="text-sm text-zinc-600 dark:text-zinc-400">Suggested: {(inv.suggestedContribution / 100).toFixed(0)} DH • Wallet: {(wallet.balance/100).toFixed(2)} DH</div>
+                    <div className="text-sm text-zinc-600 dark:text-zinc-400">Suggested: {(inv.suggestedContribution / 100).toFixed(inv.suggestedContribution % 100 === 0 ? 0 : 2)} DH • Wallet: {(wallet.balance/100).toFixed(2)} DH</div>
                     {wallet.balance < inv.suggestedContribution && <div className="text-xs text-red-600">Insufficient wallet — <Link href="/wallet" className="underline">deposit</Link></div>}
                   </div>
                   <div className="flex gap-2 items-center">
                     <form action={async (formData: FormData) => {
                       "use server";
-                      const v = parseInt((formData.get("contribution") as string) || `${inv.suggestedContribution}`, 10);
-                      const res = await acceptInvitationAction(inv.id, isNaN(v) ? inv.suggestedContribution : v);
+                      const v = ((formData.get("contribution") as string) || "").trim();
+                      const res = await acceptInvitationAction(inv.id, v === "" ? inv.suggestedContribution / 100 : v);
                       if (res?.error) throw new Error(res.error);
-                    }} className="flex gap-2 items-center">
-                      <input name="contribution" type="number" min={0} step={100} defaultValue={inv.suggestedContribution} className="w-24 px-2 py-2 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-sm" />
-                      <button className="px-4 py-2 rounded-xl bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 text-sm font-medium">Accept</button>
+                    }} className="flex gap-2 items-center" title="Contribution in DH — deducted from your wallet">
+                      <input name="contribution" type="number" min={0} step="0.01" defaultValue={(inv.suggestedContribution / 100).toString()} className="w-24 px-2 py-2 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-sm" />
+                      <span className="text-xs text-zinc-500">DH</span>
+                      <SubmitButton className="px-4 py-2 rounded-xl bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 text-sm font-medium" pendingText="Joining…">Accept</SubmitButton>
                     </form>
                     <form action={async () => { "use server"; await declineInvitationAction(inv.id); }}><button className="px-4 py-2 rounded-xl border border-zinc-200 dark:border-zinc-700 text-sm">Decline</button></form>
                   </div>

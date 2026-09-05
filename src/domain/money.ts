@@ -6,6 +6,67 @@
 
 export type Centimes = number; // integer
 
+/**
+ * Authoritative DH -> centimes parser. THE ONLY WAY user money input
+ * enters the system. Everything else (FormData, JSON) must go through this.
+ *
+ * Rules (all intentional, all tested):
+ * - Input is a DH-denominated string (or finite number): "100", "7.50", "7,50", "1 000.50", "100 DH"
+ * - Comma is treated as decimal separator ("7,50" = 7.50 DH); internal spaces are ignored
+ * - At most 2 decimal places; more -> throw (never silently round)
+ * - Negative amounts always throw (callers decide if zero is allowed via options)
+ * - Empty / whitespace-only / non-numeric -> throw with DH-unit message
+ * - NO floating point anywhere: pure string -> integer arithmetic
+ * - Result must be a safe integer within MAX_CENTIMES
+ */
+export const MAX_CENTIMES: Centimes = 1_000_000_000_00; // 1,000,000,000 DH cap
+
+export function parseDHToCentimes(
+  input: string | number | null | undefined,
+  opts?: { minCentimes?: number; field?: string }
+): Centimes {
+  const field = opts?.field ?? "Amount";
+  const minCentimes = opts?.minCentimes ?? 0;
+
+  if (input === null || input === undefined) {
+    throw new Error(`${field} is required (in DH, e.g. 100 DH).`);
+  }
+  let s = String(input).trim();
+  if (s === "") {
+    throw new Error(`${field} is required (in DH, e.g. 100 DH).`);
+  }
+  // Strip optional currency suffix and internal thousand-space separators
+  s = s.replace(/\s*(DH|dh|MAD|mad|درهم)\s*$/, "").replace(/\s+/g, "");
+  if (s === "") {
+    throw new Error(`${field} is required (in DH, e.g. 100 DH).`);
+  }
+  if (s.startsWith("-") || s.startsWith("+")) {
+    if (s.startsWith("-")) throw new Error(`${field} must not be negative (got "${input}").`);
+    s = s.slice(1);
+  }
+  // Comma = decimal separator (Moroccan input "7,50")
+  s = s.replace(",", ".");
+  if (!/^\d+(\.\d{1,2})?$/.test(s)) {
+    if (/^\d+\.\d{3,}$/.test(s)) {
+      throw new Error(`${field} supports at most 2 decimals (got "${input}").`);
+    }
+    throw new Error(`${field} must be a valid DH amount like 100 or 7.50 (got "${input}").`);
+  }
+  const [intPart, fracPart = ""] = s.split(".");
+  const centimes = Number(intPart) * 100 + Number((fracPart + "00").slice(0, 2));
+  if (!Number.isSafeInteger(centimes) || centimes > MAX_CENTIMES) {
+    throw new Error(`${field} is too large (max ${formatDH(MAX_CENTIMES)}).`);
+  }
+  if (centimes < minCentimes) {
+    throw new Error(
+      minCentimes > 0
+        ? `${field} must be at least ${formatDH(minCentimes)} (got "${input}").`
+        : `${field} must not be negative (got "${input}").`
+    );
+  }
+  return centimes;
+}
+
 export function toCentimes(dh: number): Centimes {
   return Math.round(dh * 100);
 }
@@ -26,6 +87,18 @@ export function formatMoney(centimes: Centimes, currency = "DH"): string {
 
 export function formatMoneyPrecise(centimes: Centimes): string {
   return (centimes / 100).toFixed(2);
+}
+
+/**
+ * Canonical DH display: whole amounts as "100 DH", fractional as "7.50 DH".
+ * Negative values render as "-5 DH" / "-7.50 DH". Only UI display helper;
+ * all math stays in integer centimes.
+ */
+export function formatDH(centimes: Centimes): string {
+  const sign = centimes < 0 ? "-" : "";
+  const abs = Math.abs(centimes);
+  if (abs % 100 === 0) return `${sign}${(abs / 100).toFixed(0)} DH`;
+  return `${sign}${(abs / 100).toFixed(2)} DH`;
 }
 
 export function add(a: Centimes, b: Centimes): Centimes {
@@ -91,7 +164,7 @@ export function allocatePercentage(
     remainders.push({ index: i, remainder: exact - floor });
   }
 
-  let leftover = totalCentimes - floorSum;
+  const leftover = totalCentimes - floorSum;
   // Sort by remainder descending for deterministic distribution
   remainders.sort((a, b) => b.remainder - a.remainder);
 
@@ -132,7 +205,7 @@ export function allocatePortions(totalCentimes: Centimes, portions: number[]): C
     remainders.push({ index: i, remainder: exact - floor });
   }
 
-  let leftover = totalCentimes - floorSum;
+  const leftover = totalCentimes - floorSum;
   remainders.sort((a, b) => b.remainder - a.remainder);
   for (let i = 0; i < leftover; i++) {
     const idx = remainders[i % remainders.length].index;

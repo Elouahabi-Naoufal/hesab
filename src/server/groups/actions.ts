@@ -2,7 +2,10 @@
 import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/server/auth/session";
 import { z } from "zod";
-import { generatePublicToken, generateGroupPublicToken } from "@/lib/utils";
+import { generateGroupPublicToken } from "@/lib/utils";
+import { parseDHToCentimes, formatDH } from "@/domain/money";
+import { deductWalletTx, creditWalletTx } from "@/server/wallet/ledger";
+import { errMsg, errCode } from "@/lib/utils";
 import { logEvent } from "@/server/audit";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -54,23 +57,62 @@ export async function createGroupAction(formData: FormData) {
   redirect(`/groups/${group.id}`);
 }
 
-export async function updateContributionAction(groupId: string, amountCentimes: number) {
+/**
+ * Update own contribution (DH input). The DELTA moves through the wallet
+ * atomically: increasing locks more wallet money, decreasing refunds it.
+ * Without this, balance and GroupMember.contribution diverge.
+ */
+export async function updateContributionAction(groupId: string, amountDH: string | number) {
   const session = await requireSession();
+  let amount: number;
+  try {
+    amount = parseDHToCentimes(amountDH, { minCentimes: 0, field: "Contribution" });
+  } catch (e: unknown) {
+    return { error: errMsg(e) };
+  }
   const group = await prisma.group.findUnique({ where: { id: groupId } });
-  if (!group) throw new Error("Group not found");
+  if (!group) return { error: "Group not found" };
   if (group.status !== "PLANNING" && group.status !== "ACTIVE") {
     return { error: "Cannot change contribution after checkout begins" };
   }
   const member = await prisma.groupMember.findUnique({
     where: { groupId_userId: { groupId, userId: session.userId } },
   });
-  if (!member) throw new Error("Not a member");
+  if (!member) return { error: "Not a member" };
 
-  await prisma.groupMember.update({
-    where: { id: member.id },
-    data: { contribution: amountCentimes },
-  });
+  const delta = amount - member.contribution; // >0 locks more, <0 refunds
+  try {
+    await prisma.$transaction(async (tx) => {
+      if (delta > 0) {
+        try {
+          await deductWalletTx(tx, session.userId, delta, {
+            type: "CONTRIBUTION",
+            description: `Top-up contribution to ${group.name}`,
+            groupId: group.id,
+          });
+        } catch (e: unknown) {
+          if (errMsg(e).includes("Insufficient wallet")) {
+            throw new Error(
+              `Insufficient wallet: need ${formatDH(delta)} more but you have ${formatDH((await tx.wallet.findUnique({ where: { userId: session.userId } }))?.balance ?? 0)}. Deposit at /wallet.`
+            );
+          }
+          throw e;
+        }
+      } else if (delta < 0) {
+        await creditWalletTx(tx, session.userId, -delta, {
+          type: "REFUND",
+          description: `Contribution refund from ${group.name}`,
+          groupId: group.id,
+        });
+      }
+      await tx.groupMember.update({ where: { id: member.id }, data: { contribution: amount } });
+    });
+  } catch (e: unknown) {
+    if (errMsg(e).includes("Insufficient wallet")) return { error: errMsg(e) };
+    throw e;
+  }
   revalidatePath(`/groups/${groupId}`);
+  revalidatePath("/dashboard");
   return { success: true };
 }
 
@@ -78,7 +120,16 @@ export async function inviteMemberAction(formData: FormData) {
   const session = await requireSession();
   const groupId = formData.get("groupId") as string;
   const publicId = formData.get("publicId") as string;
-  const suggested = parseInt((formData.get("suggestedContribution") as string) || "0", 10);
+  // DH-denominated (e.g. "100" or "7.50"); empty means 0
+  const suggestedRaw = ((formData.get("suggestedContribution") as string) || "").trim();
+  let suggested = 0;
+  if (suggestedRaw !== "") {
+    try {
+      suggested = parseDHToCentimes(suggestedRaw, { minCentimes: 0, field: "Suggested contribution" });
+    } catch (e: unknown) {
+      return { error: errMsg(e) };
+    }
+  }
 
   const group = await prisma.group.findUnique({ where: { id: groupId } });
   if (!group) return { error: "Group not found" };
@@ -122,42 +173,50 @@ export async function inviteMemberAction(formData: FormData) {
   return { success: true };
 }
 
-export async function acceptInvitationAction(invitationId: string, contribution?: number) {
+/**
+ * Accept invitation with a DH-denominated contribution taken from the wallet.
+ * Atomic + idempotent: re-accepting (double-click, replay, refresh) returns a
+ * friendly error and NEVER deducts twice. The unique (groupId, userId) member
+ * constraint is the final backstop against concurrent double-accepts.
+ */
+export async function acceptInvitationAction(invitationId: string, contributionDH?: string | number) {
   const session = await requireSession();
   const inv = await prisma.groupInvitation.findUnique({ where: { id: invitationId } });
   if (!inv) return { error: "Invitation not found" };
   if (inv.inviteeUserId !== session.userId) return { error: "Not your invitation" };
-  if (inv.status !== "PENDING") return { error: "Invitation not pending" };
+  if (inv.status !== "PENDING") return { error: "This invitation was already answered." };
 
   const group = await prisma.group.findUnique({ where: { id: inv.groupId } });
   if (!group) return { error: "Group not found" };
   if (group.status !== "PLANNING" && group.status !== "ACTIVE") return { error: "Group not accepting members" };
 
-  const amount = contribution ?? inv.suggestedContribution;
+  // DH input (e.g. "100" or "7.50"); falls back to the suggested amount
+  let amount: number;
+  const raw = contributionDH === undefined || contributionDH === null || String(contributionDH).trim() === ""
+    ? null
+    : contributionDH;
+  try {
+    amount = raw === null ? inv.suggestedContribution : parseDHToCentimes(raw, { minCentimes: 0, field: "Contribution" });
+  } catch (e: unknown) {
+    return { error: errMsg(e) };
+  }
 
   try {
     await prisma.$transaction(async (tx) => {
-      // Wallet deduction - must have enough balance
+      // Idempotency re-check INSIDE the transaction (double-click / replay safe)
+      const fresh = await tx.groupInvitation.findUnique({ where: { id: inv.id } });
+      if (!fresh || fresh.status !== "PENDING") throw new Error("This invitation was already answered.");
+      const alreadyMember = await tx.groupMember.findUnique({
+        where: { groupId_userId: { groupId: inv.groupId, userId: session.userId } },
+      });
+      if (alreadyMember) throw new Error("You are already a member of this group.");
+
+      // Wallet deduction - must have enough balance (NO OVERDRAFT)
       if (amount > 0) {
-        let wallet = await tx.wallet.findUnique({ where: { userId: session.userId } });
-        if (!wallet) {
-          wallet = await tx.wallet.create({ data: { userId: session.userId, balance: 0 } });
-        }
-        if (wallet.balance < amount) {
-          throw new Error(`Insufficient wallet: need ${(amount / 100).toFixed(2)} DH, have ${(wallet.balance / 100).toFixed(2)} DH. Deposit at /wallet.`);
-        }
-        await tx.wallet.update({
-          where: { id: wallet.id },
-          data: { balance: { decrement: amount } },
-        });
-        await tx.walletTransaction.create({
-          data: {
-            walletId: wallet.id,
-            amount: -amount,
-            type: "CONTRIBUTION",
-            description: `Contribution to ${group.name}`,
-            groupId: group.id,
-          },
+        await deductWalletTx(tx, session.userId, amount, {
+          type: "CONTRIBUTION",
+          description: `Contribution to ${group.name}`,
+          groupId: group.id,
         });
       }
 
@@ -180,8 +239,11 @@ export async function acceptInvitationAction(invitationId: string, contribution?
         },
       });
     });
-  } catch (e: any) {
-    if (e.message?.includes("Insufficient wallet")) return { error: e.message };
+  } catch (e: unknown) {
+    if (errMsg(e).includes("Insufficient wallet")) return { error: errMsg(e) };
+    if (errMsg(e).includes("already answered") || errMsg(e).includes("already a member")) return { error: errMsg(e) };
+    // Unique-constraint race on concurrent double-accept: tx rolled back, nothing deducted
+    if (errCode(e) === "P2002") return { error: "You are already a member of this group." };
     throw e;
   }
 
@@ -200,6 +262,10 @@ export async function declineInvitationAction(invitationId: string) {
   return { success: true };
 }
 
+/**
+ * Remove a member (owner only, before checkout). Their locked contribution is
+ * REFUNDED to their wallet atomically — otherwise money silently vanishes.
+ */
 export async function removeMemberAction(groupId: string, userId: string) {
   const session = await requireSession();
   const group = await prisma.group.findUnique({ where: { id: groupId } });
@@ -208,26 +274,64 @@ export async function removeMemberAction(groupId: string, userId: string) {
   if (group.status !== "PLANNING" && group.status !== "ACTIVE") return { error: "Cannot remove after checkout" };
   if (userId === group.ownerId) return { error: "Cannot remove owner" };
 
-  await prisma.groupMember.delete({ where: { groupId_userId: { groupId, userId } } });
-  await logEvent({ groupId, actorId: session.userId, eventType: "MEMBER_REMOVED", entityId: userId });
+  const member = await prisma.groupMember.findUnique({ where: { groupId_userId: { groupId, userId } } });
+  if (!member) return { error: "Not a member" };
+
+  await prisma.$transaction(async (tx) => {
+    if (member.contribution > 0) {
+      await creditWalletTx(tx, userId, member.contribution, {
+        type: "REFUND",
+        description: `Contribution refund from ${group.name} (removed by owner)`,
+        groupId: group.id,
+      });
+    }
+    await tx.groupMember.delete({ where: { id: member.id } });
+    await tx.activityEvent.create({
+      data: {
+        groupId,
+        actorId: session.userId,
+        eventType: "MEMBER_REMOVED",
+        entityType: "User",
+        entityId: userId,
+      },
+    });
+  });
   revalidatePath(`/groups/${groupId}`);
   return { success: true };
 }
 
+/**
+ * Start checkout (owner only). Idempotent: calling it while CHECKOUT simply
+ * regenerates the settlement instead of erroring, so a failed generation can
+ * never leave the group permanently stuck. Status flip + settlement happen in
+ * ONE transaction — a failed generation rolls everything back.
+ */
 export async function startCheckoutAction(groupId: string) {
   const session = await requireSession();
   const group = await prisma.group.findUnique({ where: { id: groupId } });
   if (!group) return { error: "Group not found" };
   if (group.ownerId !== session.userId) return { error: "Only owner can start checkout" };
-  if (group.status !== "PLANNING" && group.status !== "ACTIVE") return { error: "Already in checkout" };
+  if (group.status === "SETTLED" || group.status === "ARCHIVED") {
+    return { error: "Group already settled. Use recalculate to refresh the settlement." };
+  }
+  if (group.status !== "PLANNING" && group.status !== "ACTIVE" && group.status !== "CHECKOUT") {
+    return { error: "Cannot checkout in this state" };
+  }
 
-  await prisma.group.update({ where: { id: groupId }, data: { status: "CHECKOUT" } });
-  await logEvent({ groupId, actorId: session.userId, eventType: "CHECKOUT_STARTED" });
-
-  // Generate settlement immediately
   const { generateSettlement } = await import("@/server/settlement/actions");
-  await generateSettlement(groupId);
+  try {
+    await prisma.$transaction(async (tx) => {
+      await tx.group.update({ where: { id: groupId }, data: { status: "CHECKOUT" } });
+      await tx.activityEvent.create({
+        data: { groupId, actorId: session.userId, eventType: "CHECKOUT_STARTED" },
+      });
+      await generateSettlement(groupId, tx);
+    });
+  } catch (e: unknown) {
+    return { error: errMsg(e) || "Checkout failed, nothing was changed. Try again." };
+  }
 
   revalidatePath(`/groups/${groupId}`);
+  revalidatePath(`/groups/${groupId}/checkout`);
   return { success: true };
 }

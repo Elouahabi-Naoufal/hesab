@@ -1,8 +1,8 @@
-import { prisma } from "@/lib/prisma";
 import { getSession } from "@/server/auth/session";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { depositAction, getWalletWithTransactions } from "@/server/wallet/actions";
+import SubmitButton from "@/app/components/SubmitButton";
 
 export default async function WalletPage() {
   const session = await getSession();
@@ -27,15 +27,16 @@ export default async function WalletPage() {
         <div className="bg-emerald-50 dark:bg-emerald-950 border border-emerald-200 dark:border-emerald-800 rounded-2xl p-6 text-center">
           <div className="text-sm text-emerald-700 dark:text-emerald-300">Wallet Balance</div>
           <div className="text-4xl font-bold tracking-tight">{(wallet.balance / 100).toFixed(2)} DH</div>
-          <div className="text-xs text-zinc-500 mt-1">{wallet.balance} centimes • Updates on every contribution</div>
+          <div className="text-xs text-zinc-500 mt-1">Updates on every contribution • All amounts in DH</div>
         </div>
 
-        <form action={async (formData: FormData) => { "use server"; await depositAction(formData); }} className="bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 p-6 space-y-4">
-          <h2 className="font-semibold">Add Money</h2>
-          <p className="text-sm text-zinc-500">Deposit centimes (e.g., 5000 = 50 DH). Used when you accept a group invite.</p>
-          <div className="flex gap-2">
-            <input name="amount" type="number" min={100} step={100} defaultValue={5000} required className="flex-1 px-3 py-2 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800" placeholder="5000" />
-            <button className="px-4 py-2 rounded-xl bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 text-sm font-medium">Deposit</button>
+        <form action={async (formData: FormData) => { "use server"; const res = await depositAction(formData); if (res?.error) throw new Error(res.error); }} className="bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 p-6 space-y-4">
+          <h2 className="font-semibold">Add Money (DH)</h2>
+          <p className="text-sm text-zinc-500">Deposit in DH (e.g., 50 or 7.50). Used when you accept a group invite.</p>
+          <div className="flex gap-2 items-center">
+            <input name="amount" type="number" min="0.01" step="0.01" defaultValue="50" required className="flex-1 px-3 py-2 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800" placeholder="50" />
+            <span className="text-sm text-zinc-500">DH</span>
+            <SubmitButton className="px-4 py-2 rounded-xl bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 text-sm font-medium" pendingText="Depositing…">Deposit</SubmitButton>
           </div>
           <div className="text-xs text-zinc-500">Tip: When accepting an invite you will be asked how much to contribute from this wallet (validated against balance).</div>
         </form>

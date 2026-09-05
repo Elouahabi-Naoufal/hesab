@@ -13,6 +13,12 @@ export default async function CheckoutPage({ params }: { params: Promise<{ id: s
   const group = await prisma.group.findUnique({ where: { id } });
   if (!group) notFound();
 
+  // Members only: balances and names are private to the group
+  const viewer = await prisma.groupMember.findUnique({
+    where: { groupId_userId: { groupId: id, userId: session.userId } },
+  });
+  if (!viewer) return <div className="p-10 text-center">You are not a member of this group.</div>;
+
   const members = await prisma.groupMember.findMany({ where: { groupId: id }, include: { user: true } });
   const expenses = await prisma.expense.findMany({ where: { groupId: id }, include: { allocations: true, payments: true } });
   const settlement = await prisma.settlement.findUnique({ where: { groupId: id }, include: { transfers: true } });
@@ -34,7 +40,7 @@ export default async function CheckoutPage({ params }: { params: Promise<{ id: s
   let liveResult;
   try {
     liveResult = calculateSettlement({ members: membersInput, expenses: expenseInputs, contributions });
-  } catch (e: any) {
+  } catch {
     liveResult = null;
   }
 
@@ -44,9 +50,22 @@ export default async function CheckoutPage({ params }: { params: Promise<{ id: s
   const isComplete = liveResult?.isComplete ?? true;
   const incompleteExpenses = liveResult?.incompleteExpenseIds?.length ? expenses.filter(e => liveResult!.incompleteExpenseIds.includes(e.id)) : [];
 
-  // Enrich transfers with names
-  const enrichedTransfers = displayTransfers.map((t: any) => ({
-    ...t,
+  // Enrich transfers with names. Persisted transfers carry DB id+status;
+  // live-computed ones get a synthetic id (their action buttons never render
+  // because status is unset, so mark/confirm can safely require t.id).
+  type TransferView = {
+    fromUserId: string;
+    toUserId: string;
+    amountCentimes: number;
+    status?: string | null;
+    id: string;
+  };
+  const enrichedTransfers: Array<TransferView & { fromName: string; toName: string }> = displayTransfers.map((t) => ({
+    fromUserId: t.fromUserId,
+    toUserId: t.toUserId,
+    amountCentimes: t.amountCentimes,
+    status: (t as { status?: string | null }).status ?? null,
+    id: (t as { id?: string }).id ?? `${t.fromUserId}-${t.toUserId}-${t.amountCentimes}`,
     fromName: userMap.get(t.fromUserId) || t.fromUserId,
     toName: userMap.get(t.toUserId) || t.toUserId,
   }));
@@ -71,7 +90,7 @@ export default async function CheckoutPage({ params }: { params: Promise<{ id: s
           <div className="rounded-2xl bg-amber-50 dark:bg-amber-950 border border-amber-300 dark:border-amber-800 p-4 space-y-2">
             <div className="flex items-center gap-2 font-bold text-amber-800 dark:text-amber-200">⚠️ Settlement incomplete — payer unknown</div>
             <p className="text-sm text-amber-700 dark:text-amber-300">
-              {formatDH(totalUnrecorded)} of expenses have no payer recorded (responsibility known, but who actually paid is unknown). Hesab can show who OWES, but cannot determine who should RECEIVE until payer is specified. This is distinct from 0 DH — 0 means they paid nothing, unknown means we don't know who advanced the money.
+              {formatDH(totalUnrecorded)} of expenses have no payer recorded (responsibility known, but who actually paid is unknown). Hesab can show who OWES, but cannot determine who should RECEIVE until payer is specified. This is distinct from 0 DH — 0 means they paid nothing, unknown means we don&apos;t know who advanced the money.
             </p>
             <div className="text-xs text-zinc-600 dark:text-zinc-400">Incomplete expenses: {incompleteExpenses.map(e => `${e.description} (${formatDH(e.totalCentimes)})`).join(", ")}</div>
             <p className="text-xs text-zinc-500">Go back to Group → edit each expense → add “Who actually paid?” (supports one or multiple payers).</p>
@@ -112,7 +131,7 @@ export default async function CheckoutPage({ params }: { params: Promise<{ id: s
             <p className="text-center text-sm opacity-70">No transfers needed — everyone settled</p>
           ) : (
             <div className="space-y-3">
-              {enrichedTransfers.map((t: any, i: number) => (
+              {enrichedTransfers.map((t, i: number) => (
                 <div key={i} className="flex items-center justify-between p-4 rounded-2xl bg-white/10 dark:bg-zinc-900/10 backdrop-blur">
                   <div className="text-center flex-1">
                     <div className="font-bold">{t.fromName}</div>
@@ -132,7 +151,7 @@ export default async function CheckoutPage({ params }: { params: Promise<{ id: s
 
               {/* Actions per transfer */}
               <div className="space-y-2 pt-2">
-                {enrichedTransfers.map((t: any) => (
+                {enrichedTransfers.map((t) => (
                   <div key={t.id || `${t.fromUserId}-${t.toUserId}`} className="flex gap-2">
                     {t.status && <span className="text-xs px-2 py-1 rounded-full bg-white/20">{t.status}</span>}
                     {t.fromUserId === session.userId && t.status === "PENDING" && (
@@ -159,7 +178,6 @@ export default async function CheckoutPage({ params }: { params: Promise<{ id: s
 
               <div className="flex gap-2 pt-4">
                 <button
-                  onClick={() => { /* client copy handled via UI fallback */ }}
                   className="flex-1 py-3 rounded-full bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white font-medium text-sm"
                   id="copy-btn"
                 >
@@ -171,7 +189,7 @@ export default async function CheckoutPage({ params }: { params: Promise<{ id: s
               <script dangerouslySetInnerHTML={{
                 __html: `
                 const text = ${JSON.stringify(
-                  `🎱 ${group.name}\n\nFinal settlement:\n\n${enrichedTransfers.map((t: any) => `${t.fromName} → ${t.toName}: ${t.amountCentimes / 100} DH`).join("\n")}\n\nTotal: ${liveResult ? liveResult.totalExpenses / 100 : 0} DH`
+                  `🎱 ${group.name}\n\nFinal settlement:\n\n${enrichedTransfers.map((t) => `${t.fromName} → ${t.toName}: ${formatDH(t.amountCentimes)}`).join("\n")}\n\nTotal: ${liveResult ? formatDH(liveResult.totalExpenses) : "0 DH"}`
                 )};
                 document.getElementById('copy-btn')?.addEventListener('click', ()=>{navigator.clipboard.writeText(text); alert('Copied!')});
                 document.getElementById('share-btn')?.addEventListener('click', ()=>{ window.open('https://wa.me/?text='+encodeURIComponent(text), '_blank')});
@@ -187,11 +205,12 @@ export default async function CheckoutPage({ params }: { params: Promise<{ id: s
           )}
         </div>
 
-        {!settlement && liveResult && (
+        {!settlement && liveResult && group.ownerId === session.userId && (
           <form action={async () => {
             "use server";
-            const { generateSettlement } = await import("@/server/settlement/actions");
-            await generateSettlement(id);
+            const { finalizeSettlementAction } = await import("@/server/settlement/actions");
+            const res = await finalizeSettlementAction(id);
+            if (res?.error) throw new Error(res.error);
           }}>
             <button className="w-full py-3 rounded-2xl bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 font-medium">Finalize Settlement</button>
           </form>

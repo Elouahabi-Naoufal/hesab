@@ -2,8 +2,15 @@ import * as jose from "jose";
 import { cookies } from "next/headers";
 import { prisma } from "@/lib/prisma";
 
-const JWT_SECRET = process.env.JWT_SECRET || "change-me-in-production-use-long-random-string-32-chars-min";
-const secret = new TextEncoder().encode(JWT_SECRET);
+function getJwtSecret(): Uint8Array {
+  const s = process.env.JWT_SECRET;
+  // Fail fast in production: a hardcoded fallback would let anyone forge sessions.
+  if (!s && process.env.NODE_ENV === "production") {
+    throw new Error("JWT_SECRET is not set. Refusing to start without a session secret.");
+  }
+  return new TextEncoder().encode(s || "dev-only-insecure-secret-change-me");
+}
+const secret = getJwtSecret();
 const alg = "HS256";
 
 export interface SessionPayload {
@@ -17,7 +24,7 @@ export interface SessionPayload {
 }
 
 export async function createSession(payload: Omit<SessionPayload, "iat" | "exp">): Promise<string> {
-  const jwt = await new jose.SignJWT(payload as any)
+  const jwt = await new jose.SignJWT(payload as unknown as jose.JWTPayload)
     .setProtectedHeader({ alg })
     .setIssuedAt()
     .setExpirationTime("7d")

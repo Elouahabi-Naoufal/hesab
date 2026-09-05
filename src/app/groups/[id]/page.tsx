@@ -107,7 +107,7 @@ export default async function GroupPage({ params }: { params: Promise<{ id: stri
               }} className="flex gap-2">
                 <input type="hidden" name="groupId" value={id} />
                 <input name="publicId" placeholder="usr_XXXXXX" required className="flex-1 px-3 py-2 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-sm" />
-                <input name="suggestedContribution" type="number" placeholder="100 DH → 10000" defaultValue="10000" className="w-24 px-3 py-2 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-sm" />
+                <input name="suggestedContribution" type="number" min="0" step="0.5" placeholder="Suggested DH (e.g. 100)" defaultValue="100" title="Suggested contribution in DH" className="w-28 px-3 py-2 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-sm" />
                 <button className="px-4 py-2 rounded-xl bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 text-sm font-medium">Invite</button>
               </form>
               {invitations.length > 0 && (
@@ -117,12 +117,12 @@ export default async function GroupPage({ params }: { params: Promise<{ id: stri
               {/* Quick contribution edit for self */}
               <form action={async (formData: FormData) => {
                 "use server";
-                const amount = parseInt(formData.get("amount") as string, 10);
                 const { updateContributionAction } = await import("@/server/groups/actions");
-                await updateContributionAction(id, amount);
+                const res = await updateContributionAction(id, (formData.get("amount") as string) || "0");
+                if (res?.error) throw new Error(res.error);
               }} className="flex gap-2 items-center">
-                <span className="text-sm">My contribution (centimes):</span>
-                <input name="amount" type="number" defaultValue={member.contribution} className="w-24 px-2 py-1 rounded-lg border text-sm" />
+                <span className="text-sm">My contribution (DH):</span>
+                <input name="amount" type="number" min="0" step="0.5" defaultValue={(member.contribution / 100).toString()} className="w-24 px-2 py-1 rounded-lg border text-sm" />
                 <button className="px-3 py-1 rounded-lg bg-zinc-100 dark:bg-zinc-800 text-sm">Save</button>
               </form>
             </div>
@@ -133,7 +133,12 @@ export default async function GroupPage({ params }: { params: Promise<{ id: stri
         {isOwner && group.status === "PLANNING" && (
           <form action={async () => {
             "use server";
+            const { requireSession } = await import("@/server/auth/session");
             const { prisma } = await import("@/lib/prisma");
+            const session = await requireSession();
+            const g = await prisma.group.findUnique({ where: { id } });
+            if (!g || g.ownerId !== session.userId) throw new Error("Only owner");
+            if (g.status !== "PLANNING") throw new Error("Group already started");
             await prisma.group.update({ where: { id }, data: { status: "ACTIVE" } });
           }}>
             <button className="w-full py-3 rounded-2xl bg-emerald-600 text-white font-medium">Start Group (Active)</button>
@@ -200,7 +205,7 @@ export default async function GroupPage({ params }: { params: Promise<{ id: stri
                 <div className="grid grid-cols-2 gap-2">
                   <input name="startTime" type="time" className="px-3 py-2 rounded-xl border bg-zinc-50 dark:bg-zinc-800 text-sm" />
                   <input name="endTime" type="time" className="px-3 py-2 rounded-xl border bg-zinc-50 dark:bg-zinc-800 text-sm" />
-                  <input name="rate" type="number" placeholder="Rate centimes (6000 = 60 DH/h)" className="px-3 py-2 rounded-xl border bg-zinc-50 dark:bg-zinc-800 text-sm" />
+                  <input name="rateDH" type="number" min="0" step="0.5" placeholder="Rate DH/h (e.g. 60)" className="px-3 py-2 rounded-xl border bg-zinc-50 dark:bg-zinc-800 text-sm" />
                   <input name="type" placeholder="Type: TABLE/DRINKS" className="px-3 py-2 rounded-xl border bg-zinc-50 dark:bg-zinc-800 text-sm" />
                 </div>
                 <div>
@@ -283,9 +288,9 @@ export default async function GroupPage({ params }: { params: Promise<{ id: stri
                 <input type="hidden" name="groupId" value={id} />
                 <input name="description" placeholder="Pool Table / Pizza / Drinks" required className="w-full px-3 py-2 rounded-xl border bg-zinc-50 dark:bg-zinc-800 text-sm" />
                 <div className="grid grid-cols-2 gap-2">
-                  <input name="quantity" type="number" defaultValue="1" placeholder="Qty" className="px-3 py-2 rounded-xl border bg-zinc-50 dark:bg-zinc-800 text-sm" />
-                  <input name="unitPriceCentimes" type="number" placeholder="Unit price centimes (6000)" className="px-3 py-2 rounded-xl border bg-zinc-50 dark:bg-zinc-800 text-sm" />
-                  <input name="totalCentimes" type="number" placeholder="Total centimes (12000)" required className="px-3 py-2 rounded-xl border bg-zinc-50 dark:bg-zinc-800 text-sm" />
+                  <input name="quantity" type="number" min="1" step="1" defaultValue="1" placeholder="Qty" className="px-3 py-2 rounded-xl border bg-zinc-50 dark:bg-zinc-800 text-sm" />
+                  <input name="unitPriceDH" type="number" min="0" step="0.01" placeholder="Unit price DH (e.g. 60)" className="px-3 py-2 rounded-xl border bg-zinc-50 dark:bg-zinc-800 text-sm" />
+                  <input name="totalDH" type="number" min="0.01" step="0.01" placeholder="Total DH (e.g. 120)" required className="px-3 py-2 rounded-xl border bg-zinc-50 dark:bg-zinc-800 text-sm" />
                   <select name="allocationMode" defaultValue="EQUAL" className="px-3 py-2 rounded-xl border bg-zinc-50 dark:bg-zinc-800 text-sm">
                     <option value="EQUAL">Equal</option>
                     <option value="PERCENTAGE">Percentage</option>
@@ -321,7 +326,7 @@ export default async function GroupPage({ params }: { params: Promise<{ id: stri
                   </div>
                   <div className="grid grid-cols-1 gap-2 mt-2">
                     <input type="hidden" name="payerIds" id="exp-payerIds" defaultValue="[]" />
-                    <input name="payerAmounts" id="exp-payerAmounts" placeholder='Leave empty for unknown payer, or e.g. [12000] or [8000,4000] centimes' className="px-3 py-2 rounded-xl border bg-white dark:bg-zinc-800 text-sm" />
+                    <input name="payerAmountsDH" id="exp-payerAmounts" placeholder='Leave empty for unknown payer, or e.g. [120] or [80,40] in DH' className="px-3 py-2 rounded-xl border bg-white dark:bg-zinc-800 text-sm" />
                   </div>
                   <div className="text-xs text-zinc-500 mt-2">If you specify payers, amounts must sum to Total. Supports: one payer (120 DH), multiple payers (80+40), or empty.</div>
                 </div>
@@ -329,12 +334,20 @@ export default async function GroupPage({ params }: { params: Promise<{ id: stri
                 <div className="rounded-xl border border-zinc-200 dark:border-zinc-700 p-3">
                   <p className="text-xs font-medium">Advanced — Percentage / Custom split (basis points: 10000 = 100%)</p>
                   <input name="percentages" placeholder='For PERCENTAGE mode: e.g. [3333,3333,3334] (must sum to 10000)' className="mt-1 w-full px-3 py-1 rounded-xl border bg-zinc-50 dark:bg-zinc-800 text-xs" />
-                  <input name="customAmounts" placeholder='For CUSTOM mode: e.g. [8000,4000] centimes (must sum to Total)' className="mt-1 w-full px-3 py-1 rounded-xl border bg-zinc-50 dark:bg-zinc-800 text-xs" />
+                  <input name="customAmountsDH" placeholder='For CUSTOM mode: e.g. [80,40] in DH (must sum to Total)' className="mt-1 w-full px-3 py-1 rounded-xl border bg-zinc-50 dark:bg-zinc-800 text-xs" />
                   <input name="portions" placeholder='For PORTIONS mode: e.g. [2,1,1]' className="mt-1 w-full px-3 py-1 rounded-xl border bg-zinc-50 dark:bg-zinc-800 text-xs" />
                 </div>
 
                 <script dangerouslySetInnerHTML={{
                   __html: `
+                  // DH <-> centimes helpers (integer math only, no float): "120.50" <-> 12050
+                  function dhToC(s){
+                    s=String(s==null?"":s).trim().replace(/\\s*(DH|dh|MAD|mad)\\s*$/,"").replace(/\\s+/g,"").replace(",",".");
+                    var m=/^(\\d+)(?:\\.(\\d{1,2}))?$/.exec(s);
+                    if(!m) return null;
+                    return parseInt(m[1],10)*100+parseInt((m[2]||"")+"00".slice((m[2]||"").length),10);
+                  }
+                  function cToDH(c){ return (c%100===0)? String(c/100) : (c/100).toFixed(2); }
                   document.addEventListener('change', (e)=>{
                     if(e.target.classList.contains('exp-participant')){
                       const v=[...document.querySelectorAll('.exp-participant:checked')].map(c=>c.value);
@@ -344,25 +357,29 @@ export default async function GroupPage({ params }: { params: Promise<{ id: stri
                       const v=[...document.querySelectorAll('.exp-payer:checked')].map(c=>c.value);
                       const el=document.getElementById('exp-payerIds'); if(el) el.value=JSON.stringify(v);
                       const amtEl=document.getElementById('exp-payerAmounts');
-                      const totalEl=document.querySelector('input[name="totalCentimes"]');
+                      const totalEl=document.querySelector('input[name="totalDH"]');
                       if(v.length===0){
                         if(amtEl) amtEl.value="";
-                      } else if(v.length===1 && totalEl && totalEl.value){
-                        if(amtEl) amtEl.value=JSON.stringify([parseInt(totalEl.value)]);
-                      } else if(v.length>1 && totalEl && totalEl.value){
-                        const total=parseInt(totalEl.value);
-                        const base=Math.floor(total/v.length);
-                        const rem=total%v.length;
-                        const arr=Array(v.length).fill(base).map((x,i)=> i<rem?x+1:x);
-                        if(amtEl) amtEl.value=JSON.stringify(arr);
+                      } else if(totalEl && totalEl.value){
+                        const total=dhToC(totalEl.value);
+                        if(total==null) return;
+                        if(v.length===1){
+                          if(amtEl) amtEl.value=JSON.stringify([cToDH(total)]);
+                        } else {
+                          const base=Math.floor(total/v.length);
+                          const rem=total%v.length;
+                          const arr=Array(v.length).fill(base).map((x,i)=> cToDH(i<rem?x+1:x));
+                          if(amtEl) amtEl.value=JSON.stringify(arr);
+                        }
                       }
                     }
                   });
-                  document.querySelector('input[name="totalCentimes"]')?.addEventListener('input', (e)=>{
+                  document.querySelector('input[name="totalDH"]')?.addEventListener('input', (e)=>{
                     const v=[...document.querySelectorAll('.exp-payer:checked')].map(c=>c.value);
                     const amtEl=document.getElementById('exp-payerAmounts');
-                    if(v.length===1){
-                      amtEl.value=JSON.stringify([parseInt(e.target.value||'0')]);
+                    if(v.length===1 && amtEl){
+                      const total=dhToC(e.target.value||'');
+                      if(total!=null) amtEl.value=JSON.stringify([cToDH(total)]);
                     }
                   });
                   `

@@ -3,6 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/server/auth/session";
 import { logEvent } from "@/server/audit";
 import { revalidatePath } from "next/cache";
+import { parseDHToCentimes } from "@/domain/money";
+import { errMsg } from "@/lib/utils";
 import { z } from "zod";
 
 const createActivitySchema = z.object({
@@ -45,7 +47,16 @@ export async function createActivityAction(formData: FormData) {
 
   const startTime = formData.get("startTime") ? new Date(formData.get("startTime") as string) : null;
   const endTime = formData.get("endTime") ? new Date(formData.get("endTime") as string) : null;
-  const rate = formData.get("rate") ? parseInt(formData.get("rate") as string, 10) : null;
+  // Rate is DH-denominated (e.g. "60" or "59.99" per hour)
+  const rateRaw = ((formData.get("rateDH") as string) || "").trim();
+  let rate: number | null = null;
+  if (rateRaw !== "") {
+    try {
+      rate = parseDHToCentimes(rateRaw, { minCentimes: 0, field: "Rate" });
+    } catch (e: unknown) {
+      return { error: errMsg(e) };
+    }
+  }
 
   const activity = await prisma.activity.create({
     data: {
@@ -86,6 +97,7 @@ export async function deleteActivityAction(activityId: string) {
   if (!group) return { error: "Group not found" };
   if (group.ownerId !== session.userId) return { error: "Only owner" };
   if (group.status === "SETTLED" || group.status === "ARCHIVED") return { error: "Group settled" };
+  if (group.status === "CHECKOUT") return { error: "Group in checkout, cannot delete activities" };
 
   await prisma.activity.delete({ where: { id: activityId } });
   revalidatePath(`/groups/${group.id}`);

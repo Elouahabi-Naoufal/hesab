@@ -57,11 +57,14 @@ export default async function Home() {
             </div>
           </div>
 
-          {/* Demo card */}
+          {/* Demo card — STATIC EXAMPLE, not real user data */}
           <div className="bg-white dark:bg-zinc-900 rounded-3xl shadow-xl border border-zinc-200 dark:border-zinc-800 p-6 space-y-5">
             <div className="flex items-center justify-between">
               <h3 className="font-semibold">🎱 Friday Pool Night</h3>
-              <span className="px-2 py-1 rounded-full bg-amber-100 text-amber-700 text-xs font-medium">ACTIVE</span>
+              <div className="flex gap-2">
+                <span className="px-2 py-1 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-500 text-xs font-medium">Demo preview</span>
+                <span className="px-2 py-1 rounded-full bg-amber-100 text-amber-700 text-xs font-medium">ACTIVE</span>
+              </div>
             </div>
 
             <div className="space-y-3 text-sm">

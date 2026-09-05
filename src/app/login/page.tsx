@@ -11,7 +11,7 @@ export default function LoginPage() {
           <p className="text-sm text-zinc-500">Login to your Hesab account</p>
         </div>
 
-        <form action={loginAction as any} className="space-y-4 bg-white dark:bg-zinc-900 p-6 rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-sm">
+        <form action={async (formData: FormData) => { "use server"; await loginAction(formData); }} className="space-y-4 bg-white dark:bg-zinc-900 p-6 rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-sm">
           <div>
             <label className="text-sm font-medium">Email or Username</label>
             <input name="emailOrUsername" required className="mt-1 w-full px-3 py-2 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-zinc-900 dark:focus:ring-white" placeholder="naoufal@example.com" />
