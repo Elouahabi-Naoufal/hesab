@@ -15,8 +15,8 @@ fi
 # Run migrations (prisma migrate deploy is for production)
 echo ">> Running prisma migrate deploy..."
 if [ -f /app/prisma/migrations/migration_lock.toml ] || ls /app/prisma/migrations/*/migration.sql >/dev/null 2>&1; then
-  # Use npx prisma from node_modules
-  npx prisma migrate deploy
+  # Use local prisma 5.22.0 (avoid npx fetching prisma 8 RC which fails with npm 11)
+  ./node_modules/.bin/prisma migrate deploy || npx prisma@5.22.0 migrate deploy
 else
   echo ">> No migrations found, skipping"
 fi
