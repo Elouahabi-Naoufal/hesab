@@ -113,10 +113,10 @@ export default async function GroupPage({ params }: { params: Promise<{ id: stri
                 <div>
                   <div className="text-xs font-medium text-zinc-500 mb-2">Who will participate?</div>
                   <div className="space-y-1">
-                    {members.filter(m => m.userId !== group.ownerId).map(m => (
+                    {members.map(m => (
                       <label key={m.userId} className="flex items-center gap-2 text-sm p-1 rounded hover:bg-zinc-50 dark:hover:bg-zinc-700">
-                        <input type="checkbox" name="participantIds" value={m.userId} defaultChecked />
-                        <span>{m.user.displayName}</span>
+                        <input type="checkbox" name="participantIds" value={m.userId} defaultChecked disabled={m.userId === group.ownerId} />
+                        <span>{m.user.displayName} {m.userId === group.ownerId && <span className="text-xs text-zinc-400">(you)</span>}</span>
                       </label>
                     ))}
                   </div>
