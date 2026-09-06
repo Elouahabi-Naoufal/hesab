@@ -4,7 +4,6 @@ import { redirect } from "next/navigation";
 import { updateProfileAction } from "@/server/profile/actions";
 import AvatarPicker from "@/components/AvatarPicker";
 import { avatarSrc } from "@/lib/avatar";
-import SiteHeader from "@/components/SiteHeader";
 
 export default async function ProfilePage() {
   const session = await getSession();
@@ -13,9 +12,8 @@ export default async function ProfilePage() {
   if (!user) redirect("/login");
 
   return (
-    <div className="min-h-screen">
-      <SiteHeader name={user.displayName} avatarUrl={avatarSrc(user)} isAdmin={user.isAdmin} />
-      <main className="max-w-3xl mx-auto px-5 py-8 space-y-6">
+    <main className="mx-auto max-w-3xl px-4 sm:px-6 py-6 sm:py-8 space-y-8">
+      <h1 className="font-extrabold text-[26px] tracking-tight">Profile</h1>
         <div className="card-elevated p-6 space-y-4">
           <h1 className="text-[20px] font-bold tracking-tight">Profile</h1>
           <div className="grid gap-3 text-[14px]">
@@ -47,7 +45,6 @@ export default async function ProfilePage() {
         <div className="card border-dashed p-6 text-center text-[13px] text-muted">
           ID <span className="font-mono text-foreground">{user.publicId}</span> is what friends use to invite you. Share it!
         </div>
-      </main>
-    </div>
+    </main>
   );
 }

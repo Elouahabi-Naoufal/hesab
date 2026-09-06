@@ -2,13 +2,10 @@ import { prisma } from "@/lib/prisma";
 import { getSession } from "@/server/auth/session";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { logoutAction } from "@/server/auth/actions";
 import { acceptInvitationAction, declineInvitationAction } from "@/server/groups/actions";
 import SubmitButton from "@/app/components/SubmitButton";
 import { formatDH } from "@/lib/utils";
 import { IconUsers } from "@/components/icons";
-import SiteHeader from "@/components/SiteHeader";
-import { avatarSrc } from "@/lib/avatar";
 
 function activityTotal(a: any): number {
   if (a.pricingModel === "FIXED") {
@@ -140,40 +137,25 @@ export default async function Dashboard() {
   );
 
   return (
-    <div className="min-h-screen">
-      <SiteHeader
-        name={user.displayName}
-        avatarUrl={avatarSrc(user)}
-        isAdmin={user.isAdmin}
-        action={<form action={logoutAction}><button className="btn-ghost">Logout</button></form>}
-      />
-
-      <main className="max-w-5xl mx-auto px-5 py-8 space-y-8">
-        {/* Hero: net position */}
-        <section className="surface-20 p-6 sm:p-7">
-          <div className="text-[13px] text-muted mb-1">Net balance · {user.displayName}</div>
-          <div className={`money-hero text-[36px] font-bold ${netBalance > 0 ? "text-success" : netBalance < 0 ? "text-danger" : ""}`}>
-            {netBalance > 0 ? "+" : ""}{formatDH(netBalance)}
-          </div>
-          <div className="grid grid-cols-2 gap-3 mt-5">
-            <div className="well p-4">
-              <div className="text-[12px] text-muted mb-1">Owed to you</div>
-              <div className="money text-[20px] font-bold text-success">{formatDH(owedToMe)}</div>
-            </div>
-            <div className="well p-4">
-              <div className="text-[12px] text-muted mb-1">You owe</div>
-              <div className="money text-[20px] font-bold text-danger">{formatDH(iOwe)}</div>
-            </div>
-          </div>
-          {spark.length > 1 && (
-            <div className="mt-5">
-              <div className="text-[12px] text-muted mb-2">Recent movement</div>
-              <svg viewBox="0 0 100 32" className="w-full h-9" preserveAspectRatio="none" aria-hidden="true">
-                <polyline points={sparkPoints} fill="none" stroke="var(--brand)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" opacity="0.85" />
-              </svg>
-            </div>
-          )}
-        </section>
+    <main className="mx-auto max-w-5xl px-4 sm:px-6 py-6 sm:py-8 space-y-8">
+      {/* Balance band — borderless, hairlines only */}
+      <section>
+        <div className="text-[13px] text-muted">Net balance · {user.displayName}</div>
+        <div className={`money-hero text-[40px] font-extrabold ${netBalance > 0 ? "text-success" : netBalance < 0 ? "text-danger" : ""}`}>
+          {netBalance > 0 ? "+" : ""}{formatDH(netBalance)}
+        </div>
+        <div className="flex items-center gap-5 mt-3 text-[14px]">
+          <span className="text-muted">Owed to you <span className="money font-bold text-success ml-1">{formatDH(owedToMe)}</span></span>
+          <span className="w-px h-4 bg-border" aria-hidden="true"></span>
+          <span className="text-muted">You owe <span className="money font-bold text-danger ml-1">{formatDH(iOwe)}</span></span>
+        </div>
+        {spark.length > 1 && (
+          <svg viewBox="0 0 100 32" className="w-full h-9 mt-4" preserveAspectRatio="none" aria-hidden="true">
+            <polyline points={sparkPoints} fill="none" stroke="var(--action)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" opacity="0.85" />
+          </svg>
+        )}
+        <div className="divider mt-6"></div>
+      </section>
 
         {/* Invitations */}
         {invitations.length > 0 && (
@@ -218,39 +200,36 @@ export default async function Dashboard() {
               <p className="text-[13px] text-muted mt-1">Create a group for your next outing</p>
             </div>
           ) : (
-            <div className="space-y-2.5">
+            <div className="ledger">
               {groupsWithStats.map(({ membership, memberCount, outingCount, settledCount, expenseTotal, myNet }) => (
-                <Link key={membership.group.id} href={`/groups/${membership.group.id}`} className="card card-hover p-4 block">
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="w-10 h-10 rounded-[20px] bg-brand-subtle text-brand flex items-center justify-center flex-shrink-0"><IconUsers size={18} /></div>
-                      <div className="min-w-0">
-                        <div className="font-medium text-[15px] truncate">{membership.group.name}</div>
-                        <div className="text-[13px] text-muted">{memberCount} members · {outingCount} outings · {formatDH(expenseTotal)} spent</div>
-                      </div>
-                    </div>
-                    <div className="text-right flex-shrink-0">
-                      <div className={`money text-[15px] font-bold ${myNet > 0 ? "text-success" : myNet < 0 ? "text-danger" : "text-muted"}`}>
-                        {myNet > 0 ? "+" : ""}{formatDH(myNet)}
-                      </div>
-                      <div className="text-[12px] text-muted">your position</div>
+                <Link key={membership.group.id} href={`/groups/${membership.group.id}`} className="ledger-row">
+                  <div className="flex items-center gap-3 min-w-0 flex-1">
+                    <div className="w-9 h-9 rounded-[12px] bg-brand-subtle text-brand flex items-center justify-center flex-shrink-0"><IconUsers size={16} /></div>
+                    <div className="min-w-0 flex-1">
+                      <div className="font-semibold text-[14px] truncate">{membership.group.name}</div>
+                      <div className="text-[12px] text-muted truncate">{memberCount} members · {outingCount} outings · {formatDH(expenseTotal)} spent</div>
+                      {outingCount > 0 && (
+                        <div className="flex items-center gap-2 mt-1.5">
+                          <div className="progress-track flex-1 max-w-[160px]">
+                            <div className="progress-fill navy" style={{ width: `${Math.round((settledCount / outingCount) * 100)}%` }} />
+                          </div>
+                          <div className="text-[11px] text-muted">{settledCount}/{outingCount} settled</div>
+                        </div>
+                      )}
                     </div>
                   </div>
-                  {outingCount > 0 && (
-                    <div className="mt-3">
-                      <div className="progress-track">
-                        <div className="progress-fill navy" style={{ width: `${Math.round((settledCount / outingCount) * 100)}%` }} />
-                      </div>
-                      <div className="text-[12px] text-muted mt-1.5">{settledCount} of {outingCount} outings settled</div>
+                  <div className="text-right flex-shrink-0 ml-3">
+                    <div className={`money text-[15px] font-bold ${myNet > 0 ? "text-success" : myNet < 0 ? "text-danger" : "text-muted"}`}>
+                      {myNet > 0 ? "+" : ""}{formatDH(myNet)}
                     </div>
-                  )}
+                  </div>
                 </Link>
               ))}
             </div>
           )}
         </section>
           </div>
-          <aside className="space-y-6 lg:sticky lg:top-[76px] min-w-0">
+          <aside className="space-y-6 lg:sticky lg:top-6 min-w-0">
             <section id="new-group" className="card-elevated p-5">
               <h2 className="text-[15px] font-semibold mb-1">New group</h2>
               <p className="text-[13px] text-muted mb-3">Planning something? Get your people together.</p>
@@ -266,12 +245,12 @@ export default async function Dashboard() {
             {recent.length > 0 && (
               <section className="space-y-3">
                 <h2 className="text-[15px] font-semibold">Recent movement</h2>
-                <div className="card divide-y divide-[var(--border-color)] overflow-hidden">
+                <div className="ledger">
                   {recent.map(r => (
                     <Link
                       key={r.id}
                       href={r.groupId && r.outingId ? `/groups/${r.groupId}/outings/${r.outingId}` : "/dashboard"}
-                      className="flex items-center justify-between px-4 py-3 hover:bg-[var(--elevated)] transition-colors"
+                      className="ledger-row"
                     >
                       <div className="min-w-0">
                         <div className="text-[14px] font-medium truncate">{r.name}</div>
@@ -285,7 +264,6 @@ export default async function Dashboard() {
             )}
           </aside>
         </div>
-      </main>
-    </div>
+    </main>
   );
 }

@@ -5,7 +5,6 @@ import Link from "next/link";
 import QrInvite from "@/components/QrInvite";
 import { IconChevronRight } from "@/components/icons";
 import { avatarSrc } from "@/lib/avatar";
-import SiteHeader from "@/components/SiteHeader";
 import { formatDH } from "@/lib/utils";
 
 function activityTotal(a: any): number {
@@ -77,57 +76,44 @@ export default async function GroupPage({ params }: { params: Promise<{ id: stri
   const myGroupNet = outingsWithStats.reduce((s, o) => s + o.myNet, 0);
 
   return (
-    <div className="min-h-screen">
-      <SiteHeader back={{ href: "/dashboard", label: "Back to dashboard" }} />
-
-      <main className="max-w-5xl mx-auto px-5 py-8 space-y-6">
-        <div>
+    <main className="mx-auto max-w-5xl px-4 sm:px-6 py-6 sm:py-8 space-y-8">
+      <div>
+        <nav aria-label="Breadcrumb" className="text-[13px] text-muted mb-1.5">
+          <Link href="/dashboard" className="hover:text-foreground transition-colors">Groups</Link>
+          <span className="mx-1.5">/</span>
+          <span className="text-foreground font-medium">{group.name}</span>
+        </nav>
+        <div className="flex items-end justify-between gap-4">
           <h1 className="font-extrabold text-[26px] truncate tracking-tight">{group.name}</h1>
-          <p className="text-[13px] text-muted">{members.length} {members.length === 1 ? "member" : "members"} · {outings.length} {outings.length === 1 ? "outing" : "outings"}</p>
-        </div>
-        {/* Group financial strip */}
-        <section className="surface-20 p-5">
-          <div className="grid grid-cols-3 gap-3 text-center">
-            <div>
-              <div className="text-[12px] text-muted mb-1">Spent</div>
-              <div className="money text-[18px] font-bold">{formatDH(groupSpent)}</div>
-            </div>
-            <div>
-              <div className="text-[12px] text-muted mb-1">Outings</div>
-              <div className="money text-[18px] font-bold">{outings.length}</div>
-            </div>
-            <div>
-              <div className="text-[12px] text-muted mb-1">Settled</div>
-              <div className="money text-[18px] font-bold">{settledOutings}</div>
-            </div>
-          </div>
-          {outings.length > 0 && (
-            <div className="mt-4">
-              <div className="progress-track">
-                <div className="progress-fill navy" style={{ width: `${Math.round((settledOutings / outings.length) * 100)}%` }} />
-              </div>
-            </div>
-          )}
-          <div className="divider"></div>
-          <div className="flex items-center justify-between">
-            <span className="text-[13px] text-muted">Your position in this group</span>
-            <span className={`money text-[16px] font-bold ${myGroupNet > 0 ? "text-success" : myGroupNet < 0 ? "text-danger" : "text-muted"}`}>
+          <div className="text-right flex-shrink-0">
+            <div className={`money text-[20px] font-extrabold ${myGroupNet > 0 ? "text-success" : myGroupNet < 0 ? "text-danger" : "text-muted"}`}>
               {myGroupNet > 0 ? "+" : ""}{formatDH(myGroupNet)}
-            </span>
+            </div>
+            <div className="text-[12px] text-muted">your position</div>
           </div>
-        </section>
+        </div>
+        <p className="text-[13px] text-muted mt-1">
+          {members.length} {members.length === 1 ? "member" : "members"} · {outings.length} {outings.length === 1 ? "outing" : "outings"} · {formatDH(groupSpent)} spent · {settledOutings}/{outings.length} settled
+        </p>
+        {outings.length > 0 && (
+          <div className="progress-track mt-3 max-w-xs">
+            <div className="progress-fill navy" style={{ width: `${Math.round((settledOutings / outings.length) * 100)}%` }} />
+          </div>
+        )}
+        <div className="divider mt-6"></div>
+      </div>
 
-        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
+        <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_300px] lg:items-start">
         {/* Members */}
-        <section className="card-elevated p-5 space-y-4 order-2">
-          <h2 className="text-[15px] font-semibold">Members</h2>
-          <div className="space-y-1">
+        <section className="order-2 min-w-0 lg:sticky lg:top-6">
+          <h2 className="section-label mb-1">Members · {members.length}</h2>
+          <div className="ledger">
             {members.map(m => {
               const src = avatarSrc(m.user);
               return (
-              <div key={m.id} className="flex items-center justify-between py-2.5 px-3 rounded-[12px] hover:bg-elevated transition">
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-full overflow-hidden bg-brand-subtle text-brand flex items-center justify-center text-[13px] font-bold flex-shrink-0">
+              <div key={m.id} className="flex items-center justify-between py-2.5">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="w-7 h-7 rounded-full overflow-hidden bg-brand-subtle text-brand flex items-center justify-center text-[12px] font-bold flex-shrink-0">
                     {src ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img src={src} alt={m.user.displayName} className="w-full h-full object-cover" />
@@ -178,36 +164,34 @@ export default async function GroupPage({ params }: { params: Promise<{ id: stri
         </section>
 
         {/* Outings */}
-        <section className="card-elevated p-5 space-y-4 order-1">
-          <h2 className="text-[15px] font-semibold">Outings</h2>
-          <div className="space-y-2.5">
+        <section className="order-1 min-w-0 space-y-4">
+          <h2 className="section-label">Outings</h2>
+          <div className="ledger">
             {outingsWithStats.length === 0 ? (
               <div className="text-center py-8 text-[13px] text-muted">No outings yet</div>
             ) : (
               outingsWithStats.map(o => (
-                <Link key={o.id} href={`/groups/${id}/outings/${o.id}`} className="card card-hover p-4 block">
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-medium text-[15px] truncate">{o.name}</span>
-                        {o.status === "SETTLED" ? (
-                          <span className="tag bg-success-subtle text-success"><span className="status-dot bg-success"></span>Settled</span>
-                        ) : o.status === "ACTIVE" ? (
-                          <span className="tag bg-brand-subtle text-brand"><span className="status-dot bg-brand"></span>Active</span>
-                        ) : (
-                          <span className="tag bg-elevated text-muted"><span className="status-dot bg-muted"></span>{o.status}</span>
-                        )}
-                      </div>
-                      <div className="text-[13px] text-muted mt-1">
-                        {o.participantCount} participants · {o.activityCount} activities · {formatDH(o.expenseTotal)}
-                      </div>
+                <Link key={o.id} href={`/groups/${id}/outings/${o.id}`} className="ledger-row">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-semibold text-[14px] truncate">{o.name}</span>
+                      {o.status === "SETTLED" ? (
+                        <span className="text-[12px] text-success font-medium"><span className="status-dot bg-success"></span>Settled</span>
+                      ) : o.status === "ACTIVE" ? (
+                        <span className="text-[12px] text-brand font-medium"><span className="status-dot bg-brand"></span>Active</span>
+                      ) : (
+                        <span className="text-[12px] text-muted font-medium"><span className="status-dot bg-muted"></span>{o.status}</span>
+                      )}
                     </div>
-                    <div className="text-right flex-shrink-0">
-                      <div className={`money text-[15px] font-bold ${o.myNet > 0 ? "text-success" : o.myNet < 0 ? "text-danger" : "text-muted"}`}>
-                        {o.myNet > 0 ? "+" : ""}{formatDH(o.myNet)}
-                      </div>
-                      <div className="text-muted flex justify-end mt-1"><IconChevronRight size={16} /></div>
+                    <div className="text-[12px] text-muted mt-0.5">
+                      {o.participantCount} participants · {o.activityCount} activities · {formatDH(o.expenseTotal)}
                     </div>
+                  </div>
+                  <div className="text-right flex-shrink-0 ml-3">
+                    <div className={`money text-[15px] font-bold ${o.myNet > 0 ? "text-success" : o.myNet < 0 ? "text-danger" : "text-muted"}`}>
+                      {o.myNet > 0 ? "+" : ""}{formatDH(o.myNet)}
+                    </div>
+                    <div className="text-muted flex justify-end mt-0.5"><IconChevronRight size={16} /></div>
                   </div>
                 </Link>
               ))
@@ -244,6 +228,5 @@ export default async function GroupPage({ params }: { params: Promise<{ id: stri
         </section>
         </div>
       </main>
-    </div>
   );
 }

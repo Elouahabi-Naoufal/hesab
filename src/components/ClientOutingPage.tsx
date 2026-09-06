@@ -21,7 +21,7 @@ import {
   removeOutingParticipantAction, requestLeaveOutingAction, activateOutingAction,
 } from "@/server/outings/actions";
 import QrInvite from "@/components/QrInvite";
-import SiteHeader from "@/components/SiteHeader";
+import Link from "next/link";
 import { IconCheck, IconX, IconPencil, IconChevronRight, IconReceipt } from "@/components/icons";
 
 type AR = { error?: string };
@@ -68,48 +68,50 @@ export default function ClientOutingPage({
   groupId, outingId, isOwner, sessionUserId,
   participants, usersMap, activities, activityStats,
   memberBalances, totalResponsibility, totalPaid, allActivitiesClosed, hasSettlement, outing,
-  userName, avatarUrl,
+  groupName,
 }: {
   groupId: string; outingId: string; isOwner: boolean; sessionUserId: string;
   participants: any[]; usersMap: Map<string, string>; activities: any[]; activityStats: any[]; memberBalances: any[];
   totalResponsibility: number; totalPaid: number; allActivitiesClosed: boolean;
   hasSettlement: boolean; outing: any;
-  userName?: string; avatarUrl?: string | null;
+  groupName?: string;
 }) {
   const netDiff = totalResponsibility - totalPaid;
 
   return (
-    <div className="min-h-screen">
-      <SiteHeader
-        back={{ href: `/groups/${groupId}`, label: "Back to group" }}
-        name={userName}
-        avatarUrl={avatarUrl}
-        action={<>
-          {isOwner && outing.status === "PLANNING" && (
-            <WForm action={async () => await activateOutingAction(outingId)} initialState={{}}>
-              <button className="btn-primary btn-sm">Activate</button>
-            </WForm>
-          )}
-          {isOwner && allActivitiesClosed && outing.status !== "SETTLED" && !hasSettlement && (
-            <a href={`/groups/${groupId}/outings/${outingId}/settlement`} className="btn-navy btn-sm">Settle Outing</a>
-          )}
-          {isOwner && outing.status === "SETTLED" && (
-            <span className="tag bg-success-subtle text-success"><IconCheck size={12} />Settled</span>
-          )}
-        </>}
-      />
-
-      <main className="max-w-5xl mx-auto px-5 py-8 space-y-6">
-        <div>
+    <main className="mx-auto max-w-5xl px-4 sm:px-6 py-6 sm:py-8 space-y-8">
+      <div>
+        <nav aria-label="Breadcrumb" className="text-[13px] text-muted mb-1.5">
+          <Link href="/dashboard" className="hover:text-foreground transition-colors">Groups</Link>
+          <span className="mx-1.5">/</span>
+          <Link href={`/groups/${groupId}`} className="hover:text-foreground transition-colors">{groupName ?? "Group"}</Link>
+          <span className="mx-1.5">/</span>
+          <span className="text-foreground font-medium">{outing.name}</span>
+        </nav>
+        <div className="flex items-end justify-between gap-4">
           <h1 className="font-extrabold text-[26px] truncate tracking-tight">{outing.name}</h1>
-          <p className="text-[13px] text-muted">{outing.status} · {participants.length} {participants.length === 1 ? "participant" : "participants"} · {activities.length} {activities.length === 1 ? "activity" : "activities"}</p>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            {isOwner && outing.status === "PLANNING" && (
+              <WForm action={async () => await activateOutingAction(outingId)} initialState={{}}>
+                <button className="btn-primary btn-sm">Activate</button>
+              </WForm>
+            )}
+            {isOwner && allActivitiesClosed && outing.status !== "SETTLED" && !hasSettlement && (
+              <a href={`/groups/${groupId}/outings/${outingId}/settlement`} className="btn-navy btn-sm">Settle Outing</a>
+            )}
+            {isOwner && outing.status === "SETTLED" && (
+              <span className="tag bg-success-subtle text-success"><IconCheck size={12} />Settled</span>
+            )}
+          </div>
         </div>
-        {/* Live Balances — financial hero */}
-        <section className="surface-20 p-6">
+        <p className="text-[13px] text-muted mt-1">{outing.status} · {participants.length} {participants.length === 1 ? "participant" : "participants"} · {activities.length} {activities.length === 1 ? "activity" : "activities"}</p>
+      </div>
+        {/* Live balances — borderless band */}
+        <section>
           <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-4">
             <div>
               <div className="text-[13px] text-muted mb-1">Live balances</div>
-              <div className="money-hero text-[34px] font-bold">{formatDH(totalPaid)}</div>
+              <div className="money-hero text-[40px] font-extrabold">{formatDH(totalPaid)}</div>
               <div className="text-[13px] text-muted mt-1">paid of {formatDH(totalResponsibility)} owed</div>
             </div>
             <div className="sm:text-right">
@@ -120,6 +122,7 @@ export default function ClientOutingPage({
             </div>
           </div>
           <SplitBar paid={totalPaid} responsibility={totalResponsibility} />
+          <div className="divider mt-6"></div>
         </section>
 
         <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
@@ -165,10 +168,10 @@ export default function ClientOutingPage({
           )}
         </section>
           </div>
-          <aside className="space-y-6 lg:sticky lg:top-[76px] min-w-0 order-2">
-            <section className="card-elevated p-5">
-              <h2 className="text-[15px] font-semibold mb-3">Balances</h2>
-              <div className="space-y-1">
+          <aside className="space-y-8 lg:sticky lg:top-6 min-w-0 order-2">
+            <section>
+              <h2 className="section-label mb-1">Balances</h2>
+              <div className="ledger">
                 {memberBalances.filter((b: any) => b.netBalance !== 0).map((b: any) => (
                   <div key={b.userId} className="flex items-center justify-between py-1.5">
                     <span className="text-[14px]">{b.displayName}</span>
@@ -188,8 +191,8 @@ export default function ClientOutingPage({
                 )}
               </div>
             </section>
-            <section className="card-elevated p-5">
-              <h2 className="text-[15px] font-semibold mb-3">Participants</h2>
+            <section>
+              <h2 className="section-label mb-2">Participants</h2>
               <div className="flex flex-wrap items-center gap-2">
                 {participants.map((p: any) => (
                   <span key={p.id} className="tag bg-elevated text-foreground">
@@ -220,7 +223,6 @@ export default function ClientOutingPage({
           </aside>
         </div>
       </main>
-    </div>
   );
 }
 

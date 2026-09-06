@@ -432,6 +432,30 @@ details > summary::-webkit-details-marker { display: none; }
 details[open] > summary .chev { transform: rotate(90deg); }
 .chev { display: inline-block; transition: transform 150ms ease; }
 
+/* ---------- Ledger: borderless rows, hairlines only (not cards) ---------- */
+.ledger > * + * {
+  border-top: 1px solid var(--border-color);
+}
+.ledger-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 4px;
+  border-radius: 8px;
+  transition: background 120ms ease;
+}
+a.ledger-row:hover {
+  background: var(--elevated);
+}
+.section-label {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+
 /* ---------- Misc ---------- */
 .divider { height: 1px; background: var(--border-color); }
 
