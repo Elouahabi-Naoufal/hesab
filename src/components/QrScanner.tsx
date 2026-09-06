@@ -43,7 +43,7 @@ export default function QrScanner({ onScan, onError }: QrScannerProps) {
 
   return (
     <div className="flex flex-col items-center gap-4">
-      <div className="w-full max-w-sm rounded-2xl overflow-hidden border border-zinc-200 dark:border-zinc-700 bg-black">
+      <div className="w-full max-w-sm rounded-[14px] overflow-hidden border border-border bg-black">
         <video
           ref={ref}
           muted
@@ -54,13 +54,13 @@ export default function QrScanner({ onScan, onError }: QrScannerProps) {
       </div>
 
       {error && (
-        <p className="text-sm text-red-500 text-center">{error}</p>
+        <p className="text-[13px] text-danger text-center">{error}</p>
       )}
 
       <div className="flex gap-3">
         <button
           onClick={togglePause}
-          className="px-6 py-3 rounded-xl bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 font-medium hover:opacity-90"
+          className="btn-primary px-6 py-3"
         >
           {paused ? "Resume" : "Pause"}
         </button>

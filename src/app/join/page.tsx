@@ -49,7 +49,6 @@ function JoinContent() {
 
   useEffect(() => {
     if (!token) {
-      // Use setTimeout to avoid synchronous setState in effect
       setTimeout(() => {
         setStatus("error");
         setMessage("No invitation token found.");
@@ -69,6 +68,7 @@ function JoinContent() {
       .catch(() => {
         setStatus("login");
       });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
 
   const handleLoginRedirect = () => {
@@ -79,8 +79,8 @@ function JoinContent() {
   if (status === "loading") {
     return (
       <div className="text-center space-y-4">
-        <div className="animate-spin w-8 h-8 border-4 border-zinc-300 border-t-zinc-900 rounded-full mx-auto" />
-        <p className="text-zinc-500">Processing invitation...</p>
+        <div className="animate-spin w-8 h-8 border-4 border-border border-t-brand rounded-full mx-auto" />
+        <p className="text-muted text-[14px]">Processing invitation...</p>
       </div>
     );
   }
@@ -88,25 +88,19 @@ function JoinContent() {
   if (status === "login") {
     return (
       <div className="text-center space-y-4">
-        <div className="w-16 h-16 mx-auto rounded-2xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-2xl">
+        <div className="w-16 h-16 mx-auto rounded-[20px] bg-brand-subtle text-brand flex items-center justify-center text-2xl">
           {type === "outing" ? "🎉" : "👥"}
         </div>
         <div>
-          <h2 className="text-xl font-bold">You&apos;re invited!</h2>
-          <p className="text-sm text-zinc-500 mt-1">
+          <h2 className="text-[20px] font-bold tracking-tight">You&apos;re invited!</h2>
+          <p className="text-[14px] text-muted mt-1">
             Log in or create an account to join this {type}
           </p>
         </div>
-        <button
-          onClick={handleLoginRedirect}
-          className="w-full py-3 rounded-xl bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 font-medium hover:opacity-90"
-        >
+        <button onClick={handleLoginRedirect} className="btn-primary w-full py-3">
           Login to Join
         </button>
-        <Link
-          href="/register"
-          className="block text-sm text-zinc-500 hover:text-zinc-900 dark:hover:text-white"
-        >
+        <Link href="/register" className="block text-[13px] text-muted hover:text-foreground">
           Create an account instead
         </Link>
       </div>
@@ -116,8 +110,8 @@ function JoinContent() {
   if (status === "joining") {
     return (
       <div className="text-center space-y-4">
-        <div className="animate-spin w-8 h-8 border-4 border-zinc-300 border-t-zinc-900 rounded-full mx-auto" />
-        <p className="text-zinc-500">Joining {type}...</p>
+        <div className="animate-spin w-8 h-8 border-4 border-border border-t-brand rounded-full mx-auto" />
+        <p className="text-muted text-[14px]">Joining {type}...</p>
       </div>
     );
   }
@@ -125,31 +119,28 @@ function JoinContent() {
   if (status === "success") {
     return (
       <div className="text-center space-y-4">
-        <div className="w-16 h-16 mx-auto rounded-2xl bg-green-100 dark:bg-green-900/30 flex items-center justify-center text-2xl text-green-600">
+        <div className="w-16 h-16 mx-auto rounded-[20px] bg-success-subtle flex items-center justify-center text-2xl text-success">
           ✓
         </div>
         <div>
-          <h2 className="text-xl font-bold text-green-600 dark:text-green-400">Joined!</h2>
-          <p className="text-sm text-zinc-500 mt-1">{message}</p>
+          <h2 className="text-[20px] font-bold text-success tracking-tight">Joined!</h2>
+          <p className="text-[14px] text-muted mt-1">{message}</p>
         </div>
-        <p className="text-xs text-zinc-400">Redirecting...</p>
+        <p className="text-[12px] text-muted">Redirecting...</p>
       </div>
     );
   }
 
   return (
     <div className="text-center space-y-4">
-      <div className="w-16 h-16 mx-auto rounded-2xl bg-red-100 dark:bg-red-900/30 flex items-center justify-center text-2xl text-red-600">
+      <div className="w-16 h-16 mx-auto rounded-[20px] bg-danger-subtle flex items-center justify-center text-2xl text-danger">
         ✗
       </div>
       <div>
-        <h2 className="text-xl font-bold text-red-600 dark:text-red-400">Error</h2>
-        <p className="text-sm text-zinc-500 mt-1">{message}</p>
+        <h2 className="text-[20px] font-bold text-danger tracking-tight">Something went wrong</h2>
+        <p className="text-[14px] text-muted mt-1">{message}</p>
       </div>
-      <Link
-        href="/"
-        className="inline-block px-6 py-3 rounded-xl bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 font-medium hover:opacity-90"
-      >
+      <Link href="/" className="btn-primary inline-block px-6 py-3">
         Go Home
       </Link>
     </div>
@@ -158,22 +149,20 @@ function JoinContent() {
 
 export default function JoinPage() {
   return (
-    <div className="min-h-screen flex items-center justify-center px-4 py-10">
+    <div className="min-h-screen flex items-center justify-center px-5 py-10">
       <div className="w-full max-w-sm">
         <div className="text-center mb-6">
-          <Link href="/" className="inline-flex items-center gap-2 text-zinc-900 dark:text-white">
-            <div className="w-8 h-8 rounded-lg bg-zinc-900 dark:bg-white flex items-center justify-center text-white dark:text-zinc-900 font-bold text-sm">
-              H
-            </div>
-            <span className="font-bold">Hesab</span>
+          <Link href="/" className="inline-flex items-center gap-2">
+            <div className="brand-mark">P</div>
+            <span className="font-bold text-[15px]">PoolSplit</span>
           </Link>
         </div>
 
-        <div className="bg-white dark:bg-zinc-900 p-6 rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-sm">
+        <div className="card-elevated p-6">
           <Suspense
             fallback={
               <div className="text-center">
-                <div className="animate-spin w-8 h-8 border-4 border-zinc-300 border-t-zinc-900 rounded-full mx-auto" />
+                <div className="animate-spin w-8 h-8 border-4 border-border border-t-brand rounded-full mx-auto" />
               </div>
             }
           >

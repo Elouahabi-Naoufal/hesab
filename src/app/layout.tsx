@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Hesab — Group Expense Settlement",
+  title: "PoolSplit — Group Expense Settlement",
   description: "Who should pay whom, and how much? — Simple settlement for friends",
 };
 

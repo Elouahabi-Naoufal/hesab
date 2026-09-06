@@ -50,20 +50,29 @@ export default async function SettlementPage({ params }: { params: Promise<{ id:
     return { userId: p.userId, displayName: p.user.displayName, totalPaid: paid, totalResponsibility: resp, netBalance: paid - resp };
   });
 
+  const me = memberBalances.find(b => b.userId === session.userId);
+  const myNet = me?.netBalance ?? 0;
+  const myTransfersIn = transfers.filter(t => t.toUserId === session.userId);
+  const myTransfersOut = transfers.filter(t => t.fromUserId === session.userId);
+  const toReceive = myTransfersIn.reduce((s, t) => s + t.amountCentimes, 0);
+  const toPay = myTransfersOut.reduce((s, t) => s + t.amountCentimes, 0);
+
   const explanation = explainSettlement(
     transfers.map(t => ({ fromUserId: t.fromUserId, toUserId: t.toUserId, amountCentimes: t.amountCentimes })),
     memberBalances
   );
 
-  const allSettled = transfers.every(t => t.status === "PAID");
+  const paidCount = transfers.filter(t => t.status === "PAID").length;
+  const allSettled = transfers.length > 0 && paidCount === transfers.length;
 
   return (
     <div className="min-h-screen">
       <header className="header">
-        <div className="max-w-5xl mx-auto px-5 py-3 flex items-center gap-3">
+        <div className="header-inner">
           <Link href={`/groups/${groupId}/outings/${outingId}`} className="p-2 rounded-[10px] hover:bg-elevated transition text-muted">←</Link>
           <div className="flex-1 min-w-0">
-            <h1 className="font-semibold text-[18px]">Settlement — {outing.name}</h1>
+            <h1 className="font-semibold text-[18px] tracking-tight">Settlement</h1>
+            <p className="text-[13px] text-muted">{outing.name}</p>
           </div>
           {isOwner && (
             <div className="flex gap-2">
@@ -79,7 +88,7 @@ export default async function SettlementPage({ params }: { params: Promise<{ id:
                 const { finalizeSettlementAction } = await import("@/server/settlement/actions");
                 await finalizeSettlementAction(outingId);
               }}>
-                <button className="btn-settle text-[13px] px-4 py-2 rounded-[10px]">Finalize</button>
+                <button className="btn-settle text-[13px] px-4">Finalize</button>
               </form>
             </div>
           )}
@@ -87,116 +96,144 @@ export default async function SettlementPage({ params }: { params: Promise<{ id:
       </header>
 
       <main className="max-w-5xl mx-auto px-5 py-8 space-y-6">
-        {/* Settlement hero */}
-        <div className="card-elevated p-6 border-l-3 border-l-settle">
+        {/* Personal result hero */}
+        <section className="surface-20 accent-edge-settle p-6">
           <div className="flex items-center gap-3 mb-4">
-            <div className="w-10 h-10 rounded-[14px] bg-settle-subtle text-settle flex items-center justify-center text-lg">💰</div>
+            <div className="w-10 h-10 rounded-[14px] bg-settle-subtle text-settle flex items-center justify-center text-lg font-bold">⇄</div>
             <div>
-              <h2 className="text-[20px] font-bold tracking-tight">Settlement</h2>
-              <p className="text-[13px] text-muted">{outing.name}</p>
+              <h2 className="text-[20px] font-bold tracking-tight">Your settlement</h2>
+              <p className="text-[13px] text-muted">
+                {myNet > 0 ? "You receive the difference" : myNet < 0 ? "You pay the difference" : "You are settled up"}
+              </p>
             </div>
           </div>
-          <div className="grid grid-cols-3 gap-4">
-            <div className="text-center p-3 rounded-[14px] bg-elevated">
-              <div className="text-[12px] text-muted mb-1">Total Expenses</div>
-              <div className="money text-[20px] font-bold">{formatDH(settlement.totalExpenses / 100)} DH</div>
+          <div className={`money-hero text-[34px] font-bold ${myNet > 0 ? "text-success" : myNet < 0 ? "text-danger" : "text-muted"}`}>
+            {myNet > 0 ? "+" : ""}{formatDH(myNet)}
+          </div>
+          <div className="grid grid-cols-2 gap-3 mt-5">
+            <div className="well p-4">
+              <div className="text-[12px] text-muted mb-1">To receive</div>
+              <div className="money text-[18px] font-bold text-success">{formatDH(toReceive)}</div>
+              <div className="text-[12px] text-muted mt-1">{myTransfersIn.length} transfer(s)</div>
             </div>
-            <div className="text-center p-3 rounded-[14px] bg-elevated">
-              <div className="text-[12px] text-muted mb-1">Total Paid</div>
-              <div className="money text-[20px] font-bold">{formatDH(settlement.totalPaid / 100)} DH</div>
+            <div className="well p-4">
+              <div className="text-[12px] text-muted mb-1">To pay</div>
+              <div className="money text-[18px] font-bold text-danger">{formatDH(toPay)}</div>
+              <div className="text-[12px] text-muted mt-1">{myTransfersOut.length} transfer(s)</div>
             </div>
-            <div className="text-center p-3 rounded-[14px] bg-elevated">
+          </div>
+          {transfers.length > 0 && (
+            <div className="mt-5">
+              <div className="progress-track">
+                <div className="progress-fill settle" style={{ width: `${Math.round((paidCount / transfers.length) * 100)}%` }} />
+              </div>
+              <div className="text-[12px] text-muted mt-1.5">{paidCount} of {transfers.length} transfers confirmed</div>
+            </div>
+          )}
+        </section>
+
+        {/* Group totals */}
+        <section className="card-elevated p-5">
+          <div className="grid grid-cols-3 gap-3 text-center">
+            <div>
+              <div className="text-[12px] text-muted mb-1">Expenses</div>
+              <div className="money text-[18px] font-bold">{formatDH(settlement.totalExpenses)}</div>
+            </div>
+            <div>
+              <div className="text-[12px] text-muted mb-1">Paid</div>
+              <div className="money text-[18px] font-bold">{formatDH(settlement.totalPaid)}</div>
+            </div>
+            <div>
               <div className="text-[12px] text-muted mb-1">Transfers</div>
-              <div className="money text-[20px] font-bold">{transfers.length}</div>
+              <div className="money text-[18px] font-bold">{transfers.length}</div>
             </div>
           </div>
-        </div>
+        </section>
 
         {/* Member Balances */}
-        <div className="card-elevated p-5 space-y-3">
-          <h3 className="text-[15px] font-semibold">Member Balances</h3>
-          <div className="space-y-2">
+        <section className="card-elevated p-5 space-y-3">
+          <h3 className="text-[15px] font-semibold">Member balances</h3>
+          <div className="space-y-1">
             {memberBalances.map(b => (
               <div key={b.userId} className="flex items-center justify-between py-2.5 px-3 rounded-[10px] bg-elevated">
-                <div>
-                  <div className="text-[14px] font-medium">{b.displayName}</div>
-                  <div className="text-[12px] text-muted">Paid: {formatDH(b.totalPaid / 100)} · Responsible: {formatDH(b.totalResponsibility / 100)}</div>
+                <div className="min-w-0">
+                  <div className="text-[14px] font-medium">{b.displayName}{b.userId === session.userId ? <span className="text-[12px] text-muted"> (you)</span> : null}</div>
+                  <div className="text-[12px] text-muted">Paid {formatDH(b.totalPaid)} · Owes {formatDH(b.totalResponsibility)}</div>
                 </div>
-                <div className={`money text-[16px] font-bold ${b.netBalance > 0 ? "text-success" : b.netBalance < 0 ? "text-danger" : "text-muted"}`}>
-                  {b.netBalance > 0 ? "+" : ""}{formatDH(b.netBalance / 100)} DH
+                <div className={`money text-[15px] font-bold ml-3 ${b.netBalance > 0 ? "text-success" : b.netBalance < 0 ? "text-danger" : "text-muted"}`}>
+                  {b.netBalance > 0 ? "+" : ""}{formatDH(b.netBalance)}
                 </div>
               </div>
             ))}
           </div>
-        </div>
+        </section>
 
         {/* Transfers */}
-        <div className="card-elevated p-5 space-y-3">
-          <h3 className="text-[15px] font-semibold">Who Owes Whom</h3>
+        <section className="card-elevated p-5 space-y-3">
+          <h3 className="text-[15px] font-semibold">Who owes whom</h3>
           {transfers.length === 0 ? (
             <div className="text-center py-6 text-[14px] text-muted">Everyone is settled up!</div>
           ) : (
             <div className="space-y-2">
               {transfers.map((t, i) => (
-                <div key={t.id} className="flex items-center justify-between py-3 px-4 rounded-[14px] bg-settle-subtle border border-settle/10">
-                  <div>
+                <div key={t.id} className="flex items-center justify-between py-3 px-4 rounded-[14px] bg-settle-subtle">
+                  <div className="min-w-0">
                     <div className="text-[14px] font-medium">
                       {userMap.get(t.fromUserId) || "?"} <span className="text-settle mx-1">→</span> {userMap.get(t.toUserId) || "?"}
                     </div>
                     <div className="text-[12px] text-muted">Transfer #{i + 1}</div>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <span className="money text-[16px] font-bold text-settle">{formatDH(t.amountCentimes / 100)} DH</span>
+                  <div className="flex items-center gap-2.5 flex-shrink-0 ml-3">
+                    <span className="money text-[16px] font-bold text-settle">{formatDH(t.amountCentimes)}</span>
                     {t.status === "PAID" && <span className="tag bg-success-subtle text-success">Paid ✓</span>}
                   </div>
                 </div>
               ))}
             </div>
           )}
-        </div>
+        </section>
 
         {/* Explanation */}
-        <div className="card-elevated p-5 space-y-3">
+        <section className="card-elevated p-5 space-y-3">
           <h3 className="text-[15px] font-semibold">Explanation</h3>
           <pre className="text-[13px] bg-elevated p-4 rounded-[14px] overflow-x-auto whitespace-pre-wrap font-mono text-muted">
             {explanation}
           </pre>
-        </div>
+        </section>
 
         {/* Mark Transfer Paid */}
         {isOwner && transfers.length > 0 && (
-          <div className="card-elevated p-5 space-y-3">
-            <h3 className="text-[15px] font-semibold">Mark Transfers</h3>
+          <section className="card-elevated p-5 space-y-3">
+            <h3 className="text-[15px] font-semibold">Confirm transfers</h3>
             <div className="space-y-2">
               {transfers.map(t => (
                 <form key={t.id} action={async () => {
                   "use server";
                   const { markTransferPaidAction } = await import("@/server/settlement/actions");
                   await markTransferPaidAction(t.id);
-                }} className="flex items-center justify-between py-2.5 px-3 rounded-[10px] bg-elevated">
-                  <span className="text-[14px]">
-                    {userMap.get(t.fromUserId)} → {userMap.get(t.toUserId)}: <span className="money font-medium">{formatDH(t.amountCentimes / 100)} DH</span>
+                }} className="flex items-center justify-between py-2.5 px-3 rounded-[10px] bg-elevated gap-3">
+                  <span className="text-[14px] min-w-0">
+                    {userMap.get(t.fromUserId)} → {userMap.get(t.toUserId)}: <span className="money font-semibold">{formatDH(t.amountCentimes)}</span>
                   </span>
-                  <div className="flex items-center gap-2">
-                    {t.status === "PAID" ? (
-                      <span className="tag bg-success-subtle text-success">Paid ✓</span>
-                    ) : (
-                      <button type="submit" className="btn-primary text-[12px] px-3 py-1.5">Mark Paid</button>
-                    )}
-                  </div>
+                  {t.status === "PAID" ? (
+                    <span className="tag bg-success-subtle text-success flex-shrink-0">Paid ✓</span>
+                  ) : (
+                    <button type="submit" className="btn-primary text-[12px] px-3 py-1.5 flex-shrink-0">Mark Paid</button>
+                  )}
                 </form>
               ))}
             </div>
-          </div>
+          </section>
         )}
 
-        {/* Final state */}
+        {/* Completion */}
         {allSettled && (
-          <div className="card-elevated p-8 text-center border-l-3 border-l-success">
-            <div className="text-3xl mb-3">✓</div>
-            <div className="text-[20px] font-bold text-success mb-1">Group settled</div>
-            <div className="text-[14px] text-muted">All transfers have been completed</div>
-          </div>
+          <section className="surface-20 p-8 text-center">
+            <div className="w-12 h-12 mx-auto rounded-full bg-success-subtle text-success flex items-center justify-center text-xl font-bold mb-3">✓</div>
+            <div className="text-[22px] font-bold text-success">Group settled</div>
+            <div className="money text-[16px] font-semibold mt-1">{formatDH(settlement.totalExpenses)} reconciled</div>
+            <div className="text-[13px] text-muted mt-1">All {transfers.length} transfer(s) confirmed</div>
+          </section>
         )}
       </main>
     </div>

@@ -7,6 +7,29 @@ import { acceptInvitationAction, declineInvitationAction } from "@/server/groups
 import SubmitButton from "@/app/components/SubmitButton";
 import { formatDH } from "@/lib/utils";
 
+function activityTotal(a: any): number {
+  if (a.pricingModel === "FIXED") {
+    return (a.usageRecords ?? [])
+      .filter((r: any) => r.status !== "DISPUTED")
+      .reduce((s: number, r: any) => s + (r.totalCentimes ?? 0), 0);
+  }
+  return (a.lineItems ?? []).reduce((s: number, l: any) => s + (l.priceCentimes ?? 0), 0);
+}
+
+function myResponsibility(a: any, userId: string): number {
+  if (a.pricingModel === "FIXED") {
+    let mine = 0;
+    for (const r of (a.usageRecords ?? []).filter((r: any) => r.status !== "DISPUTED")) {
+      const parts = r.participants ?? [];
+      if (parts.some((pp: any) => pp.userId === userId) && parts.length > 0) {
+        mine += Math.floor((r.totalCentimes ?? 0) / parts.length);
+      }
+    }
+    return mine;
+  }
+  return (a.lineItems ?? []).filter((l: any) => l.userId === userId).reduce((s: number, l: any) => s + (l.priceCentimes ?? 0), 0);
+}
+
 export default async function Dashboard() {
   const session = await getSession();
   if (!session) redirect("/login");
@@ -25,64 +48,184 @@ export default async function Dashboard() {
     include: { group: true },
   });
 
+  // ---- Financial position: all outings the user participates in ----
+  const myParticipations = await prisma.outingParticipant.findMany({
+    where: { userId: session.userId },
+    include: { outing: true },
+  });
+  const myOutingIds = myParticipations.map(p => p.outingId);
+  const outingIdToGroupId = new Map(myParticipations.map(p => [p.outingId, p.outing.groupId]));
+
+  const myActivities = myOutingIds.length
+    ? await prisma.activity.findMany({
+        where: { outingId: { in: myOutingIds } },
+        include: {
+          payments: true,
+          usageRecords: { include: { participants: true } },
+          lineItems: true,
+          outing: true,
+        },
+        orderBy: { createdAt: "desc" },
+      })
+    : [];
+
+  const perOuting = new Map<string, { paid: number; resp: number }>();
+  for (const a of myActivities) {
+    if (!a.outingId) continue;
+    const key: string = a.outingId;
+    const e = perOuting.get(key) ?? { paid: 0, resp: 0 };
+    e.paid += (a.payments ?? []).filter((p: any) => p.userId === session.userId).reduce((s: number, p: any) => s + p.amountCentimes, 0);
+    e.resp += myResponsibility(a, session.userId);
+    perOuting.set(key, e);
+  }
+  let owedToMe = 0;
+  let iOwe = 0;
+  for (const { paid, resp } of perOuting.values()) {
+    const net = paid - resp;
+    if (net > 0) owedToMe += net;
+    else iOwe += -net;
+  }
+  const netBalance = owedToMe - iOwe;
+
+  const recent = myActivities.slice(0, 5).map(a => ({
+    id: a.id,
+    name: a.name,
+    outingName: (a as any).outing?.name ?? "Outing",
+    outingId: a.outingId ?? "",
+    groupId: (a.outingId && outingIdToGroupId.get(a.outingId)) ?? "",
+    total: activityTotal(a),
+    createdAt: a.createdAt,
+  }));
+
+  const spark = myActivities.slice(0, 12).reverse().map(activityTotal);
+  const sparkMax = Math.max(1, ...spark);
+  const sparkPoints = spark.map((v, i) => {
+    const x = spark.length === 1 ? 50 : (i / (spark.length - 1)) * 100;
+    const y = 28 - (v / sparkMax) * 24;
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  }).join(" ");
+
   const groupsWithStats = await Promise.all(
     memberships.map(async (m) => {
       const memberCount = await prisma.groupMember.count({ where: { groupId: m.group.id } });
-      const outings = await prisma.outing.findMany({ where: { groupId: m.group.id }, include: { activities: true } });
+      const outings = await prisma.outing.findMany({
+        where: { groupId: m.group.id },
+        include: {
+          activities: {
+            include: {
+              payments: true,
+              usageRecords: { include: { participants: true } },
+              lineItems: true,
+            },
+          },
+        },
+      });
       const outingCount = outings.length;
       const settledCount = outings.filter(o => o.status === "SETTLED").length;
-      return { membership: m, memberCount, outingCount, settledCount };
+      let expenseTotal = 0;
+      let myPaid = 0;
+      let myResp = 0;
+      for (const o of outings) {
+        for (const a of o.activities) {
+          expenseTotal += activityTotal(a);
+          myPaid += (a.payments ?? []).filter((p: any) => p.userId === session.userId).reduce((s: number, p: any) => s + p.amountCentimes, 0);
+          myResp += myResponsibility(a, session.userId);
+        }
+      }
+      return { membership: m, memberCount, outingCount, settledCount, expenseTotal, myNet: myPaid - myResp };
     })
   );
 
   return (
     <div className="min-h-screen">
       <header className="header">
-        <div className="max-w-5xl mx-auto px-5 py-3 flex items-center justify-between">
+        <div className="header-inner justify-between">
           <Link href="/dashboard" className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-[10px] bg-brand flex items-center justify-center text-white font-bold text-sm">H</div>
-            <span className="font-semibold text-[15px]">PoolSplit</span>
+            <div className="brand-mark">P</div>
+            <span className="font-semibold text-[15px] tracking-tight">PoolSplit</span>
           </Link>
-          <div className="flex items-center gap-2">
-            <span className="hidden sm:inline text-[13px] text-muted">{user.displayName}</span>
-            <Link href="/scan" className="btn-ghost text-[13px]">Scan</Link>
-            <Link href="/profile" className="btn-ghost text-[13px]">Profile</Link>
+          <div className="flex items-center gap-1.5">
+            <span className="hidden sm:inline text-[13px] text-muted mr-1">{user.displayName}</span>
+            <Link href="/scan" className="btn-ghost">Scan</Link>
+            <Link href="/profile" className="btn-ghost">Profile</Link>
             {user.isAdmin && <Link href="/admin" className="tag bg-warn-subtle text-warn">Admin</Link>}
-            <form action={logoutAction}><button className="btn-ghost text-[13px]">Logout</button></form>
+            <form action={logoutAction}><button className="btn-ghost">Logout</button></form>
           </div>
         </div>
       </header>
 
       <main className="max-w-5xl mx-auto px-5 py-8 space-y-8">
-        {/* Hero: Financial identity */}
-        <div className="space-y-1">
-          <h1 className="text-[32px] leading-tight font-bold tracking-tight">Welcome, {user.displayName}</h1>
-          <p className="text-muted text-[15px]">Your public ID: <span className="font-mono text-brand font-medium">{user.publicId}</span> — share it to get invited</p>
-        </div>
+        {/* Hero: net position */}
+        <section className="surface-20 p-6 sm:p-7">
+          <div className="text-[13px] text-muted mb-1">Net balance · {user.displayName}</div>
+          <div className={`money-hero text-[36px] font-bold ${netBalance > 0 ? "text-success" : netBalance < 0 ? "text-danger" : ""}`}>
+            {netBalance > 0 ? "+" : ""}{formatDH(netBalance)}
+          </div>
+          <div className="grid grid-cols-2 gap-3 mt-5">
+            <div className="well p-4">
+              <div className="text-[12px] text-muted mb-1">Owed to you</div>
+              <div className="money text-[20px] font-bold text-success">{formatDH(owedToMe)}</div>
+            </div>
+            <div className="well p-4">
+              <div className="text-[12px] text-muted mb-1">You owe</div>
+              <div className="money text-[20px] font-bold text-danger">{formatDH(iOwe)}</div>
+            </div>
+          </div>
+          {spark.length > 1 && (
+            <div className="mt-5">
+              <div className="text-[12px] text-muted mb-2">Recent movement</div>
+              <svg viewBox="0 0 100 32" className="w-full h-9" preserveAspectRatio="none" aria-hidden="true">
+                <polyline points={sparkPoints} fill="none" stroke="var(--brand)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" opacity="0.85" />
+              </svg>
+            </div>
+          )}
+        </section>
+
+        {/* Recent activity */}
+        {recent.length > 0 && (
+          <section className="space-y-3">
+            <h2 className="text-[15px] font-semibold">Recent movement</h2>
+            <div className="card divide-y divide-[var(--border-color)] overflow-hidden">
+              {recent.map(r => (
+                <Link
+                  key={r.id}
+                  href={r.groupId && r.outingId ? `/groups/${r.groupId}/outings/${r.outingId}` : "/dashboard"}
+                  className="flex items-center justify-between px-4 py-3 hover:bg-[var(--elevated)] transition"
+                >
+                  <div className="min-w-0">
+                    <div className="text-[14px] font-medium truncate">{r.name}</div>
+                    <div className="text-[12px] text-muted truncate">{r.outingName}</div>
+                  </div>
+                  <span className="money text-[14px] font-semibold ml-3">{formatDH(r.total)}</span>
+                </Link>
+              ))}
+            </div>
+          </section>
+        )}
 
         {/* Create group */}
-        <div className="card-elevated p-5">
+        <section className="card-elevated p-5">
+          <h2 className="text-[15px] font-semibold mb-3">New group</h2>
           <form action={async (formData: FormData) => {
             "use server";
             const { createGroupAction } = await import("@/server/groups/actions");
             await createGroupAction(formData);
-          }} className="flex flex-col sm:flex-row gap-3">
+          }} className="flex flex-col sm:flex-row gap-2.5">
             <input name="name" placeholder="New group name" required className="input flex-1" />
-            <input type="hidden" name="dummy" value="" className="hidden" />
             <button className="btn-primary whitespace-nowrap">Create Group</button>
           </form>
-        </div>
+        </section>
 
         {/* Invitations */}
         {invitations.length > 0 && (
-          <div className="space-y-3">
+          <section className="space-y-3">
             <h2 className="text-[15px] font-semibold flex items-center gap-2">
-              <span className="status-dot bg-warn"></span>Pending Invitations
+              <span className="status-dot bg-warn"></span>Pending invitations
               <span className="tag bg-warn-subtle text-warn">{invitations.length}</span>
             </h2>
             <div className="space-y-2">
               {invitations.map(inv => (
-                <div key={inv.id} className="card-elevated p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-l-3 border-l-warn">
+                <div key={inv.id} className="card-elevated accent-edge-warn p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div>
                     <div className="font-medium text-[15px]">{inv.group.name}</div>
                     <div className="text-[13px] text-muted">Group invitation pending</div>
@@ -98,35 +241,53 @@ export default async function Dashboard() {
                 </div>
               ))}
             </div>
-          </div>
+          </section>
         )}
 
         {/* Groups */}
-        <div className="space-y-3">
-          <h2 className="text-[15px] font-semibold">My Groups</h2>
+        <section className="space-y-3">
+          <div className="flex items-baseline justify-between">
+            <h2 className="text-[15px] font-semibold">My groups</h2>
+            <span className="text-[12px] text-muted">Public ID: <span className="font-mono text-brand font-semibold">{user.publicId}</span></span>
+          </div>
           {groupsWithStats.length === 0 ? (
             <div className="card border-dashed p-12 text-center">
               <div className="text-3xl mb-3 opacity-40">🎱</div>
               <p className="font-medium text-[15px]">No groups yet</p>
-              <p className="text-[13px] text-muted mt-1">Create a group for your next outing</p>
+              <p className="text-[13px] text-muted mt-1">Create a group for your next outing.</p>
             </div>
           ) : (
-            <div className="space-y-2">
-              {groupsWithStats.map(({ membership, memberCount, outingCount, settledCount }) => (
-                <Link key={membership.group.id} href={`/groups/${membership.group.id}`} className="card card-hover p-4 flex items-center justify-between">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-10 h-10 rounded-[14px] bg-brand-subtle text-brand flex items-center justify-center font-bold text-[15px] flex-shrink-0">🎱</div>
-                    <div className="min-w-0">
-                      <div className="font-medium text-[15px] truncate">{membership.group.name}</div>
-                      <div className="text-[13px] text-muted">{memberCount} members · {outingCount} outings{settledCount > 0 ? ` · ${settledCount} settled` : ""}</div>
+            <div className="space-y-2.5">
+              {groupsWithStats.map(({ membership, memberCount, outingCount, settledCount, expenseTotal, myNet }) => (
+                <Link key={membership.group.id} href={`/groups/${membership.group.id}`} className="card card-hover p-4 block">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-10 h-10 rounded-[14px] bg-brand-subtle text-brand flex items-center justify-center font-bold text-[15px] flex-shrink-0">🎱</div>
+                      <div className="min-w-0">
+                        <div className="font-medium text-[15px] truncate">{membership.group.name}</div>
+                        <div className="text-[13px] text-muted">{memberCount} members · {outingCount} outings · {formatDH(expenseTotal)} spent</div>
+                      </div>
+                    </div>
+                    <div className="text-right flex-shrink-0">
+                      <div className={`money text-[15px] font-bold ${myNet > 0 ? "text-success" : myNet < 0 ? "text-danger" : "text-muted"}`}>
+                        {myNet > 0 ? "+" : ""}{formatDH(myNet)}
+                      </div>
+                      <div className="text-[12px] text-muted">your position</div>
                     </div>
                   </div>
-                  <span className="text-muted text-sm">→</span>
+                  {outingCount > 0 && (
+                    <div className="mt-3">
+                      <div className="progress-track">
+                        <div className="progress-fill settle" style={{ width: `${Math.round((settledCount / outingCount) * 100)}%` }} />
+                      </div>
+                      <div className="text-[12px] text-muted mt-1.5">{settledCount} of {outingCount} outings settled</div>
+                    </div>
+                  )}
                 </Link>
               ))}
             </div>
           )}
-        </div>
+        </section>
       </main>
     </div>
   );

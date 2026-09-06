@@ -2,7 +2,6 @@ import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { formatDH } from "@/lib/utils";
-import { explainSettlement } from "@/domain/settlement";
 
 export default async function PublicSettlementPage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
@@ -22,46 +21,45 @@ export default async function PublicSettlementPage({ params }: { params: Promise
 
   const outing = settlement.outingId ? await prisma.outing.findUnique({ where: { id: settlement.outingId } }) : null;
 
-  const explanation = explainSettlement(
-    transfers.map(t => ({ fromUserId: t.fromUserId, toUserId: t.toUserId, amountCentimes: t.amountCentimes })),
-    users.map(u => ({ userId: u.id, displayName: u.displayName, totalPaid: 0, totalResponsibility: 0, netBalance: 0 }))
-  );
-
   return (
-    <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 flex items-center justify-center p-4">
-      <div className="w-full max-w-md bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 p-6 space-y-6">
+    <div className="min-h-screen flex items-center justify-center p-5">
+      <div className="w-full max-w-md surface-20 p-6 space-y-6">
         <div className="text-center">
-          <h1 className="text-xl font-bold">🎱 Settlement</h1>
-          {outing && <p className="text-sm text-zinc-500 mt-1">{outing.name}</p>}
+          <div className="brand-mark mx-auto mb-3">P</div>
+          <h1 className="text-[22px] font-bold tracking-tight">Settlement</h1>
+          {outing && <p className="text-[13px] text-muted mt-1">{outing.name}</p>}
         </div>
 
-        <div className="space-y-2 text-sm">
-          <div className="flex justify-between p-3 rounded-xl bg-zinc-50 dark:bg-zinc-800">
-            <span>Total expenses</span>
-            <span className="font-medium">{(settlement.totalExpenses / 100).toFixed(2)} DH</span>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="well p-4 text-center">
+            <div className="text-[12px] text-muted mb-1">Expenses</div>
+            <div className="money text-[18px] font-bold">{formatDH(settlement.totalExpenses)}</div>
           </div>
-          <div className="flex justify-between p-3 rounded-xl bg-zinc-50 dark:bg-zinc-800">
-            <span>Total paid</span>
-            <span className="font-medium">{(settlement.totalPaid / 100).toFixed(2)} DH</span>
+          <div className="well p-4 text-center">
+            <div className="text-[12px] text-muted mb-1">Paid</div>
+            <div className="money text-[18px] font-bold">{formatDH(settlement.totalPaid)}</div>
           </div>
         </div>
 
         {transfers.length > 0 ? (
           <div className="space-y-2">
-            <h3 className="font-semibold text-sm">Transfers</h3>
-            {transfers.map((t, i) => (
-              <div key={t.id} className="flex justify-between items-center p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950 border border-emerald-200 dark:border-emerald-800">
-                <span className="text-sm">{userMap.get(t.fromUserId) || "?"} → {userMap.get(t.toUserId) || "?"}</span>
-                <span className="font-medium text-emerald-700 dark:text-emerald-300">{(t.amountCentimes / 100).toFixed(2)} DH</span>
+            <h3 className="text-[15px] font-semibold">Transfers</h3>
+            {transfers.map(t => (
+              <div key={t.id} className="flex justify-between items-center py-3 px-4 rounded-[14px] bg-settle-subtle">
+                <span className="text-[14px]">{userMap.get(t.fromUserId) || "?"} <span className="text-settle">→</span> {userMap.get(t.toUserId) || "?"}</span>
+                <span className="money font-bold text-settle">{formatDH(t.amountCentimes)}</span>
               </div>
             ))}
           </div>
         ) : (
-          <div className="text-center text-sm text-zinc-500 py-4">Everyone is settled up!</div>
+          <div className="text-center py-4">
+            <div className="text-success text-2xl mb-1">✓</div>
+            <div className="text-[14px] font-semibold text-success">Everyone is settled up!</div>
+          </div>
         )}
 
-        <div className="text-center text-xs text-zinc-400 pt-4 border-t border-zinc-200 dark:border-zinc-700">
-          Created with <Link href="/" className="underline">Hesab</Link>
+        <div className="text-center text-[12px] text-muted pt-4 border-t border-border">
+          Created with <Link href="/" className="text-brand hover:underline font-medium">PoolSplit</Link>
         </div>
       </div>
     </div>

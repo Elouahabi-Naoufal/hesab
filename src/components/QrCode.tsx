@@ -27,7 +27,7 @@ export default function QrCode({ value, size = 200, className = "" }: QrCodeProp
   return (
     <div className={`inline-flex flex-col items-center gap-2 ${className}`}>
       <canvas ref={canvasRef} />
-      <p className="text-xs text-zinc-500 break-all max-w-[200px] text-center">{value}</p>
+      <p className="text-[12px] text-muted break-all max-w-[200px] text-center">{value}</p>
     </div>
   );
 }
