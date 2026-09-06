@@ -14,7 +14,7 @@ RUN npm ci || npm install
 # Approve prisma scripts (already in allowScripts, but ensure)
 RUN npm install-scripts approve --all || true
 
-# Builder stage
+# Builder stage — generates Prisma Client + builds Next.js
 FROM base AS builder
 RUN apk add --no-cache openssl
 WORKDIR /app
@@ -25,7 +25,9 @@ COPY . .
 RUN mkdir -p data
 ENV DATABASE_URL="file:./data/app.db"
 ENV NEXT_TELEMETRY_DISABLED=1
-# Build Next.js (standalone output) — Prisma Client will be generated at runtime
+# Generate Prisma Client (required for TypeScript types during next build)
+RUN npx prisma generate
+# Build Next.js (standalone output)
 RUN npm run build
 
 # Runner stage
@@ -43,11 +45,13 @@ COPY --from=builder /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
-# Copy prisma schema and migrations for runtime migrate
+# Copy prisma schema, migrations, and generated client for runtime
 COPY --from=builder /app/prisma ./prisma
-# Note: we DO NOT copy node_modules/.prisma from builder —
-# we generate the Prisma Client at runtime via the entrypoint
-# so it always matches the current prisma/schema.prisma.
+COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
+COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
+COPY --from=builder /app/node_modules/prisma ./node_modules/prisma
+COPY --from=builder /app/node_modules/.bin ./node_modules/.bin
+COPY --from=builder /app/package.json ./package.json
 
 # Data volume
 RUN mkdir -p /app/data && chown nextjs:nodejs /app/data
@@ -68,4 +72,3 @@ RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
 ENTRYPOINT ["docker-entrypoint.sh"]
 CMD ["node", "server.js"]
-# cache bust 1788571000
