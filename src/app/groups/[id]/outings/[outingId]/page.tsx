@@ -23,12 +23,6 @@ export default async function OutingPage({ params }: { params: Promise<{ id: str
 
   const participants = await prisma.outingParticipant.findMany({ where: { outingId }, include: { user: true } });
   const usersMap = new Map(participants.map(p => [p.userId, p.user.displayName]));
-  const outingParticipantIds = new Set(participants.map(p => p.userId));
-
-  const groupMembers = await prisma.groupMember.findMany({
-    where: { groupId, userId: { notIn: [...outingParticipantIds] } },
-    include: { user: true },
-  });
 
   const activities = await prisma.activity.findMany({
     where: { outingId },
@@ -91,7 +85,6 @@ export default async function OutingPage({ params }: { params: Promise<{ id: str
       sessionUserId={session.userId}
       participants={participants}
       usersMap={usersMap}
-      groupMembers={groupMembers}
       activities={activities}
       activityStats={activityStats}
       memberBalances={memberBalances}

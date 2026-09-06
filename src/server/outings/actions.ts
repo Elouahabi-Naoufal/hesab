@@ -14,6 +14,7 @@ export async function createOutingAction(formData: FormData) {
   const groupId = formData.get("groupId") as string;
   const name = ((formData.get("name") as string) || "").trim();
   const description = ((formData.get("description") as string) || "").trim() || undefined;
+  const participantIds = formData.getAll("participantIds") as string[];
 
   if (!groupId) return { error: "Group is required." };
   if (!name) return { error: "Outing name is required." };
@@ -45,6 +46,18 @@ export async function createOutingAction(formData: FormData) {
       role: "OWNER",
     },
   });
+
+  // Add selected group members as participants
+  const uniqueParticipantIds = [...new Set(participantIds.filter(id => id !== session.userId))];
+  if (uniqueParticipantIds.length > 0) {
+    await prisma.outingParticipant.createMany({
+      data: uniqueParticipantIds.map(userId => ({
+        outingId: outing.id,
+        userId,
+        role: "MEMBER" as const,
+      })),
+    });
+  }
 
   await logEvent({
     groupId,

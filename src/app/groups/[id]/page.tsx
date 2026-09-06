@@ -110,6 +110,17 @@ export default async function GroupPage({ params }: { params: Promise<{ id: stri
                 <input type="hidden" name="groupId" value={id} />
                 <input name="name" placeholder="Friday Pool Night" required className="w-full px-3 py-2 rounded-xl border bg-zinc-50 dark:bg-zinc-800 text-sm" />
                 <input name="description" placeholder="Description (optional)" className="w-full px-3 py-2 rounded-xl border bg-zinc-50 dark:bg-zinc-800 text-sm" />
+                <div>
+                  <div className="text-xs font-medium text-zinc-500 mb-2">Who will participate?</div>
+                  <div className="space-y-1">
+                    {members.filter(m => m.userId !== group.ownerId).map(m => (
+                      <label key={m.userId} className="flex items-center gap-2 text-sm p-1 rounded hover:bg-zinc-50 dark:hover:bg-zinc-700">
+                        <input type="checkbox" name="participantIds" value={m.userId} defaultChecked />
+                        <span>{m.user.displayName}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
                 <button className="w-full py-2 rounded-xl bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 text-sm font-medium">Create Outing</button>
               </form>
             </details>

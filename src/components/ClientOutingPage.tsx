@@ -18,7 +18,7 @@ import {
   recordActivityPaymentAction, updateActivityPaymentAction, deleteActivityPaymentAction,
 } from "@/server/payments/actions";
 import {
-  inviteToOutingAction, removeOutingParticipantAction, requestLeaveOutingAction, activateOutingAction,
+  removeOutingParticipantAction, requestLeaveOutingAction, activateOutingAction,
 } from "@/server/outings/actions";
 import QrInvite from "@/components/QrInvite";
 
@@ -42,12 +42,11 @@ function WForm({ action, initialState, children, className }: {
 
 export default function ClientOutingPage({
   groupId, outingId, isOwner, sessionUserId,
-  participants, usersMap, groupMembers, activities, activityStats,
+  participants, usersMap, activities, activityStats,
   memberBalances, totalResponsibility, totalPaid, allActivitiesClosed, hasSettlement, outing,
 }: {
   groupId: string; outingId: string; isOwner: boolean; sessionUserId: string;
-  participants: any[]; usersMap: Map<string, string>; groupMembers: any[];
-  activities: any[]; activityStats: any[]; memberBalances: any[];
+  participants: any[]; usersMap: Map<string, string>; activities: any[]; activityStats: any[]; memberBalances: any[];
   totalResponsibility: number; totalPaid: number; allActivitiesClosed: boolean;
   hasSettlement: boolean; outing: any;
 }) {
@@ -111,18 +110,6 @@ export default function ClientOutingPage({
           {!isOwner && (
             <WForm action={async () => await requestLeaveOutingAction(outingId)} initialState={{}}>
               <button type="submit" className="text-xs text-red-600 hover:underline">Leave outing</button>
-            </WForm>
-          )}
-          {isOwner && (
-            <WForm action={async (prevState, formData) => {
-              const userId = formData.get("userId") as string;
-              return await inviteToOutingAction(outingId, userId);
-            }} initialState={{}} className="flex gap-2 mt-2">
-              <select name="userId" className="flex-1 px-3 py-2 rounded-xl border text-sm bg-zinc-50 dark:bg-zinc-800">
-                <option value="">Invite group member...</option>
-                {groupMembers.map((p: any) => <option key={p.userId} value={p.userId}>{p.user.displayName}</option>)}
-              </select>
-              <button type="submit" className="px-3 py-2 rounded-xl bg-zinc-100 dark:bg-zinc-800 text-sm">Invite</button>
             </WForm>
           )}
           {isOwner && outing.publicToken && (
