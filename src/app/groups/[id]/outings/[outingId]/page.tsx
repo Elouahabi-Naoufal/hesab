@@ -5,8 +5,9 @@ import Link from "next/link";
 import { formatDH } from "@/lib/utils";
 import QrInvite from "@/components/QrInvite";
 
-export default async function OutingPage({ params }: { params: Promise<{ id: string; outingId: string }> }) {
+export default async function OutingPage({ params, searchParams }: { params: Promise<{ id: string; outingId: string }>; searchParams: Promise<{ error?: string }> }) {
   const { id: groupId, outingId } = await params;
+  const { error: errorParam } = await searchParams;
   const session = await getSession();
   if (!session) redirect("/login");
 
@@ -117,6 +118,12 @@ export default async function OutingPage({ params }: { params: Promise<{ id: str
       </header>
 
       <main className="max-w-5xl mx-auto px-4 py-6 space-y-6">
+        {errorParam && (
+          <div className="p-3 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 text-sm flex justify-between items-center">
+            <span>{decodeURIComponent(errorParam)}</span>
+            <a href={`/groups/${groupId}/outings/${outingId}`} className="text-red-500 hover:text-red-700 ml-2 font-bold">✕</a>
+          </div>
+        )}
         {/* Live Balances */}
         <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 p-5 space-y-3">
           <h3 className="font-semibold">💰 Live Balances</h3>
@@ -149,7 +156,7 @@ export default async function OutingPage({ params }: { params: Promise<{ id: str
                     "use server";
                     const { removeOutingParticipantAction } = await import("@/server/outings/actions");
                     const res = await removeOutingParticipantAction(outingId, p.userId);
-                    if (res?.error) throw new Error(res.error);
+                    if (res?.error) redirect(`/groups/${groupId}/outings/${outingId}?error=${encodeURIComponent(res.error)}`);
                   }} className="inline ml-1">
                     <button className="text-red-500 hover:underline text-xs">✕</button>
                   </form>
@@ -162,7 +169,7 @@ export default async function OutingPage({ params }: { params: Promise<{ id: str
               "use server";
               const { requestLeaveOutingAction } = await import("@/server/outings/actions");
               const res = await requestLeaveOutingAction(outingId);
-              if (res?.error) throw new Error(res.error);
+              if (res?.error) redirect(`/groups/${groupId}/outings/${outingId}?error=${encodeURIComponent(res.error)}`);
             }}>
               <button className="text-xs text-red-600 hover:underline">Leave outing</button>
             </form>
@@ -173,7 +180,7 @@ export default async function OutingPage({ params }: { params: Promise<{ id: str
               const { inviteToOutingAction } = await import("@/server/outings/actions");
               const userId = formData.get("userId") as string;
               const res = await inviteToOutingAction(outingId, userId);
-              if (res?.error) throw new Error(res.error);
+              if (res?.error) redirect(`/groups/${groupId}/outings/${outingId}?error=${encodeURIComponent(res.error)}`);
             }} className="flex gap-2 mt-2">
               <select name="userId" className="flex-1 px-3 py-2 rounded-xl border text-sm bg-zinc-50 dark:bg-zinc-800">
                 <option value="">Invite group member...</option>
@@ -222,7 +229,7 @@ export default async function OutingPage({ params }: { params: Promise<{ id: str
                 "use server";
                 const { createActivityAction } = await import("@/server/activities/actions");
                 const res = await createActivityAction(formData);
-                if (res?.error) throw new Error(res.error);
+                if (res?.error) redirect(`/groups/${groupId}/outings/${outingId}?error=${encodeURIComponent(res.error)}`);
               }} className="space-y-3 mt-3">
                 <input type="hidden" name="outingId" value={outingId} />
                 <input name="name" placeholder="Pool / Restaurant / InDrive" required className="w-full px-3 py-2 rounded-xl border bg-zinc-50 dark:bg-zinc-800 text-sm" />
@@ -318,7 +325,7 @@ function ActivityCard({ activity, outingId, groupId, isOwner, participants, user
                             unit: formData.get("unit") as string || undefined,
                             pricePerUnitDH: formData.get("pricePerUnitDH") as string || undefined,
                           });
-                          if (res?.error) throw new Error(res.error);
+                          if (res?.error) redirect(`/groups/${groupId}/outings/${outingId}?error=${encodeURIComponent(res.error)}`);
                         }} className="absolute z-10 mt-1 p-2 rounded bg-white dark:bg-zinc-800 border shadow-lg space-y-1">
                           <input name="name" defaultValue={p.name} placeholder="Name" className="w-full px-2 py-1 rounded border text-xs bg-zinc-50 dark:bg-zinc-700" />
                           <input name="unit" defaultValue={p.unit} placeholder="Unit" className="w-full px-2 py-1 rounded border text-xs bg-zinc-50 dark:bg-zinc-700" />
@@ -345,7 +352,7 @@ function ActivityCard({ activity, outingId, groupId, isOwner, participants, user
                   "use server";
                   const { createActivityProductAction } = await import("@/server/products/actions");
                   const res = await createActivityProductAction(formData);
-                  if (res?.error) throw new Error(res.error);
+                  if (res?.error) redirect(`/groups/${groupId}/outings/${outingId}?error=${encodeURIComponent(res.error)}`);
                 }} className="space-y-2 mt-2">
                   <input type="hidden" name="activityId" value={activity.id} />
                   <input name="name" placeholder="Product name" required className="w-full px-2 py-1 rounded border text-sm bg-zinc-50 dark:bg-zinc-800" />
@@ -417,7 +424,7 @@ function ActivityCard({ activity, outingId, groupId, isOwner, participants, user
                         const { updateUsageRecordAction } = await import("@/server/usage/actions");
                         const qty = parseInt(formData.get("quantity") as string, 10);
                         const res = await updateUsageRecordAction(r.id, { quantity: qty });
-                        if (res?.error) throw new Error(res.error);
+                        if (res?.error) redirect(`/groups/${groupId}/outings/${outingId}?error=${encodeURIComponent(res.error)}`);
                       }} className="inline-flex gap-1 items-center ml-1">
                         <input name="quantity" type="number" min="1" defaultValue={r.quantity} className="w-16 px-1 py-0.5 rounded border text-xs bg-zinc-50 dark:bg-zinc-700" />
                         <button className="text-xs text-blue-600 hover:underline">Save</button>
@@ -442,7 +449,7 @@ function ActivityCard({ activity, outingId, groupId, isOwner, participants, user
                   "use server";
                   const { createUsageRecordAction } = await import("@/server/usage/actions");
                   const res = await createUsageRecordAction(formData);
-                  if (res?.error) throw new Error(res.error);
+                  if (res?.error) redirect(`/groups/${groupId}/outings/${outingId}?error=${encodeURIComponent(res.error)}`);
                 }} className="space-y-2 mt-2">
                   <input type="hidden" name="activityId" value={activity.id} />
                   <select name="productId" required className="w-full px-2 py-1 rounded border text-sm bg-zinc-50 dark:bg-zinc-800">
@@ -485,7 +492,7 @@ function ActivityCard({ activity, outingId, groupId, isOwner, participants, user
                             description: formData.get("description") as string || undefined,
                             priceDH: formData.get("priceDH") as string || undefined,
                           });
-                          if (res?.error) throw new Error(res.error);
+                          if (res?.error) redirect(`/groups/${groupId}/outings/${outingId}?error=${encodeURIComponent(res.error)}`);
                         }} className="absolute z-10 mt-1 p-2 rounded bg-white dark:bg-zinc-800 border shadow-lg space-y-1">
                           <input name="description" defaultValue={l.description} placeholder="Description" className="w-full px-2 py-1 rounded border text-xs bg-zinc-50 dark:bg-zinc-700" />
                           <input name="priceDH" defaultValue={(l.priceCentimes / 100).toFixed(2)} placeholder="Price (DH)" className="w-full px-2 py-1 rounded border text-xs bg-zinc-50 dark:bg-zinc-700" />
@@ -516,7 +523,7 @@ function ActivityCard({ activity, outingId, groupId, isOwner, participants, user
                 "use server";
                 const { createLineItemAction } = await import("@/server/lineitems/actions");
                 const res = await createLineItemAction(formData);
-                if (res?.error) throw new Error(res.error);
+                if (res?.error) redirect(`/groups/${groupId}/outings/${outingId}?error=${encodeURIComponent(res.error)}`);
               }} className="space-y-2 mt-2">
                 <input type="hidden" name="activityId" value={activity.id} />
                 <input type="hidden" name="userId" defaultValue={userId} className="hidden" />
@@ -534,7 +541,7 @@ function ActivityCard({ activity, outingId, groupId, isOwner, participants, user
                 "use server";
                 const { createLineItemAction } = await import("@/server/lineitems/actions");
                 const res = await createLineItemAction(formData);
-                if (res?.error) throw new Error(res.error);
+                if (res?.error) redirect(`/groups/${groupId}/outings/${outingId}?error=${encodeURIComponent(res.error)}`);
               }} className="space-y-2 mt-2">
                 <input type="hidden" name="activityId" value={activity.id} />
                 <input type="hidden" name="userId" value={userId} />
@@ -561,7 +568,7 @@ function ActivityCard({ activity, outingId, groupId, isOwner, participants, user
                     "use server";
                     const { updateActivityPaymentAction } = await import("@/server/payments/actions");
                     const res = await updateActivityPaymentAction(p.id, formData.get("amountDH") as string);
-                    if (res?.error) throw new Error(res.error);
+                    if (res?.error) redirect(`/groups/${groupId}/outings/${outingId}?error=${encodeURIComponent(res.error)}`);
                   }} className="inline-flex gap-1 items-center ml-1">
                     <input name="amountDH" defaultValue={(p.amountCentimes / 100).toFixed(2)} placeholder="Amount (DH)" className="w-20 px-1 py-0.5 rounded border text-xs bg-zinc-50 dark:bg-zinc-700" />
                     <button className="text-xs text-blue-600 hover:underline">Save</button>
@@ -585,7 +592,7 @@ function ActivityCard({ activity, outingId, groupId, isOwner, participants, user
               "use server";
               const { recordActivityPaymentAction } = await import("@/server/payments/actions");
               const res = await recordActivityPaymentAction(formData);
-              if (res?.error) throw new Error(res.error);
+              if (res?.error) redirect(`/groups/${groupId}/outings/${outingId}?error=${encodeURIComponent(res.error)}`);
             }} className="space-y-2 mt-2">
               <input type="hidden" name="activityId" value={activity.id} />
               <select name="userId" required className="w-full px-2 py-1 rounded border text-sm bg-zinc-50 dark:bg-zinc-800">
