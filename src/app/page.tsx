@@ -25,17 +25,21 @@ export default async function Home() {
       <main className="flex-1 max-w-5xl mx-auto w-full px-5 py-10 md:py-16">
         <div className="grid md:grid-cols-2 gap-10 items-center">
           <div className="space-y-6">
-            <p className="text-[13px] font-semibold uppercase tracking-[0.12em] text-brand">Group expense settlement</p>
-            <h1 className="text-[36px] md:text-[44px] font-bold tracking-tight leading-[1.1]">
-              Who pays whom, <br />
-              <span className="text-muted">how much?</span>
+            <p className="text-[13px] font-semibold uppercase tracking-[0.12em] text-action">PoolSplit for friends</p>
+            <h1 className="text-[36px] md:text-[44px] font-extrabold leading-[1.08]">
+              What are we doing<br />this weekend?
             </h1>
             <p className="text-[15px] text-muted leading-relaxed">
-              For pool nights, dinners, trips, and any group outing where different people join different activities. Record once, settle automatically.
+              Find something fun. Invite your people. Make it happen — and settle up without the awkward math.
             </p>
             <div className="flex flex-wrap gap-3">
-              <Link href="/register" className="btn-primary px-6 py-3">Create Group<IconArrowRight size={15} /></Link>
-              <Link href="/login" className="btn-secondary px-6 py-3">See Demo</Link>
+              <Link href="/register" className="btn-primary px-6 py-3">Create an outing<IconArrowRight size={15} /></Link>
+              <Link href="/login" className="btn-secondary px-6 py-3">Log in</Link>
+            </div>
+            <div className="flex flex-wrap gap-2 pt-1">
+              <span className="tag bg-elevated text-foreground"><span className="status-dot bg-action"></span>Beach day</span>
+              <span className="tag bg-elevated text-foreground"><span className="status-dot bg-happy"></span>Dinner out</span>
+              <span className="tag bg-elevated text-foreground"><span className="status-dot bg-mint"></span>Game night</span>
             </div>
           </div>
 
@@ -50,22 +54,22 @@ export default async function Home() {
             </div>
 
             <div className="space-y-2 text-[14px]">
-              <div className="flex justify-between py-2.5 px-3 rounded-[10px] bg-elevated">
+              <div className="flex justify-between py-2.5 px-3 rounded-[12px] bg-elevated">
                 <span>Table 1 · Naoufal, Mohamed, Yassine</span>
                 <span className="money font-semibold">120 DH</span>
               </div>
-              <div className="flex justify-between py-2.5 px-3 rounded-[10px] bg-elevated">
+              <div className="flex justify-between py-2.5 px-3 rounded-[12px] bg-elevated">
                 <span>Table 2 · Yassine, Anour</span>
                 <span className="money font-semibold">60 DH</span>
               </div>
-              <div className="flex justify-between py-2.5 px-3 rounded-[10px] bg-elevated">
+              <div className="flex justify-between py-2.5 px-3 rounded-[12px] bg-elevated">
                 <span>Drinks · Everyone</span>
                 <span className="money font-semibold">40 DH</span>
               </div>
             </div>
 
-            <div className="rounded-[14px] bg-settle-subtle p-5 space-y-3">
-              <div className="text-[12px] text-settle uppercase tracking-[0.12em] font-semibold">Final settlement</div>
+            <div className="rounded-[20px] bg-brand-subtle p-5 space-y-3">
+              <div className="text-[12px] text-navy uppercase tracking-[0.12em] font-semibold">Final settlement</div>
               <div className="space-y-2 font-mono text-[13px]">
                 <div className="flex justify-between"><span>Anour → Naoufal</span><span className="money">40 DH</span></div>
                 <div className="flex justify-between"><span>Yassine → Naoufal</span><span className="money">20 DH</span></div>

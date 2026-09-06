@@ -46,9 +46,9 @@ export default async function PublicSettlementPage({ params }: { params: Promise
           <div className="space-y-2">
             <h3 className="text-[15px] font-semibold">Transfers</h3>
             {transfers.map(t => (
-              <div key={t.id} className="flex justify-between items-center py-3 px-4 rounded-[14px] bg-settle-subtle">
-                <span className="text-[14px]">{userMap.get(t.fromUserId) || "?"} <span className="text-settle">→</span> {userMap.get(t.toUserId) || "?"}</span>
-                <span className="money font-bold text-settle">{formatDH(t.amountCentimes)}</span>
+              <div key={t.id} className="flex justify-between items-center py-3 px-4 rounded-[20px] bg-brand-subtle">
+                <span className="text-[14px]">{userMap.get(t.fromUserId) || "?"} <span className="text-navy">→</span> {userMap.get(t.toUserId) || "?"}</span>
+                <span className="money font-bold text-navy">{formatDH(t.amountCentimes)}</span>
               </div>
             ))}
           </div>

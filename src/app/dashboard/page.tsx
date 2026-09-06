@@ -253,7 +253,7 @@ export default async function Dashboard() {
           </div>
           {groupsWithStats.length === 0 ? (
             <div className="card border-dashed p-12 text-center">
-              <div className="w-12 h-12 mx-auto rounded-[14px] bg-elevated text-muted flex items-center justify-center mb-3"><IconUsers size={22} /></div>
+              <div className="w-12 h-12 mx-auto rounded-[20px] bg-elevated text-muted flex items-center justify-center mb-3"><IconUsers size={22} /></div>
               <p className="font-medium text-[15px]">No groups yet</p>
               <p className="text-[13px] text-muted mt-1">Create a group for your next outing</p>
             </div>
@@ -263,7 +263,7 @@ export default async function Dashboard() {
                 <Link key={membership.group.id} href={`/groups/${membership.group.id}`} className="card card-hover p-4 block">
                   <div className="flex items-center justify-between gap-3">
                     <div className="flex items-center gap-3 min-w-0">
-                      <div className="w-10 h-10 rounded-[14px] bg-brand-subtle text-brand flex items-center justify-center flex-shrink-0"><IconUsers size={18} /></div>
+                      <div className="w-10 h-10 rounded-[20px] bg-brand-subtle text-brand flex items-center justify-center flex-shrink-0"><IconUsers size={18} /></div>
                       <div className="min-w-0">
                         <div className="font-medium text-[15px] truncate">{membership.group.name}</div>
                         <div className="text-[13px] text-muted">{memberCount} members · {outingCount} outings · {formatDH(expenseTotal)} spent</div>
@@ -279,7 +279,7 @@ export default async function Dashboard() {
                   {outingCount > 0 && (
                     <div className="mt-3">
                       <div className="progress-track">
-                        <div className="progress-fill settle" style={{ width: `${Math.round((settledCount / outingCount) * 100)}%` }} />
+                        <div className="progress-fill navy" style={{ width: `${Math.round((settledCount / outingCount) * 100)}%` }} />
                       </div>
                       <div className="text-[12px] text-muted mt-1.5">{settledCount} of {outingCount} outings settled</div>
                     </div>

@@ -37,7 +37,7 @@ function WForm({ action, initialState, children, className }: {
   return (
     <form action={formAction} className={className}>
       {children}
-      {hasError && <div className="mt-2 p-2.5 rounded-[10px] bg-danger-subtle border border-danger/20 text-danger text-[13px]">{state.error}</div>}
+      {hasError && <div className="mt-2 p-2.5 rounded-[12px] bg-danger-subtle border border-danger/20 text-danger text-[13px]">{state.error}</div>}
     </form>
   );
 }
@@ -91,7 +91,7 @@ export default function ClientOutingPage({
             </WForm>
           )}
           {isOwner && allActivitiesClosed && outing.status !== "SETTLED" && !hasSettlement && (
-            <a href={`/groups/${groupId}/outings/${outingId}/settlement`} className="btn-settle text-[13px] px-4 py-2 rounded-[10px]">Settle Outing</a>
+            <a href={`/groups/${groupId}/outings/${outingId}/settlement`} className="btn-navy text-[13px] px-4 py-2 rounded-[12px]">Settle Outing</a>
           )}
           {isOwner && outing.status === "SETTLED" && (
             <span className="tag bg-success-subtle text-success"><IconCheck size={12} />Settled</span>
@@ -171,7 +171,7 @@ export default function ClientOutingPage({
           <h2 className="text-[18px] font-semibold tracking-tight">Activities</h2>
           {activities.length === 0 ? (
             <div className="card border-dashed p-10 text-center">
-              <div className="w-12 h-12 mx-auto rounded-[14px] bg-elevated text-muted flex items-center justify-center mb-3"><IconReceipt size={22} /></div>
+              <div className="w-12 h-12 mx-auto rounded-[20px] bg-elevated text-muted flex items-center justify-center mb-3"><IconReceipt size={22} /></div>
               <p className="text-[14px] text-muted">No activities yet</p>
             </div>
           ) : (
@@ -208,7 +208,7 @@ export default function ClientOutingPage({
         </section>
 
         {hasSettlement && (
-          <a href={`/groups/${groupId}/outings/${outingId}/settlement`} className="btn-settle w-full py-3 text-[15px] text-center rounded-[14px]">View Settlement</a>
+          <a href={`/groups/${groupId}/outings/${outingId}/settlement`} className="btn-navy w-full py-3 text-[15px] text-center rounded-[20px]">View Settlement</a>
         )}
       </main>
     </div>
@@ -279,7 +279,7 @@ function ActivityCard({ activity, outingId, groupId, isOwner, participants, user
               <div className="text-[12px] font-semibold text-muted mb-2 uppercase tracking-wide">Products</div>
               <div className="space-y-1.5">
                 {activity.products.map((p: any) => (
-                  <div key={p.id} className="flex items-center justify-between py-2 px-3 rounded-[10px] bg-elevated">
+                  <div key={p.id} className="flex items-center justify-between py-2 px-3 rounded-[12px] bg-elevated">
                     <span className="text-[14px] min-w-0">{p.name} <span className="text-muted">· {formatDH(p.pricePerUnitCt)}/{p.unit}</span></span>
                     {canEdit && (
                       <div className="flex items-center gap-1.5 flex-shrink-0 ml-2">
@@ -291,7 +291,7 @@ function ActivityCard({ activity, outingId, groupId, isOwner, participants, user
                               unit: formData.get("unit") as string || undefined,
                               pricePerUnitDH: formData.get("pricePerUnitDH") as string || undefined,
                             });
-                          }} initialState={{}} className="absolute right-0 z-10 mt-1 p-3 rounded-[14px] bg-surface border border-border shadow-lg space-y-2 w-56">
+                          }} initialState={{}} className="absolute right-0 z-10 mt-1 p-3 rounded-[20px] bg-surface border border-border shadow-lg space-y-2 w-56">
                             <input name="name" defaultValue={p.name} placeholder="Name" className="input text-[13px]" />
                             <input name="unit" defaultValue={p.unit} placeholder="Unit" className="input text-[13px]" />
                             <input name="pricePerUnitDH" defaultValue={(p.pricePerUnitCt / 100).toFixed(2)} placeholder="Price (DH)" className="input text-[13px]" />
@@ -309,7 +309,7 @@ function ActivityCard({ activity, outingId, groupId, isOwner, participants, user
             </div>
           )}
           {canEdit && (
-            <details className="rounded-[14px] border border-border p-3.5">
+            <details className="rounded-[20px] border border-border p-3.5">
               <summary className="flex items-center gap-1 text-[13px] cursor-pointer text-muted font-semibold"><IconChevronRight size={13} className="chev" /> Add product</summary>
               <WForm action={async (prevState, formData) => await createActivityProductAction(formData)} initialState={{}} className="space-y-2.5 mt-3">
                 <input type="hidden" name="activityId" value={activity.id} />
@@ -333,7 +333,7 @@ function ActivityCard({ activity, outingId, groupId, isOwner, participants, user
                   const imIn = r.participants.some((pp: any) => pp.userId === userId);
                   const myShare = imIn ? each : 0;
                   return (
-                    <div key={r.id} className="rounded-[10px] bg-elevated p-3.5 space-y-2.5">
+                    <div key={r.id} className="rounded-[12px] bg-elevated p-3.5 space-y-2.5">
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
                           <div className="text-[14px] font-medium">{r.quantity} × {product?.name || "?"}</div>
@@ -347,15 +347,15 @@ function ActivityCard({ activity, outingId, groupId, isOwner, participants, user
                         ))}
                       </div>
                       <div className="grid grid-cols-3 gap-2 text-center">
-                        <div className="rounded-[10px] bg-surface p-2">
+                        <div className="rounded-[12px] bg-surface p-2">
                           <div className="text-[11px] text-muted">Each</div>
                           <div className="money text-[13px] font-bold">{formatDH(each)}</div>
                         </div>
-                        <div className="rounded-[10px] bg-surface p-2">
+                        <div className="rounded-[12px] bg-surface p-2">
                           <div className="text-[11px] text-muted">Your share</div>
                           <div className="money text-[13px] font-bold">{formatDH(myShare)}</div>
                         </div>
-                        <div className="rounded-[10px] bg-surface p-2">
+                        <div className="rounded-[12px] bg-surface p-2">
                           <div className="text-[11px] text-muted">Split</div>
                           <div className="text-[13px] font-bold">{n} {n === 1 ? "person" : "people"}</div>
                         </div>
@@ -393,7 +393,7 @@ function ActivityCard({ activity, outingId, groupId, isOwner, participants, user
                             <WForm action={async (prevState, formData) => {
                               const qty = parseInt(formData.get("quantity") as string, 10);
                               return await updateUsageRecordAction(r.id, { quantity: qty });
-                            }} initialState={{}} className="absolute left-0 z-10 mt-1 p-3 rounded-[14px] bg-surface border border-border shadow-lg flex gap-2 items-center">
+                            }} initialState={{}} className="absolute left-0 z-10 mt-1 p-3 rounded-[20px] bg-surface border border-border shadow-lg flex gap-2 items-center">
                               <input name="quantity" type="number" min="1" defaultValue={r.quantity} className="input text-[13px] w-20" />
                               <button type="submit" className="btn-primary py-2 px-3 text-[12px]">Save</button>
                             </WForm>
@@ -410,7 +410,7 @@ function ActivityCard({ activity, outingId, groupId, isOwner, participants, user
             </div>
           )}
           {canEdit && (
-            <details className="rounded-[14px] border border-border p-3.5">
+            <details className="rounded-[20px] border border-border p-3.5">
               <summary className="flex items-center gap-1 text-[13px] cursor-pointer text-muted font-semibold"><IconChevronRight size={13} className="chev" /> Record usage</summary>
               <WForm action={async (prevState, formData) => await createUsageRecordAction(formData)} initialState={{}} className="space-y-2.5 mt-3">
                 <input type="hidden" name="activityId" value={activity.id} />
@@ -423,7 +423,7 @@ function ActivityCard({ activity, outingId, groupId, isOwner, participants, user
                 <div className="space-y-1">
                   {participants.map((p: any) => (
                     <label key={p.userId} className="flex items-center gap-2 text-[13px] py-1 cursor-pointer">
-                      <input type="checkbox" name="participantIds" value={p.userId} className="accent-brand" />
+                      <input type="checkbox" name="participantIds" value={p.userId} className="accent-action" />
                       {p.user.displayName}
                     </label>
                   ))}
@@ -446,7 +446,7 @@ function ActivityCard({ activity, outingId, groupId, isOwner, participants, user
                   const canEditItem = l.userId === userId || isOwner;
                   const isMine = l.userId === userId;
                   return (
-                    <div key={l.id} className="rounded-[10px] bg-elevated p-3.5 space-y-1.5">
+                    <div key={l.id} className="rounded-[12px] bg-elevated p-3.5 space-y-1.5">
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
                           <div className="text-[14px] font-medium">{l.description}</div>
@@ -463,7 +463,7 @@ function ActivityCard({ activity, outingId, groupId, isOwner, participants, user
                                 description: formData.get("description") as string || undefined,
                                 priceDH: formData.get("priceDH") as string || undefined,
                               });
-                            }} initialState={{}} className="absolute right-0 z-10 mt-1 p-3 rounded-[14px] bg-surface border border-border shadow-lg space-y-2 w-56">
+                            }} initialState={{}} className="absolute right-0 z-10 mt-1 p-3 rounded-[20px] bg-surface border border-border shadow-lg space-y-2 w-56">
                               <input name="description" defaultValue={l.description} placeholder="Description" className="input text-[13px]" />
                               <input name="priceDH" defaultValue={(l.priceCentimes / 100).toFixed(2)} placeholder="Price (DH)" className="input text-[13px]" />
                               <button type="submit" className="btn-primary w-full py-2 text-[12px]">Save</button>
@@ -482,7 +482,7 @@ function ActivityCard({ activity, outingId, groupId, isOwner, participants, user
           )}
           {activity.lineItems.length === 0 && <div className="text-[13px] text-muted italic">No items yet</div>}
           {canEdit && (
-            <details className="rounded-[14px] border border-border p-3.5">
+            <details className="rounded-[20px] border border-border p-3.5">
               <summary className="flex items-center gap-1 text-[13px] cursor-pointer text-muted font-semibold"><IconChevronRight size={13} className="chev" /> Add item</summary>
               <WForm action={async (prevState, formData) => await createLineItemAction(formData)} initialState={{}} className="space-y-2.5 mt-3">
                 <input type="hidden" name="activityId" value={activity.id} />
@@ -494,7 +494,7 @@ function ActivityCard({ activity, outingId, groupId, isOwner, participants, user
             </details>
           )}
           {!isOwner && activity.status === "OPEN" && (
-            <details className="rounded-[14px] border border-border p-3.5">
+            <details className="rounded-[20px] border border-border p-3.5">
               <summary className="flex items-center gap-1 text-[13px] cursor-pointer text-muted font-semibold"><IconChevronRight size={13} className="chev" /> Add my item</summary>
               <WForm action={async (prevState, formData) => await createLineItemAction(formData)} initialState={{}} className="space-y-2.5 mt-3">
                 <input type="hidden" name="activityId" value={activity.id} />
@@ -514,7 +514,7 @@ function ActivityCard({ activity, outingId, groupId, isOwner, participants, user
         {activity.payments.length > 0 && (
           <div className="space-y-1.5">
             {activity.payments.map((p: any) => (
-              <div key={p.id} className="flex items-center justify-between py-2 px-3 rounded-[10px] bg-elevated">
+              <div key={p.id} className="flex items-center justify-between py-2 px-3 rounded-[12px] bg-elevated">
                 <span className="text-[14px]">{usersMap.get(p.userId) || "?"}{p.userId === userId ? <span className="text-[12px] text-muted"> (you)</span> : null}</span>
                 <span className="flex items-center gap-2">
                   <span className="money text-[15px] font-semibold">{formatDH(p.amountCentimes)}</span>
@@ -524,7 +524,7 @@ function ActivityCard({ activity, outingId, groupId, isOwner, participants, user
                         <summary className="cursor-pointer text-brand text-[12px] font-semibold hover:underline">Edit</summary>
                         <WForm action={async (prevState, formData) => {
                           return await updateActivityPaymentAction(p.id, formData.get("amountDH") as string);
-                        }} initialState={{}} className="absolute right-0 z-10 mt-1 p-3 rounded-[14px] bg-surface border border-border shadow-lg flex gap-2 items-center">
+                        }} initialState={{}} className="absolute right-0 z-10 mt-1 p-3 rounded-[20px] bg-surface border border-border shadow-lg flex gap-2 items-center">
                           <input name="amountDH" defaultValue={(p.amountCentimes / 100).toFixed(2)} placeholder="Amount (DH)" className="input text-[13px] w-24" />
                           <button type="submit" className="btn-primary py-2 px-3 text-[12px]">Save</button>
                         </WForm>
@@ -540,7 +540,7 @@ function ActivityCard({ activity, outingId, groupId, isOwner, participants, user
           </div>
         )}
         {canEdit && (
-          <details className="rounded-[14px] border border-border p-3.5">
+          <details className="rounded-[20px] border border-border p-3.5">
             <summary className="flex items-center gap-1 text-[13px] cursor-pointer text-muted font-semibold"><IconChevronRight size={13} className="chev" /> Record payment</summary>
             <WForm action={async (prevState, formData) => await recordActivityPaymentAction(formData)} initialState={{}} className="space-y-2.5 mt-3">
               <input type="hidden" name="activityId" value={activity.id} />

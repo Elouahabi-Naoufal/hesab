@@ -114,7 +114,7 @@ export default async function GroupPage({ params }: { params: Promise<{ id: stri
           {outings.length > 0 && (
             <div className="mt-4">
               <div className="progress-track">
-                <div className="progress-fill settle" style={{ width: `${Math.round((settledOutings / outings.length) * 100)}%` }} />
+                <div className="progress-fill navy" style={{ width: `${Math.round((settledOutings / outings.length) * 100)}%` }} />
               </div>
             </div>
           )}
@@ -127,7 +127,7 @@ export default async function GroupPage({ params }: { params: Promise<{ id: stri
             {members.map(m => {
               const src = avatarSrc(m.user);
               return (
-              <div key={m.id} className="flex items-center justify-between py-2.5 px-3 rounded-[10px] hover:bg-elevated transition">
+              <div key={m.id} className="flex items-center justify-between py-2.5 px-3 rounded-[12px] hover:bg-elevated transition">
                 <div className="flex items-center gap-3">
                   <div className="w-8 h-8 rounded-full overflow-hidden bg-brand-subtle text-brand flex items-center justify-center text-[13px] font-bold flex-shrink-0">
                     {src ? (
@@ -217,7 +217,7 @@ export default async function GroupPage({ params }: { params: Promise<{ id: stri
           </div>
 
           {isOwner && (
-            <details className="rounded-[14px] border border-border p-4">
+            <details className="rounded-[20px] border border-border p-4">
               <summary className="flex items-center gap-1 text-[14px] font-medium cursor-pointer text-muted"><IconChevronRight size={13} className="chev" />Create outing</summary>
               <form action={async (formData: FormData) => {
                 "use server";
@@ -231,8 +231,8 @@ export default async function GroupPage({ params }: { params: Promise<{ id: stri
                   <div className="text-[12px] font-medium text-muted mb-2">Who will participate?</div>
                   <div className="space-y-1">
                     {members.map(m => (
-                      <label key={m.userId} className="flex items-center gap-2.5 text-[14px] py-1.5 px-2 rounded-[10px] hover:bg-elevated transition cursor-pointer">
-                        <input type="checkbox" name="participantIds" value={m.userId} defaultChecked disabled={m.userId === group.ownerId} className="accent-brand" />
+                      <label key={m.userId} className="flex items-center gap-2.5 text-[14px] py-1.5 px-2 rounded-[12px] hover:bg-elevated transition cursor-pointer">
+                        <input type="checkbox" name="participantIds" value={m.userId} defaultChecked disabled={m.userId === group.ownerId} className="accent-action" />
                         <span>{m.user.displayName}</span>
                         {m.userId === group.ownerId && <span className="text-[12px] text-muted">(you)</span>}
                       </label>

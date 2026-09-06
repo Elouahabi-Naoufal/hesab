@@ -6,7 +6,7 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center px-5 py-10">
       <div className="w-full max-w-sm space-y-8">
         <div className="text-center space-y-3">
-          <div className="w-12 h-12 mx-auto rounded-[14px] bg-brand flex items-center justify-center text-white font-bold text-lg">H</div>
+          <div className="w-12 h-12 mx-auto rounded-[20px] bg-navy flex items-center justify-center text-white font-extrabold text-lg">P</div>
           <h1 className="text-[26px] font-bold tracking-tight">Welcome back</h1>
           <p className="text-[14px] text-muted">Login to your PoolSplit account</p>
         </div>

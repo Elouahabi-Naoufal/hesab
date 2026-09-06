@@ -4,7 +4,7 @@ import { redirect, notFound } from "next/navigation";
 import { formatDH } from "@/lib/utils";
 import { explainSettlement } from "@/domain/settlement";
 import BackButton from "@/components/BackButton";
-import { IconCheck } from "@/components/icons";
+import { IconCheck, IconWallet } from "@/components/icons";
 
 export default async function SettlementPage({ params }: { params: Promise<{ id: string; outingId: string }> }) {
   const { id: groupId, outingId } = await params;
@@ -89,7 +89,7 @@ export default async function SettlementPage({ params }: { params: Promise<{ id:
                 const { finalizeSettlementAction } = await import("@/server/settlement/actions");
                 await finalizeSettlementAction(outingId);
               }}>
-                <button className="btn-settle text-[13px] px-4">Finalize</button>
+                <button className="btn-navy text-[13px] px-4">Finalize</button>
               </form>
             </div>
           )}
@@ -100,7 +100,7 @@ export default async function SettlementPage({ params }: { params: Promise<{ id:
         {/* Personal result hero */}
         <section className="surface-20 p-6">
           <div className="flex items-center gap-3 mb-4">
-            <div className="w-10 h-10 rounded-[14px] bg-settle-subtle text-settle flex items-center justify-center text-lg font-bold">⇄</div>
+            <div className="w-10 h-10 rounded-[20px] bg-brand-subtle text-navy flex items-center justify-center"><IconWallet size={18} /></div>
             <div>
               <h2 className="text-[20px] font-bold tracking-tight">Your settlement</h2>
               <p className="text-[13px] text-muted">
@@ -126,7 +126,7 @@ export default async function SettlementPage({ params }: { params: Promise<{ id:
           {transfers.length > 0 && (
             <div className="mt-5">
               <div className="progress-track">
-                <div className="progress-fill settle" style={{ width: `${Math.round((paidCount / transfers.length) * 100)}%` }} />
+                <div className="progress-fill navy" style={{ width: `${Math.round((paidCount / transfers.length) * 100)}%` }} />
               </div>
               <div className="text-[12px] text-muted mt-1.5">{paidCount} of {transfers.length} transfers confirmed</div>
             </div>
@@ -156,7 +156,7 @@ export default async function SettlementPage({ params }: { params: Promise<{ id:
           <h3 className="text-[15px] font-semibold">Member balances</h3>
           <div className="space-y-1">
             {memberBalances.map(b => (
-              <div key={b.userId} className="flex items-center justify-between py-2.5 px-3 rounded-[10px] bg-elevated">
+              <div key={b.userId} className="flex items-center justify-between py-2.5 px-3 rounded-[12px] bg-elevated">
                 <div className="min-w-0">
                   <div className="text-[14px] font-medium">{b.displayName}{b.userId === session.userId ? <span className="text-[12px] text-muted"> (you)</span> : null}</div>
                   <div className="text-[12px] text-muted">Paid {formatDH(b.totalPaid)} · Owes {formatDH(b.totalResponsibility)}</div>
@@ -177,15 +177,15 @@ export default async function SettlementPage({ params }: { params: Promise<{ id:
           ) : (
             <div className="space-y-2">
               {transfers.map((t, i) => (
-                <div key={t.id} className="flex items-center justify-between py-3 px-4 rounded-[14px] bg-settle-subtle">
+                <div key={t.id} className="flex items-center justify-between py-3 px-4 rounded-[20px] bg-brand-subtle">
                   <div className="min-w-0">
                     <div className="text-[14px] font-medium">
-                      {userMap.get(t.fromUserId) || "?"} <span className="text-settle mx-1">→</span> {userMap.get(t.toUserId) || "?"}
+                      {userMap.get(t.fromUserId) || "?"} <span className="text-navy mx-1">→</span> {userMap.get(t.toUserId) || "?"}
                     </div>
                     <div className="text-[12px] text-muted">Transfer #{i + 1}</div>
                   </div>
                   <div className="flex items-center gap-2.5 flex-shrink-0 ml-3">
-                    <span className="money text-[16px] font-bold text-settle">{formatDH(t.amountCentimes)}</span>
+                    <span className="money text-[16px] font-bold text-navy">{formatDH(t.amountCentimes)}</span>
                     {t.status === "PAID" && <span className="tag bg-success-subtle text-success"><IconCheck size={12} />Paid</span>}
                   </div>
                 </div>
@@ -197,7 +197,7 @@ export default async function SettlementPage({ params }: { params: Promise<{ id:
         {/* Explanation */}
         <section className="card-elevated p-5 space-y-3">
           <h3 className="text-[15px] font-semibold">Explanation</h3>
-          <pre className="text-[13px] bg-elevated p-4 rounded-[14px] overflow-x-auto whitespace-pre-wrap font-mono text-muted">
+          <pre className="text-[13px] bg-elevated p-4 rounded-[20px] overflow-x-auto whitespace-pre-wrap font-mono text-muted">
             {explanation}
           </pre>
         </section>
@@ -212,7 +212,7 @@ export default async function SettlementPage({ params }: { params: Promise<{ id:
                   "use server";
                   const { markTransferPaidAction } = await import("@/server/settlement/actions");
                   await markTransferPaidAction(t.id);
-                }} className="flex items-center justify-between py-2.5 px-3 rounded-[10px] bg-elevated gap-3">
+                }} className="flex items-center justify-between py-2.5 px-3 rounded-[12px] bg-elevated gap-3">
                   <span className="text-[14px] min-w-0">
                     {userMap.get(t.fromUserId)} → {userMap.get(t.toUserId)}: <span className="money font-semibold">{formatDH(t.amountCentimes)}</span>
                   </span>

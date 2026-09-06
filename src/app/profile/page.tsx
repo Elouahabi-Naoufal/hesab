@@ -17,7 +17,7 @@ export default async function ProfilePage() {
       <header className="header">
         <div className="max-w-3xl mx-auto px-5 py-3 flex items-center justify-between">
           <Link href="/dashboard" className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-[10px] bg-brand flex items-center justify-center text-white font-bold text-sm">H</div>
+            <div className="w-8 h-8 rounded-[12px] bg-navy flex items-center justify-center text-white font-extrabold text-sm">P</div>
             <span className="font-semibold text-[15px]">PoolSplit</span>
           </Link>
           <Link href="/dashboard" className="btn-ghost text-[13px]">Dashboard</Link>

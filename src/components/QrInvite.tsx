@@ -19,13 +19,13 @@ export default function QrInvite({ token, type, name }: QrInviteProps) {
     <div className="space-y-2">
       <button
         onClick={() => setShowQr(!showQr)}
-        className="w-full px-4 py-2.5 rounded-[10px] border border-dashed border-border text-[13px] font-medium hover:bg-elevated transition-colors flex items-center justify-center gap-2 text-muted"
+        className="w-full px-4 py-2.5 rounded-[12px] border border-dashed border-border text-[13px] font-medium hover:bg-elevated transition-colors flex items-center justify-center gap-2 text-muted"
       >
         <IconQr size={15} />{showQr ? "Hide QR code" : "Show QR code"}
       </button>
 
       {showQr && (
-        <div className="p-4 rounded-[14px] bg-elevated space-y-3">
+        <div className="p-4 rounded-[20px] bg-elevated space-y-3">
           <p className="text-[12px] text-muted text-center">
             Scan to join: <strong className="text-foreground">{name}</strong>
           </p>

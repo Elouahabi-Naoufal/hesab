@@ -41,7 +41,7 @@ export default async function AdminPage() {
           <h3 className="text-[15px] font-semibold mb-3">Latest users</h3>
           <div className="space-y-1.5">
             {users.map(u => (
-              <div key={u.id} className="flex items-center justify-between gap-3 text-[14px] py-2 px-3 rounded-[10px] bg-elevated">
+              <div key={u.id} className="flex items-center justify-between gap-3 text-[14px] py-2 px-3 rounded-[12px] bg-elevated">
                 <span className="min-w-0 truncate">{u.displayName} · {u.username} · <span className="font-mono text-[12px]">{u.publicId}</span> {u.isAdmin && <span className="text-[12px] text-muted">(admin)</span>}</span>
                 <span className="text-muted text-[13px] flex-shrink-0">{u.email}</span>
               </div>
