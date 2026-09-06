@@ -1,21 +1,26 @@
 "use client";
 import { useRouter } from "next/navigation";
-import QrScanner from "@/components/QrScanner";
+import dynamic from "next/dynamic";
 import Link from "next/link";
+
+const QrScanner = dynamic(() => import("@/components/QrScanner"), {
+  ssr: false,
+  loading: () => (
+    <div className="flex items-center justify-center" style={{ minHeight: 250 }}>
+      <div className="animate-spin w-8 h-8 border-4 border-zinc-300 border-t-zinc-900 rounded-full" />
+    </div>
+  ),
+});
 
 export default function ScanPage() {
   const router = useRouter();
 
   const handleScan = (decodedText: string) => {
-    // The QR code should contain a URL like:
-    // https://hesab.naoufalelouahabi.com/join?token=xxx&type=group|outing
     if (decodedText.includes("/join")) {
       router.push(decodedText);
     } else if (decodedText.includes("token=")) {
-      // If it's just a token, build the join URL
       router.push(`/join?${decodedText}`);
     } else {
-      // Try to navigate to it directly
       router.push(decodedText);
     }
   };

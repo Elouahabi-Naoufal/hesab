@@ -1,6 +1,6 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
-import { Html5Qrcode } from "html5-qrcode";
+import { useState, useCallback, useRef } from "react";
+import { useZxing, type DetectedBarcode } from "react-zxing";
 
 interface QrScannerProps {
   onScan: (decodedText: string) => void;
@@ -8,88 +8,62 @@ interface QrScannerProps {
 }
 
 export default function QrScanner({ onScan, onError }: QrScannerProps) {
-  const [isRunning, setIsRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const scannerRef = useRef<Html5Qrcode | null>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
+  const [paused, setPaused] = useState(false);
+  const scannedRef = useRef(false);
 
-  useEffect(() => {
-    return () => {
-      if (scannerRef.current && isRunning) {
-        scannerRef.current.stop().catch(() => {});
+  const onDecode = useCallback(
+    (result: DetectedBarcode) => {
+      if (scannedRef.current) return;
+      scannedRef.current = true;
+      setPaused(true);
+      onScan(result.rawValue);
+    },
+    [onScan]
+  );
+
+  const { ref } = useZxing({
+    paused,
+    onDecodeResult: onDecode,
+    onError(err) {
+      if (!scannedRef.current) {
+        const msg = err instanceof Error ? err.message : "Camera error";
+        setError(msg);
+        onError?.(msg);
       }
-    };
-  }, [isRunning]);
+    },
+  });
 
-  const startScanner = async () => {
-    if (!containerRef.current) return;
-
-    try {
-      const scanner = new Html5Qrcode("qr-scanner-container");
-      scannerRef.current = scanner;
-
-      await scanner.start(
-        { facingMode: "environment" },
-        {
-          fps: 10,
-          qrbox: { width: 250, height: 250 },
-        },
-        (decodedText) => {
-          onScan(decodedText);
-          scanner.stop().catch(() => {});
-          setIsRunning(false);
-        },
-        () => {} // Ignore scan errors (no QR found yet)
-      );
-
-      setIsRunning(true);
-      setError(null);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to start camera";
-      setError(message);
-      onError?.(message);
+  const togglePause = () => {
+    if (!paused) {
+      scannedRef.current = false;
     }
-  };
-
-  const stopScanner = async () => {
-    if (scannerRef.current) {
-      try {
-        await scannerRef.current.stop();
-      } catch {}
-      scannerRef.current = null;
-    }
-    setIsRunning(false);
+    setPaused(!paused);
   };
 
   return (
     <div className="flex flex-col items-center gap-4">
-      <div
-        id="qr-scanner-container"
-        ref={containerRef}
-        className="w-full max-w-sm rounded-2xl overflow-hidden border border-zinc-200 dark:border-zinc-700"
-        style={{ minHeight: isRunning ? 300 : 0 }}
-      />
+      <div className="w-full max-w-sm rounded-2xl overflow-hidden border border-zinc-200 dark:border-zinc-700 bg-black">
+        <video
+          ref={ref}
+          muted
+          playsInline
+          className="w-full h-auto"
+          style={{ minHeight: 250 }}
+        />
+      </div>
 
       {error && (
         <p className="text-sm text-red-500 text-center">{error}</p>
       )}
 
       <div className="flex gap-3">
-        {!isRunning ? (
-          <button
-            onClick={startScanner}
-            className="px-6 py-3 rounded-xl bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 font-medium hover:opacity-90"
-          >
-            Start Scanner
-          </button>
-        ) : (
-          <button
-            onClick={stopScanner}
-            className="px-6 py-3 rounded-xl bg-red-500 text-white font-medium hover:bg-red-600"
-          >
-            Stop Scanner
-          </button>
-        )}
+        <button
+          onClick={togglePause}
+          className="px-6 py-3 rounded-xl bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 font-medium hover:opacity-90"
+        >
+          {paused ? "Resume" : "Pause"}
+        </button>
       </div>
     </div>
   );
