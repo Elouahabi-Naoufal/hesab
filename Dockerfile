@@ -25,7 +25,8 @@ COPY . .
 RUN mkdir -p data
 ENV DATABASE_URL="file:./data/app.db"
 ENV NEXT_TELEMETRY_DISABLED=1
-# Generate Prisma Client
+# Generate Prisma Client (force rebuild on schema change)
+ARG BUILD_ID=1
 RUN npx prisma generate
 # Build Next.js (standalone output)
 RUN npm run build
@@ -72,4 +73,4 @@ RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
 ENTRYPOINT ["docker-entrypoint.sh"]
 CMD ["node", "server.js"]
-# cache bust 1788569000
+# cache bust 1788571000

@@ -31,6 +31,10 @@ fi
 chown -R nextjs:nodejs /app/data 2>/dev/null || true
 chmod -R 775 /app/data 2>/dev/null || true
 
+# Regenerate Prisma Client (ensures runtime client matches current schema)
+echo ">> Regenerating Prisma Client..."
+run_as_nextjs ./node_modules/.bin/prisma generate || run_as_nextjs npx prisma@5.22.0 generate || echo ">> WARNING: Prisma generate failed. Continuing."
+
 # Enable WAL mode (best effort)
 echo ">> Enabling WAL mode..."
 run_as_nextjs sqlite3 /app/data/app.db "PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON;" || echo "WAL setup skipped (db may not exist yet)"
