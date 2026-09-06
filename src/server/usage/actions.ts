@@ -15,7 +15,9 @@ export async function createUsageRecordAction(formData: FormData) {
   const activityId = formData.get("activityId") as string;
   const productId = formData.get("productId") as string;
   const quantityRaw = (formData.get("quantity") as string) || "1";
-  const participantIdsRaw = formData.get("participantIds") as string;
+  // Checkboxes submit one `participantIds` field per checked box; accept that
+  // natively. A single JSON-array value is also accepted for compatibility.
+  const participantIdsRaw = formData.getAll("participantIds").map(v => String(v).trim()).filter(Boolean);
 
   if (!activityId) return { error: "Activity is required." };
   if (!productId) return { error: "Product is required." };
@@ -40,12 +42,18 @@ export async function createUsageRecordAction(formData: FormData) {
   if (!Number.isSafeInteger(quantity) || quantity < 1) return { error: "Quantity must be at least 1" };
 
   let participantIds: string[];
-  try {
-    participantIds = JSON.parse(participantIdsRaw);
-  } catch {
-    return { error: "Invalid participants" };
+  if (participantIdsRaw.length === 1) {
+    try {
+      const parsed: unknown = JSON.parse(participantIdsRaw[0]);
+      participantIds = Array.isArray(parsed) ? parsed.map(String) : [...participantIdsRaw];
+    } catch {
+      participantIds = [...participantIdsRaw];
+    }
+  } else {
+    participantIds = [...participantIdsRaw];
   }
-  if (!Array.isArray(participantIds) || participantIds.length === 0) {
+  participantIds = [...new Set(participantIds.map(id => id.trim()).filter(Boolean))];
+  if (participantIds.length === 0) {
     return { error: "Select at least one participant" };
   }
 

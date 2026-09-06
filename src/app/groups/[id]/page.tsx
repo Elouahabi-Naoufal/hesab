@@ -82,7 +82,7 @@ export default async function GroupPage({ params }: { params: Promise<{ id: stri
           <BackButton href="/dashboard" label="Back to dashboard" />
           <div className="flex-1 min-w-0">
             <h1 className="font-semibold text-[18px] truncate tracking-tight">{group.name}</h1>
-            <p className="text-[13px] text-muted">{members.length} members · {outings.length} outings</p>
+            <p className="text-[13px] text-muted">{members.length} {members.length === 1 ? "member" : "members"} · {outings.length} {outings.length === 1 ? "outing" : "outings"}</p>
           </div>
           <div className="text-right flex-shrink-0">
             <div className={`money text-[16px] font-bold ${myGroupNet > 0 ? "text-success" : myGroupNet < 0 ? "text-danger" : "text-muted"}`}>

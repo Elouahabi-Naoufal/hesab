@@ -83,7 +83,7 @@ export default function ClientOutingPage({
           <BackButton href={`/groups/${groupId}`} label="Back to group" />
           <div className="flex-1 min-w-0">
             <h1 className="font-semibold text-[18px] truncate tracking-tight">{outing.name}</h1>
-            <p className="text-[13px] text-muted">{outing.status} · {participants.length} participants · {activities.length} activities</p>
+            <p className="text-[13px] text-muted">{outing.status} · {participants.length} {participants.length === 1 ? "participant" : "participants"} · {activities.length} {activities.length === 1 ? "activity" : "activities"}</p>
           </div>
           {isOwner && outing.status === "PLANNING" && (
             <WForm action={async () => await activateOutingAction(outingId)} initialState={{}}>
@@ -126,11 +126,14 @@ export default function ClientOutingPage({
                 </span>
               </div>
             ))}
-            {memberBalances.filter((b: any) => b.netBalance === 0).length > 0 && (
-              <div className="text-[12px] text-muted pt-1">{memberBalances.filter((b: any) => b.netBalance === 0).length} person(s) balanced</div>
-            )}
-            {memberBalances.filter((b: any) => b.netBalance !== 0).length === 0 && (
+            {memberBalances.filter((b: any) => b.netBalance !== 0).length === 0 ? (
               <div className="text-center py-3 text-[14px] text-muted">Everyone is settled up!</div>
+            ) : (
+              memberBalances.filter((b: any) => b.netBalance === 0).length > 0 && (
+                <div className="text-[12px] text-muted pt-1">
+                  {memberBalances.filter((b: any) => b.netBalance === 0).length} {memberBalances.filter((b: any) => b.netBalance === 0).length === 1 ? "person" : "people"} balanced
+                </div>
+              )
             )}
           </div>
         </section>
