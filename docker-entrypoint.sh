@@ -22,7 +22,8 @@ run_as_nextjs() {
 }
 if [ -f /app/prisma/migrations/migration_lock.toml ] || ls /app/prisma/migrations/*/migration.sql >/dev/null 2>&1; then
   # Use local prisma 5.22.0 (avoid npx fetching prisma 8 RC which fails with npm 11)
-  run_as_nextjs ./node_modules/.bin/prisma migrate deploy || run_as_nextjs npx prisma@5.22.0 migrate deploy
+  # Non-fatal: if migration fails (e.g. tables already exist from db push), log and continue
+  run_as_nextjs ./node_modules/.bin/prisma migrate deploy || run_as_nextjs npx prisma@5.22.0 migrate deploy || echo ">> WARNING: Migration deploy failed (tables may already exist). Continuing startup."
 else
   echo ">> No migrations found, skipping"
 fi
