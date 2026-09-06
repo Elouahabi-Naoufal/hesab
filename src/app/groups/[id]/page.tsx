@@ -5,6 +5,7 @@ import Link from "next/link";
 import QrInvite from "@/components/QrInvite";
 import BackButton from "@/components/BackButton";
 import { IconChevronRight } from "@/components/icons";
+import { avatarSrc } from "@/lib/avatar";
 import { formatDH } from "@/lib/utils";
 
 function activityTotal(a: any): number {
@@ -123,13 +124,15 @@ export default async function GroupPage({ params }: { params: Promise<{ id: stri
         <section className="card-elevated p-5 space-y-4">
           <h2 className="text-[15px] font-semibold">Members</h2>
           <div className="space-y-1">
-            {members.map(m => (
+            {members.map(m => {
+              const src = avatarSrc(m.user);
+              return (
               <div key={m.id} className="flex items-center justify-between py-2.5 px-3 rounded-[10px] hover:bg-elevated transition">
                 <div className="flex items-center gap-3">
                   <div className="w-8 h-8 rounded-full overflow-hidden bg-brand-subtle text-brand flex items-center justify-center text-[13px] font-bold flex-shrink-0">
-                    {m.user.avatar ? (
+                    {src ? (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img src={m.user.avatar} alt={m.user.displayName} className="w-full h-full object-cover" />
+                      <img src={src} alt={m.user.displayName} className="w-full h-full object-cover" />
                     ) : (
                       m.user.displayName[0]
                     )}
@@ -147,7 +150,8 @@ export default async function GroupPage({ params }: { params: Promise<{ id: stri
                   </form>
                 )}
               </div>
-            ))}
+              );
+            })}
           </div>
 
           {isOwner && (

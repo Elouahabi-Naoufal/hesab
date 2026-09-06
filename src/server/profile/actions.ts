@@ -21,21 +21,28 @@ export async function updateProfileAction(formData: FormData) {
   const removeAvatar = formData.get("removeAvatar") === "on";
   const file = formData.get("avatarFile");
 
-  let avatar: string | null | undefined;
+  // Picture bytes live in the database (User.avatarData/avatarMime).
+  // `avatar` (legacy data-URL/remote-URL string) is only cleared, never written.
+  let clearAvatar = false;
+  let avatarData: Buffer | null | undefined;
+  let avatarMime: string | null | undefined;
   if (removeAvatar) {
-    avatar = null;
+    clearAvatar = true;
+    avatarData = null;
+    avatarMime = null;
   } else if (file instanceof File && file.size > 0) {
     if (!file.type.startsWith("image/")) return { error: "Profile picture must be an image file." };
     if (file.size > MAX_AVATAR_BYTES) return { error: "Profile picture must be under 500 KB." };
-    const bytes = Buffer.from(await file.arrayBuffer()).toString("base64");
-    avatar = `data:${file.type};base64,${bytes}`;
+    avatarData = Buffer.from(await file.arrayBuffer());
+    avatarMime = file.type;
   }
 
   await prisma.user.update({
     where: { id: session.userId },
     data: {
       displayName: parsed.data.displayName,
-      ...(avatar !== undefined ? { avatar } : {}),
+      ...(clearAvatar ? { avatar: null, avatarData: null, avatarMime: null } : {}),
+      ...(avatarData !== undefined ? { avatarData, avatarMime } : {}),
     },
   });
 
