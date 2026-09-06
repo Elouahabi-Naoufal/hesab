@@ -3,30 +3,26 @@ import Link from "next/link";
 
 export default function LoginPage() {
   return (
-    <div className="min-h-screen flex items-center justify-center px-4 py-10">
-      <div className="w-full max-w-sm space-y-6">
-        <div className="text-center space-y-2">
-          <div className="w-10 h-10 mx-auto rounded-xl bg-zinc-900 dark:bg-white flex items-center justify-center text-white dark:text-zinc-900 font-bold">H</div>
-          <h1 className="text-2xl font-bold">Welcome back</h1>
-          <p className="text-sm text-zinc-500">Login to your Hesab account</p>
+    <div className="min-h-screen flex items-center justify-center px-5 py-10">
+      <div className="w-full max-w-sm space-y-8">
+        <div className="text-center space-y-3">
+          <div className="w-12 h-12 mx-auto rounded-[14px] bg-brand flex items-center justify-center text-white font-bold text-lg">H</div>
+          <h1 className="text-[26px] font-bold tracking-tight">Welcome back</h1>
+          <p className="text-[14px] text-muted">Login to your PoolSplit account</p>
         </div>
 
-        <form action={async (formData: FormData) => { "use server"; await loginAction(formData); }} className="space-y-4 bg-white dark:bg-zinc-900 p-6 rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-sm">
-          <div>
-            <label className="text-sm font-medium">Email or Username</label>
-            <input name="emailOrUsername" required className="mt-1 w-full px-3 py-2 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-zinc-900 dark:focus:ring-white" placeholder="naoufal@example.com" />
+        <form action={async (formData: FormData) => { "use server"; await loginAction(formData); }} className="card-elevated p-6 space-y-4">
+          <div className="space-y-1.5">
+            <label className="text-[13px] font-medium text-muted">Email or Username</label>
+            <input name="emailOrUsername" required className="input" placeholder="naoufal@example.com" />
           </div>
-          <div>
-            <label className="text-sm font-medium">Password</label>
-            <input name="password" type="password" required className="mt-1 w-full px-3 py-2 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-zinc-900 dark:focus:ring-white" />
+          <div className="space-y-1.5">
+            <label className="text-[13px] font-medium text-muted">Password</label>
+            <input name="password" type="password" required className="input" />
           </div>
-          <button type="submit" className="w-full py-3 rounded-xl bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 font-medium hover:opacity-90">Login</button>
-          <p className="text-center text-sm text-zinc-500">No account? <Link href="/register" className="font-medium text-zinc-900 dark:text-white hover:underline">Register</Link></p>
+          <button type="submit" className="btn-primary w-full py-2.5">Login</button>
+          <p className="text-center text-[13px] text-muted">No account? <Link href="/register" className="font-medium text-brand hover:underline">Register</Link></p>
         </form>
-
-        <div className="text-center text-xs text-zinc-400">
-          <p>Test: create 4 users Naoufal, Mohamed, Yassine, Anour to try demo flow</p>
-        </div>
       </div>
     </div>
   );

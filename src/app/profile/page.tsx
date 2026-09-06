@@ -12,42 +12,49 @@ export default async function ProfilePage() {
 
   return (
     <div className="min-h-screen">
-      <header className="sticky top-0 z-10 bg-white/80 dark:bg-zinc-900/80 backdrop-blur border-b border-zinc-200 dark:border-zinc-800">
-        <div className="max-w-3xl mx-auto px-4 py-3 flex items-center justify-between">
-          <Link href="/dashboard" className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-zinc-900 dark:bg-white flex items-center justify-center text-white dark:text-zinc-900 font-bold">H</div>
-            <span className="font-semibold">Hesab</span>
+      <header className="header">
+        <div className="max-w-3xl mx-auto px-5 py-3 flex items-center justify-between">
+          <Link href="/dashboard" className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-[10px] bg-brand flex items-center justify-center text-white font-bold text-sm">H</div>
+            <span className="font-semibold text-[15px]">PoolSplit</span>
           </Link>
-          <div className="flex gap-2">
-            <Link href="/dashboard" className="text-sm px-3 py-1 rounded-full border">Dashboard</Link>
-          </div>
+          <Link href="/dashboard" className="btn-ghost text-[13px]">Dashboard</Link>
         </div>
       </header>
-      <main className="max-w-3xl mx-auto px-4 py-6 space-y-6">
-        <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 p-6 space-y-4">
-          <h1 className="text-xl font-bold">Profile</h1>
-          <div className="grid gap-3 text-sm">
-            <div><span className="text-zinc-500">Public ID:</span> <span className="font-mono bg-zinc-100 dark:bg-zinc-800 px-2 py-1 rounded">{user.publicId}</span></div>
-            <div><span className="text-zinc-500">Username:</span> {user.username}</div>
-            <div><span className="text-zinc-500">Email:</span> {user.email}</div>
+      <main className="max-w-3xl mx-auto px-5 py-8 space-y-6">
+        <div className="card-elevated p-6 space-y-4">
+          <h1 className="text-[20px] font-bold tracking-tight">Profile</h1>
+          <div className="grid gap-3 text-[14px]">
+            <div className="flex items-center gap-3">
+              <span className="text-muted w-20">Public ID</span>
+              <span className="font-mono bg-elevated px-2.5 py-1 rounded-[8px] text-[13px]">{user.publicId}</span>
+            </div>
+            <div className="flex items-center gap-3">
+              <span className="text-muted w-20">Username</span>
+              <span>{user.username}</span>
+            </div>
+            <div className="flex items-center gap-3">
+              <span className="text-muted w-20">Email</span>
+              <span>{user.email}</span>
+            </div>
           </div>
         </div>
 
-        <form action={async (formData: FormData) => { "use server"; await updateProfileAction(formData); }} className="bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 p-6 space-y-4">
-          <h2 className="font-semibold">Edit Profile</h2>
-          <div>
-            <label className="text-sm text-zinc-500">Display Name</label>
-            <input name="displayName" defaultValue={user.displayName} required minLength={2} maxLength={50} className="w-full mt-1 px-3 py-2 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800" />
+        <form action={async (formData: FormData) => { "use server"; await updateProfileAction(formData); }} className="card-elevated p-6 space-y-4">
+          <h2 className="text-[15px] font-semibold">Edit Profile</h2>
+          <div className="space-y-1.5">
+            <label className="text-[13px] font-medium text-muted">Display Name</label>
+            <input name="displayName" defaultValue={user.displayName} required minLength={2} maxLength={50} className="input" />
           </div>
-          <div>
-            <label className="text-sm text-zinc-500">Avatar URL (optional)</label>
-            <input name="avatar" defaultValue={user.avatar || ""} placeholder="https://..." className="w-full mt-1 px-3 py-2 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800" />
+          <div className="space-y-1.5">
+            <label className="text-[13px] font-medium text-muted">Avatar URL (optional)</label>
+            <input name="avatar" defaultValue={user.avatar || ""} placeholder="https://..." className="input" />
           </div>
-          <button className="px-4 py-2 rounded-xl bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 text-sm font-medium">Save</button>
+          <button className="btn-primary">Save</button>
         </form>
 
-        <div className="bg-zinc-50 dark:bg-zinc-900 rounded-2xl border border-dashed p-6 text-center text-sm text-zinc-500">
-          ID <span className="font-mono">{user.publicId}</span> is what friends use to invite you. Share it!
+        <div className="card border-dashed p-6 text-center text-[13px] text-muted">
+          ID <span className="font-mono text-foreground">{user.publicId}</span> is what friends use to invite you. Share it!
         </div>
       </main>
     </div>

@@ -55,69 +55,75 @@ export default async function SettlementPage({ params }: { params: Promise<{ id:
     memberBalances
   );
 
+  const allSettled = transfers.every(t => t.status === "PAID");
+
   return (
-    <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
-      <header className="sticky top-0 z-10 bg-white/80 dark:bg-zinc-900/80 backdrop-blur border-b border-zinc-200 dark:border-zinc-800">
-        <div className="max-w-5xl mx-auto px-4 py-3 flex items-center gap-3">
-          <Link href={`/groups/${groupId}/outings/${outingId}`} className="p-2 rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-800">←</Link>
-          <div className="flex-1">
-            <h1 className="font-semibold">💰 Settlement — {outing.name}</h1>
+    <div className="min-h-screen">
+      <header className="header">
+        <div className="max-w-5xl mx-auto px-5 py-3 flex items-center gap-3">
+          <Link href={`/groups/${groupId}/outings/${outingId}`} className="p-2 rounded-[10px] hover:bg-elevated transition text-muted">←</Link>
+          <div className="flex-1 min-w-0">
+            <h1 className="font-semibold text-[18px]">Settlement — {outing.name}</h1>
           </div>
           {isOwner && (
-            <form action={async () => {
-              "use server";
-              const { finalizeSettlementAction } = await import("@/server/settlement/actions");
-              await finalizeSettlementAction(outingId);
-            }}>
-              <button className="px-4 py-2 rounded-full bg-amber-600 text-white text-sm font-medium">Finalize</button>
-            </form>
-          )}
-          {isOwner && (
-            <form action={async () => {
-              "use server";
-              const { recalculateSettlementAction } = await import("@/server/settlement/actions");
-              await recalculateSettlementAction(outingId);
-            }}>
-              <button className="px-4 py-2 rounded-full bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 text-sm font-medium">Recalculate</button>
-            </form>
+            <div className="flex gap-2">
+              <form action={async () => {
+                "use server";
+                const { recalculateSettlementAction } = await import("@/server/settlement/actions");
+                await recalculateSettlementAction(outingId);
+              }}>
+                <button className="btn-secondary text-[13px]">Recalculate</button>
+              </form>
+              <form action={async () => {
+                "use server";
+                const { finalizeSettlementAction } = await import("@/server/settlement/actions");
+                await finalizeSettlementAction(outingId);
+              }}>
+                <button className="btn-settle text-[13px] px-4 py-2 rounded-[10px]">Finalize</button>
+              </form>
+            </div>
           )}
         </div>
       </header>
 
-      <main className="max-w-5xl mx-auto px-4 py-6 space-y-6">
-        {/* Summary */}
-        <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 p-5 space-y-3">
-          <h3 className="font-semibold">Summary</h3>
-          <div className="grid grid-cols-3 gap-4 text-center">
+      <main className="max-w-5xl mx-auto px-5 py-8 space-y-6">
+        {/* Settlement hero */}
+        <div className="card-elevated p-6 border-l-3 border-l-settle">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-10 h-10 rounded-[14px] bg-settle-subtle text-settle flex items-center justify-center text-lg">💰</div>
             <div>
-              <div className="text-xs text-zinc-500">Total Expenses</div>
-              <div className="font-bold">{formatDH(settlement.totalExpenses / 100)} DH</div>
+              <h2 className="text-[20px] font-bold tracking-tight">Settlement</h2>
+              <p className="text-[13px] text-muted">{outing.name}</p>
             </div>
-            <div>
-              <div className="text-xs text-zinc-500">Total Paid</div>
-              <div className="font-bold">{formatDH(settlement.totalPaid / 100)} DH</div>
+          </div>
+          <div className="grid grid-cols-3 gap-4">
+            <div className="text-center p-3 rounded-[14px] bg-elevated">
+              <div className="text-[12px] text-muted mb-1">Total Expenses</div>
+              <div className="money text-[20px] font-bold">{formatDH(settlement.totalExpenses / 100)} DH</div>
             </div>
-            <div>
-              <div className="text-xs text-zinc-500">Transfers</div>
-              <div className="font-bold">{transfers.length}</div>
+            <div className="text-center p-3 rounded-[14px] bg-elevated">
+              <div className="text-[12px] text-muted mb-1">Total Paid</div>
+              <div className="money text-[20px] font-bold">{formatDH(settlement.totalPaid / 100)} DH</div>
+            </div>
+            <div className="text-center p-3 rounded-[14px] bg-elevated">
+              <div className="text-[12px] text-muted mb-1">Transfers</div>
+              <div className="money text-[20px] font-bold">{transfers.length}</div>
             </div>
           </div>
         </div>
 
         {/* Member Balances */}
-        <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 p-5 space-y-3">
-          <h3 className="font-semibold">Member Balances</h3>
+        <div className="card-elevated p-5 space-y-3">
+          <h3 className="text-[15px] font-semibold">Member Balances</h3>
           <div className="space-y-2">
             {memberBalances.map(b => (
-              <div key={b.userId} className={`flex justify-between p-3 rounded-xl ${b.netBalance > 0 ? "bg-emerald-50 dark:bg-emerald-950" : b.netBalance < 0 ? "bg-red-50 dark:bg-red-950" : "bg-zinc-50 dark:bg-zinc-800"}`}>
+              <div key={b.userId} className="flex items-center justify-between py-2.5 px-3 rounded-[10px] bg-elevated">
                 <div>
-                  <div className="font-medium">{b.displayName}</div>
-                  <div className="text-xs text-zinc-500">
-                    Paid: {formatDH(b.totalPaid / 100)} • Responsible: {formatDH(b.totalResponsibility / 100)}
-                  </div>
+                  <div className="text-[14px] font-medium">{b.displayName}</div>
+                  <div className="text-[12px] text-muted">Paid: {formatDH(b.totalPaid / 100)} · Responsible: {formatDH(b.totalResponsibility / 100)}</div>
                 </div>
-                <div className="font-bold">
-                  {b.netBalance > 0 ? `+${formatDH(b.netBalance / 100)}` : b.netBalance < 0 ? formatDH(b.netBalance / 100) : "0.00"} DH
+                <div className={`money text-[16px] font-bold ${b.netBalance > 0 ? "text-success" : b.netBalance < 0 ? "text-danger" : "text-muted"}`}>
+                  {b.netBalance > 0 ? "+" : ""}{formatDH(b.netBalance / 100)} DH
                 </div>
               </div>
             ))}
@@ -125,21 +131,24 @@ export default async function SettlementPage({ params }: { params: Promise<{ id:
         </div>
 
         {/* Transfers */}
-        <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 p-5 space-y-3">
-          <h3 className="font-semibold">Who Owes Whom</h3>
+        <div className="card-elevated p-5 space-y-3">
+          <h3 className="text-[15px] font-semibold">Who Owes Whom</h3>
           {transfers.length === 0 ? (
-            <div className="text-center py-4 text-sm text-zinc-500">Everyone is settled up!</div>
+            <div className="text-center py-6 text-[14px] text-muted">Everyone is settled up!</div>
           ) : (
             <div className="space-y-2">
               {transfers.map((t, i) => (
-                <div key={t.id} className="flex justify-between items-center p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950 border border-emerald-200 dark:border-emerald-800">
+                <div key={t.id} className="flex items-center justify-between py-3 px-4 rounded-[14px] bg-settle-subtle border border-settle/10">
                   <div>
-                    <div className="font-medium">
-                      {userMap.get(t.fromUserId) || "?"} → {userMap.get(t.toUserId) || "?"}
+                    <div className="text-[14px] font-medium">
+                      {userMap.get(t.fromUserId) || "?"} <span className="text-settle mx-1">→</span> {userMap.get(t.toUserId) || "?"}
                     </div>
-                    <div className="text-xs text-zinc-500">Transfer #{i + 1}</div>
+                    <div className="text-[12px] text-muted">Transfer #{i + 1}</div>
                   </div>
-                  <div className="font-bold text-emerald-700 dark:text-emerald-300">{formatDH(t.amountCentimes / 100)} DH</div>
+                  <div className="flex items-center gap-3">
+                    <span className="money text-[16px] font-bold text-settle">{formatDH(t.amountCentimes / 100)} DH</span>
+                    {t.status === "PAID" && <span className="tag bg-success-subtle text-success">Paid ✓</span>}
+                  </div>
                 </div>
               ))}
             </div>
@@ -147,30 +156,46 @@ export default async function SettlementPage({ params }: { params: Promise<{ id:
         </div>
 
         {/* Explanation */}
-        <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 p-5 space-y-3">
-          <h3 className="font-semibold">Explanation</h3>
-          <pre className="text-xs bg-zinc-50 dark:bg-zinc-900 p-4 rounded-xl overflow-x-auto whitespace-pre-wrap font-mono">
+        <div className="card-elevated p-5 space-y-3">
+          <h3 className="text-[15px] font-semibold">Explanation</h3>
+          <pre className="text-[13px] bg-elevated p-4 rounded-[14px] overflow-x-auto whitespace-pre-wrap font-mono text-muted">
             {explanation}
           </pre>
         </div>
 
         {/* Mark Transfer Paid */}
-        {isOwner && (
-          <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 p-5 space-y-3">
-            <h3 className="font-semibold">Mark Transfer Paid</h3>
-            {transfers.map(t => (
-              <form key={t.id} action={async () => {
-                "use server";
-                const { markTransferPaidAction } = await import("@/server/settlement/actions");
-                await markTransferPaidAction(t.id);
-              }} className="flex items-center gap-3">
-                <span>{userMap.get(t.fromUserId)} → {userMap.get(t.toUserId)}: {formatDH(t.amountCentimes / 100)} DH</span>
-                <span className={`text-xs px-2 py-1 rounded ${t.status === "PAID" ? "bg-green-100 text-green-700" : "bg-zinc-100 text-zinc-600"}`}>{t.status}</span>
-                {t.status !== "PAID" && (
-                  <button type="submit" className="px-3 py-1 rounded bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 text-xs">Mark Paid</button>
-                )}
-              </form>
-            ))}
+        {isOwner && transfers.length > 0 && (
+          <div className="card-elevated p-5 space-y-3">
+            <h3 className="text-[15px] font-semibold">Mark Transfers</h3>
+            <div className="space-y-2">
+              {transfers.map(t => (
+                <form key={t.id} action={async () => {
+                  "use server";
+                  const { markTransferPaidAction } = await import("@/server/settlement/actions");
+                  await markTransferPaidAction(t.id);
+                }} className="flex items-center justify-between py-2.5 px-3 rounded-[10px] bg-elevated">
+                  <span className="text-[14px]">
+                    {userMap.get(t.fromUserId)} → {userMap.get(t.toUserId)}: <span className="money font-medium">{formatDH(t.amountCentimes / 100)} DH</span>
+                  </span>
+                  <div className="flex items-center gap-2">
+                    {t.status === "PAID" ? (
+                      <span className="tag bg-success-subtle text-success">Paid ✓</span>
+                    ) : (
+                      <button type="submit" className="btn-primary text-[12px] px-3 py-1.5">Mark Paid</button>
+                    )}
+                  </div>
+                </form>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Final state */}
+        {allSettled && (
+          <div className="card-elevated p-8 text-center border-l-3 border-l-success">
+            <div className="text-3xl mb-3">✓</div>
+            <div className="text-[20px] font-bold text-success mb-1">Group settled</div>
+            <div className="text-[14px] text-muted">All transfers have been completed</div>
           </div>
         )}
       </main>

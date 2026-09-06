@@ -17,32 +17,41 @@ export default async function GroupPage({ params }: { params: Promise<{ id: stri
 
   const isOwner = group.ownerId === session.userId;
   const members = await prisma.groupMember.findMany({ where: { groupId: id }, include: { user: true } });
-
   const outings = await prisma.outing.findMany({ where: { groupId: id }, orderBy: { createdAt: "desc" } });
   const invitations = await prisma.groupInvitation.findMany({ where: { groupId: id, status: "PENDING" } });
 
+  const outingsWithStats = await Promise.all(
+    outings.map(async (o) => {
+      const activityCount = await prisma.activity.count({ where: { outingId: o.id } });
+      const participantCount = await prisma.outingParticipant.count({ where: { outingId: o.id } });
+      return { ...o, activityCount, participantCount };
+    })
+  );
+
   return (
-    <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
-      <header className="sticky top-0 z-10 bg-white/80 dark:bg-zinc-900/80 backdrop-blur border-b border-zinc-200 dark:border-zinc-800">
-        <div className="max-w-5xl mx-auto px-4 py-3 flex items-center gap-3">
-          <Link href="/dashboard" className="p-2 rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-800">←</Link>
-          <div className="flex-1">
-            <h1 className="font-semibold">🎱 {group.name}</h1>
-            <p className="text-xs text-zinc-500">{members.length} members • {outings.length} outings</p>
+    <div className="min-h-screen">
+      <header className="header">
+        <div className="max-w-5xl mx-auto px-5 py-3 flex items-center gap-3">
+          <Link href="/dashboard" className="p-2 rounded-[10px] hover:bg-elevated transition text-muted">←</Link>
+          <div className="flex-1 min-w-0">
+            <h1 className="font-semibold text-[18px] truncate">{group.name}</h1>
+            <p className="text-[13px] text-muted">{members.length} members · {outings.length} outings</p>
           </div>
         </div>
       </header>
 
-      <main className="max-w-5xl mx-auto px-4 py-6 space-y-6">
-        <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 p-5 space-y-4">
-          <h3 className="font-semibold">Members</h3>
-          <div className="space-y-2">
+      <main className="max-w-5xl mx-auto px-5 py-8 space-y-8">
+        {/* Members */}
+        <div className="card-elevated p-5 space-y-4">
+          <h2 className="text-[15px] font-semibold">Members</h2>
+          <div className="space-y-1">
             {members.map(m => (
-              <div key={m.id} className="flex items-center justify-between p-3 rounded-xl bg-zinc-50 dark:bg-zinc-800">
+              <div key={m.id} className="flex items-center justify-between py-2.5 px-3 rounded-[10px] hover:bg-elevated transition">
                 <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-full bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 flex items-center justify-center text-sm font-bold">{m.user.displayName[0]}</div>
+                  <div className="w-8 h-8 rounded-full bg-brand-subtle text-brand flex items-center justify-center text-[13px] font-bold">{m.user.displayName[0]}</div>
                   <div>
-                    <div className="font-medium text-sm">{m.user.displayName} {m.role === "OWNER" && <span className="text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded">owner</span>}</div>
+                    <span className="font-medium text-[14px]">{m.user.displayName}</span>
+                    {m.role === "OWNER" && <span className="tag bg-brand-subtle text-brand ml-2">owner</span>}
                   </div>
                 </div>
                 {isOwner && m.userId !== group.ownerId && (
@@ -51,7 +60,7 @@ export default async function GroupPage({ params }: { params: Promise<{ id: stri
                     const { removeMemberAction } = await import("@/server/groups/actions");
                     await removeMemberAction(id, m.userId);
                   }}>
-                    <button className="text-xs text-red-600 hover:underline">Remove</button>
+                    <button className="text-[12px] text-danger hover:underline">Remove</button>
                   </form>
                 )}
               </div>
@@ -59,69 +68,73 @@ export default async function GroupPage({ params }: { params: Promise<{ id: stri
           </div>
 
           {isOwner && (
-            <div className="space-y-3 pt-4 border-t border-zinc-200 dark:border-zinc-700">
-              <h4 className="font-medium text-sm">Invite Member</h4>
+            <div className="pt-3 border-t border-border">
+              <h3 className="text-[13px] font-medium text-muted mb-2">Invite Member</h3>
               <form action={async (formData: FormData) => {
                 "use server";
                 const { inviteMemberAction } = await import("@/server/groups/actions");
                 await inviteMemberAction(formData);
               }} className="flex gap-2">
                 <input type="hidden" name="groupId" value={id} />
-                <input name="publicId" placeholder="usr_XXXXXX" required className="flex-1 px-3 py-2 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-sm" />
-                <button className="px-4 py-2 rounded-xl bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 text-sm font-medium">Invite</button>
+                <input name="publicId" placeholder="usr_XXXXXX" required className="input flex-1" />
+                <button className="btn-primary text-[13px] px-4 py-2">Invite</button>
               </form>
               {invitations.length > 0 && (
-                <div className="text-xs text-zinc-500">Pending invites: {invitations.length}</div>
+                <div className="text-[12px] text-muted mt-2">{invitations.length} pending invite(s)</div>
               )}
             </div>
           )}
 
           {isOwner && group.publicToken && (
-            <div className="pt-3 border-t border-zinc-200 dark:border-zinc-700">
+            <div className="pt-3 border-t border-border">
               <QrInvite token={group.publicToken} type="group" name={group.name} />
             </div>
           )}
         </div>
 
-        <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 p-5 space-y-4">
-          <h3 className="font-semibold">Outings</h3>
-          <div className="space-y-3">
-            {outings.map(o => (
-              <Link key={o.id} href={`/groups/${id}/outings/${o.id}`} className="block p-4 rounded-xl bg-zinc-50 dark:bg-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-700 transition">
-                <div className="flex justify-between">
-                  <div>
-                    <div className="font-medium text-sm">{o.name}</div>
-                    <div className="text-xs text-zinc-500">{o.status} • Created {new Date(o.createdAt).toLocaleDateString()}</div>
+        {/* Outings */}
+        <div className="card-elevated p-5 space-y-4">
+          <h2 className="text-[15px] font-semibold">Outings</h2>
+          <div className="space-y-2">
+            {outingsWithStats.length === 0 ? (
+              <div className="text-center py-8 text-[13px] text-muted">No outings yet</div>
+            ) : (
+              outingsWithStats.map(o => (
+                <Link key={o.id} href={`/groups/${id}/outings/${o.id}`} className="card card-hover p-4 flex items-center justify-between">
+                  <div className="min-w-0">
+                    <div className="font-medium text-[15px] truncate">{o.name}</div>
+                    <div className="text-[13px] text-muted">{o.status} · {o.participantCount} participants · {o.activityCount} activities</div>
                   </div>
-                  <span className="text-xs text-zinc-400">→</span>
-                </div>
-              </Link>
-            ))}
+                  <span className="text-muted text-sm">→</span>
+                </Link>
+              ))
+            )}
           </div>
 
           {isOwner && (
-            <details className="rounded-xl border border-zinc-200 dark:border-zinc-700 p-4">
-              <summary className="font-medium text-sm cursor-pointer">+ Create Outing</summary>
+            <details className="rounded-[14px] border border-border p-4">
+              <summary className="text-[14px] font-medium cursor-pointer text-muted">+ Create Outing</summary>
               <form action={async (formData: FormData) => {
                 "use server";
                 const { createOutingAction } = await import("@/server/outings/actions");
                 await createOutingAction(formData);
               }} className="space-y-3 mt-3">
                 <input type="hidden" name="groupId" value={id} />
-                <input name="name" placeholder="Friday Pool Night" required className="w-full px-3 py-2 rounded-xl border bg-zinc-50 dark:bg-zinc-800 text-sm" />
-                <input name="description" placeholder="Description (optional)" className="w-full px-3 py-2 rounded-xl border bg-zinc-50 dark:bg-zinc-800 text-sm" />
+                <input name="name" placeholder="Friday Pool Night" required className="input" />
+                <input name="description" placeholder="Description (optional)" className="input" />
                 <div>
-                  <div className="text-xs font-medium text-zinc-500 mb-2">Who will participate?</div>
+                  <div className="text-[12px] font-medium text-muted mb-2">Who will participate?</div>
                   <div className="space-y-1">
                     {members.map(m => (
-                      <label key={m.userId} className="flex items-center gap-2 text-sm p-1 rounded hover:bg-zinc-50 dark:hover:bg-zinc-700">
-                        <input type="checkbox" name="participantIds" value={m.userId} defaultChecked disabled={m.userId === group.ownerId} />
-                        <span>{m.user.displayName} {m.userId === group.ownerId && <span className="text-xs text-zinc-400">(you)</span>}</span>
+                      <label key={m.userId} className="flex items-center gap-2.5 text-[14px] py-1.5 px-2 rounded-[10px] hover:bg-elevated transition cursor-pointer">
+                        <input type="checkbox" name="participantIds" value={m.userId} defaultChecked disabled={m.userId === group.ownerId} className="accent-brand" />
+                        <span>{m.user.displayName}</span>
+                        {m.userId === group.ownerId && <span className="text-[12px] text-muted">(you)</span>}
                       </label>
                     ))}
                   </div>
                 </div>
-                <button className="w-full py-2 rounded-xl bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 text-sm font-medium">Create Outing</button>
+                <button className="btn-primary w-full py-2.5">Create Outing</button>
               </form>
             </details>
           )}

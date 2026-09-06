@@ -18,27 +18,21 @@ export default function QrInvite({ token, type, name }: QrInviteProps) {
     <div className="space-y-2">
       <button
         onClick={() => setShowQr(!showQr)}
-        className="w-full px-4 py-2 rounded-xl border border-dashed border-zinc-300 dark:border-zinc-600 text-sm font-medium hover:bg-zinc-50 dark:hover:bg-zinc-800 transition flex items-center justify-center gap-2"
+        className="w-full px-4 py-2.5 rounded-[10px] border border-dashed border-border text-[13px] font-medium hover:bg-elevated transition flex items-center justify-center gap-2 text-muted"
       >
-        <span className="text-lg">📱</span>
-        {showQr ? "Hide QR Code" : "Show QR Code"}
+        📱 {showQr ? "Hide QR Code" : "Show QR Code"}
       </button>
 
       {showQr && (
-        <div className="p-4 rounded-xl bg-zinc-50 dark:bg-zinc-800 space-y-3">
-          <p className="text-xs text-zinc-500 text-center">
-            Scan to join {type}: <strong>{name}</strong>
+        <div className="p-4 rounded-[14px] bg-elevated space-y-3">
+          <p className="text-[12px] text-muted text-center">
+            Scan to join: <strong className="text-foreground">{name}</strong>
           </p>
           <div className="flex justify-center">
             <QrCode value={joinUrl} size={180} />
           </div>
           <div className="text-center">
-            <a
-              href={joinUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-xs text-blue-500 hover:underline"
-            >
+            <a href={joinUrl} target="_blank" rel="noopener noreferrer" className="text-[12px] text-brand hover:underline">
               Open invite link
             </a>
           </div>
