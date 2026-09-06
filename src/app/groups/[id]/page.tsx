@@ -4,6 +4,7 @@ import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
 import { formatDH } from "@/lib/utils";
 import { getEffectiveShares, formatPercent } from "@/domain/shares";
+import QrInvite from "@/components/QrInvite";
 
 export default async function GroupPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -84,6 +85,13 @@ export default async function GroupPage({ params }: { params: Promise<{ id: stri
               {invitations.length > 0 && (
                 <div className="text-xs text-zinc-500">Pending invites: {invitations.map(i => i.inviteePublicId).join(", ")}</div>
               )}
+            </div>
+          )}
+
+          {/* QR Code for group */}
+          {isOwner && group.publicToken && (
+            <div className="pt-3 border-t border-zinc-200 dark:border-zinc-700">
+              <QrInvite token={group.publicToken} type="group" name={group.name} />
             </div>
           )}
 

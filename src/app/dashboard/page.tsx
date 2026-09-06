@@ -51,6 +51,7 @@ export default async function Dashboard() {
           </Link>
           <div className="flex items-center gap-3">
             <span className="hidden sm:inline text-sm text-zinc-500">{user.displayName} • <span className="font-mono text-xs bg-zinc-100 dark:bg-zinc-800 px-2 py-1 rounded">{user.publicId}</span></span>
+            <Link href="/scan" className="text-sm px-3 py-1 rounded-full border border-zinc-200 dark:border-zinc-700 flex items-center gap-1">📱 Scan</Link>
             <Link href="/profile" className="text-sm px-3 py-1 rounded-full border">Profile</Link>
             <Link href="/wallet" className="text-sm px-3 py-1 rounded-full bg-emerald-100 text-emerald-700">Wallet {(wallet.balance/100).toFixed(0)} DH</Link>
             {user.isAdmin && <Link href="/admin" className="text-sm px-3 py-1 rounded-full bg-amber-100 text-amber-700 font-medium">Admin</Link>}

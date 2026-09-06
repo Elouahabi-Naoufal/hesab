@@ -142,6 +142,7 @@ model Outing {
   description String?
   status      String   @default("PLANNING")
   createdBy   String
+  publicToken String?  @unique
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 

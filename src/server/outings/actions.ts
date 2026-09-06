@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/server/auth/session";
 import { logEvent } from "@/server/audit";
 import { revalidatePath } from "next/cache";
-import { errMsg } from "@/lib/utils";
+import { errMsg, generateGroupPublicToken } from "@/lib/utils";
 
 /**
  * Create an outing within a group. Only group members can create outings.
@@ -33,6 +33,7 @@ export async function createOutingAction(formData: FormData) {
       description,
       status: "PLANNING",
       createdBy: session.userId,
+      publicToken: generateGroupPublicToken(),
     },
   });
 

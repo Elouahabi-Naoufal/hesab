@@ -3,6 +3,7 @@ import { getSession } from "@/server/auth/session";
 import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
 import { formatDH } from "@/lib/utils";
+import QrInvite from "@/components/QrInvite";
 
 export default async function OutingPage({ params }: { params: Promise<{ id: string; outingId: string }> }) {
   const { id: groupId, outingId } = await params;
@@ -110,6 +111,13 @@ export default async function OutingPage({ params }: { params: Promise<{ id: str
               </select>
               <button className="px-3 py-2 rounded-xl bg-zinc-100 dark:bg-zinc-800 text-sm">Invite</button>
             </form>
+          )}
+
+          {/* QR Code for outing */}
+          {isOwner && outing.publicToken && (
+            <div className="pt-3 border-t border-zinc-200 dark:border-zinc-700">
+              <QrInvite token={outing.publicToken} type="outing" name={outing.name} />
+            </div>
           )}
         </div>
 
