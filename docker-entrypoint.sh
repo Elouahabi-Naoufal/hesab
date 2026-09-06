@@ -22,10 +22,17 @@ run_as_nextjs() {
 }
 if [ -f /app/prisma/migrations/migration_lock.toml ] || ls /app/prisma/migrations/*/migration.sql >/dev/null 2>&1; then
   # Use local prisma 5.22.0 (avoid npx fetching prisma 8 RC which fails with npm 11)
-  # Non-fatal: if migration fails (e.g. tables already exist from db push), log and continue
-  run_as_nextjs ./node_modules/.bin/prisma migrate deploy || run_as_nextjs npx prisma@5.22.0 migrate deploy || echo ">> WARNING: Migration deploy failed (tables may already exist). Continuing startup."
+  # Try migrate deploy first, fall back to db push (handles schema changes without matching migrations)
+  run_as_nextjs ./node_modules/.bin/prisma migrate deploy || \
+    run_as_nextjs npx prisma@5.22.0 migrate deploy || \
+    run_as_nextjs ./node_modules/.bin/prisma db push --accept-data-loss || \
+    run_as_nextjs npx prisma@5.22.0 db push --accept-data-loss || \
+    echo ">> WARNING: Migration deploy failed (tables may already exist). Continuing startup."
 else
-  echo ">> No migrations found, skipping"
+  echo ">> No migrations found, using db push..."
+  run_as_nextjs ./node_modules/.bin/prisma db push --accept-data-loss || \
+    run_as_nextjs npx prisma@5.22.0 db push --accept-data-loss || \
+    echo ">> WARNING: db push failed. Continuing startup."
 fi
 # Re-assert ownership after migrate (migrate may create new files)
 chown -R nextjs:nodejs /app/data 2>/dev/null || true
