@@ -92,6 +92,7 @@
 * { box-sizing: border-box; }
 
 html { scroll-behavior: smooth; }
+[id] { scroll-margin-top: 76px; }
 
 body {
   background: var(--background);
@@ -227,6 +228,12 @@ summary:focus-visible {
 .btn-primary:hover { background: var(--action-deep); box-shadow: var(--shadow-sm); }
 .btn-primary:active { transform: scale(0.98); }
 .btn-primary:disabled { opacity: 0.55; cursor: wait; }
+
+.btn-sm {
+  min-height: 36px;
+  padding: 7px 16px;
+  font-size: 13px;
+}
 
 .btn-secondary {
   display: inline-flex;
@@ -427,6 +434,13 @@ details[open] > summary .chev { transform: rotate(90deg); }
 
 /* ---------- Misc ---------- */
 .divider { height: 1px; background: var(--border-color); }
+
+/* Deep-navy CTA band: fixed ink in both modes, coral button on top */
+.cta-band {
+  background: #172554;
+  color: #fff;
+}
+.cta-band p { color: rgba(255, 255, 255, 0.8); }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }

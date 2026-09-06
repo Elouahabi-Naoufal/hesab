@@ -91,6 +91,12 @@ export default async function Home() {
             </div>
           ))}
         </dl>
+
+        <section className="mt-16 rounded-[24px] cta-band p-8 sm:p-12 text-center space-y-4">
+          <h2 className="text-[26px] sm:text-[32px] font-extrabold">Get your friends together tonight</h2>
+          <p className="text-[15px] max-w-md mx-auto">Create your first outing in under a minute. The math takes care of itself.</p>
+          <Link href="/register" className="btn-primary inline-flex px-8 py-3.5 text-[15px]">Create an outing<IconArrowRight size={16} /></Link>
+        </section>
       </main>
 
       <footer className="border-t border-border py-6 text-center text-[12px] text-muted">

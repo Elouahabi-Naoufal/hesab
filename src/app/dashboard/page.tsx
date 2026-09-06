@@ -7,6 +7,8 @@ import { acceptInvitationAction, declineInvitationAction } from "@/server/groups
 import SubmitButton from "@/app/components/SubmitButton";
 import { formatDH } from "@/lib/utils";
 import { IconUsers } from "@/components/icons";
+import SiteHeader from "@/components/SiteHeader";
+import { avatarSrc } from "@/lib/avatar";
 
 function activityTotal(a: any): number {
   if (a.pricingModel === "FIXED") {
@@ -139,21 +141,12 @@ export default async function Dashboard() {
 
   return (
     <div className="min-h-screen">
-      <header className="header">
-        <div className="header-inner justify-between">
-          <Link href="/dashboard" className="flex items-center gap-2.5">
-            <div className="brand-mark">P</div>
-            <span className="font-semibold text-[15px] tracking-tight">PoolSplit</span>
-          </Link>
-          <div className="flex items-center gap-1.5">
-            <span className="hidden sm:inline text-[13px] text-muted mr-1">{user.displayName}</span>
-            <Link href="/scan" className="btn-ghost">Scan</Link>
-            <Link href="/profile" className="btn-ghost">Profile</Link>
-            {user.isAdmin && <Link href="/admin" className="tag bg-warn-subtle text-warn">Admin</Link>}
-            <form action={logoutAction}><button className="btn-ghost">Logout</button></form>
-          </div>
-        </div>
-      </header>
+      <SiteHeader
+        name={user.displayName}
+        avatarUrl={avatarSrc(user)}
+        isAdmin={user.isAdmin}
+        action={<form action={logoutAction}><button className="btn-ghost">Logout</button></form>}
+      />
 
       <main className="max-w-5xl mx-auto px-5 py-8 space-y-8">
         {/* Hero: net position */}
@@ -180,41 +173,6 @@ export default async function Dashboard() {
               </svg>
             </div>
           )}
-        </section>
-
-        {/* Recent activity */}
-        {recent.length > 0 && (
-          <section className="space-y-3">
-            <h2 className="text-[15px] font-semibold">Recent movement</h2>
-            <div className="card divide-y divide-[var(--border-color)] overflow-hidden">
-              {recent.map(r => (
-                <Link
-                  key={r.id}
-                  href={r.groupId && r.outingId ? `/groups/${r.groupId}/outings/${r.outingId}` : "/dashboard"}
-                  className="flex items-center justify-between px-4 py-3 hover:bg-[var(--elevated)] transition"
-                >
-                  <div className="min-w-0">
-                    <div className="text-[14px] font-medium truncate">{r.name}</div>
-                    <div className="text-[12px] text-muted truncate">{r.outingName}</div>
-                  </div>
-                  <span className="money text-[14px] font-semibold ml-3">{formatDH(r.total)}</span>
-                </Link>
-              ))}
-            </div>
-          </section>
-        )}
-
-        {/* Create group */}
-        <section className="card-elevated p-5">
-          <h2 className="text-[15px] font-semibold mb-3">New group</h2>
-          <form action={async (formData: FormData) => {
-            "use server";
-            const { createGroupAction } = await import("@/server/groups/actions");
-            await createGroupAction(formData);
-          }} className="flex flex-col sm:flex-row gap-2.5">
-            <input name="name" placeholder="New group name" required className="input flex-1" />
-            <button className="btn-primary whitespace-nowrap">Create Group</button>
-          </form>
         </section>
 
         {/* Invitations */}
@@ -245,6 +203,8 @@ export default async function Dashboard() {
           </section>
         )}
 
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
+          <div className="min-w-0">
         {/* Groups */}
         <section className="space-y-3">
           <div className="flex items-baseline justify-between">
@@ -289,6 +249,42 @@ export default async function Dashboard() {
             </div>
           )}
         </section>
+          </div>
+          <aside className="space-y-6 lg:sticky lg:top-[76px] min-w-0">
+            <section id="new-group" className="card-elevated p-5">
+              <h2 className="text-[15px] font-semibold mb-1">New group</h2>
+              <p className="text-[13px] text-muted mb-3">Planning something? Get your people together.</p>
+              <form action={async (formData: FormData) => {
+                "use server";
+                const { createGroupAction } = await import("@/server/groups/actions");
+                await createGroupAction(formData);
+              }} className="flex flex-col gap-2.5">
+                <input name="name" placeholder="New group name" required className="input flex-1" />
+                <button className="btn-primary whitespace-nowrap">Create Group</button>
+              </form>
+            </section>
+            {recent.length > 0 && (
+              <section className="space-y-3">
+                <h2 className="text-[15px] font-semibold">Recent movement</h2>
+                <div className="card divide-y divide-[var(--border-color)] overflow-hidden">
+                  {recent.map(r => (
+                    <Link
+                      key={r.id}
+                      href={r.groupId && r.outingId ? `/groups/${r.groupId}/outings/${r.outingId}` : "/dashboard"}
+                      className="flex items-center justify-between px-4 py-3 hover:bg-[var(--elevated)] transition-colors"
+                    >
+                      <div className="min-w-0">
+                        <div className="text-[14px] font-medium truncate">{r.name}</div>
+                        <div className="text-[12px] text-muted truncate">{r.outingName}</div>
+                      </div>
+                      <span className="money text-[14px] font-semibold ml-3">{formatDH(r.total)}</span>
+                    </Link>
+                  ))}
+                </div>
+              </section>
+            )}
+          </aside>
+        </div>
       </main>
     </div>
   );

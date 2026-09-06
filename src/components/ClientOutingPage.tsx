@@ -21,7 +21,7 @@ import {
   removeOutingParticipantAction, requestLeaveOutingAction, activateOutingAction,
 } from "@/server/outings/actions";
 import QrInvite from "@/components/QrInvite";
-import BackButton from "@/components/BackButton";
+import SiteHeader from "@/components/SiteHeader";
 import { IconCheck, IconX, IconPencil, IconChevronRight, IconReceipt } from "@/components/icons";
 
 type AR = { error?: string };
@@ -68,38 +68,42 @@ export default function ClientOutingPage({
   groupId, outingId, isOwner, sessionUserId,
   participants, usersMap, activities, activityStats,
   memberBalances, totalResponsibility, totalPaid, allActivitiesClosed, hasSettlement, outing,
+  userName, avatarUrl,
 }: {
   groupId: string; outingId: string; isOwner: boolean; sessionUserId: string;
   participants: any[]; usersMap: Map<string, string>; activities: any[]; activityStats: any[]; memberBalances: any[];
   totalResponsibility: number; totalPaid: number; allActivitiesClosed: boolean;
   hasSettlement: boolean; outing: any;
+  userName?: string; avatarUrl?: string | null;
 }) {
   const netDiff = totalResponsibility - totalPaid;
 
   return (
     <div className="min-h-screen">
-      <header className="header">
-        <div className="header-inner">
-          <BackButton href={`/groups/${groupId}`} label="Back to group" />
-          <div className="flex-1 min-w-0">
-            <h1 className="font-semibold text-[18px] truncate tracking-tight">{outing.name}</h1>
-            <p className="text-[13px] text-muted">{outing.status} · {participants.length} {participants.length === 1 ? "participant" : "participants"} · {activities.length} {activities.length === 1 ? "activity" : "activities"}</p>
-          </div>
+      <SiteHeader
+        back={{ href: `/groups/${groupId}`, label: "Back to group" }}
+        name={userName}
+        avatarUrl={avatarUrl}
+        action={<>
           {isOwner && outing.status === "PLANNING" && (
             <WForm action={async () => await activateOutingAction(outingId)} initialState={{}}>
-              <button className="btn-primary text-[13px]">Activate</button>
+              <button className="btn-primary btn-sm">Activate</button>
             </WForm>
           )}
           {isOwner && allActivitiesClosed && outing.status !== "SETTLED" && !hasSettlement && (
-            <a href={`/groups/${groupId}/outings/${outingId}/settlement`} className="btn-navy text-[13px] px-4 py-2 rounded-[12px]">Settle Outing</a>
+            <a href={`/groups/${groupId}/outings/${outingId}/settlement`} className="btn-navy btn-sm">Settle Outing</a>
           )}
           {isOwner && outing.status === "SETTLED" && (
             <span className="tag bg-success-subtle text-success"><IconCheck size={12} />Settled</span>
           )}
-        </div>
-      </header>
+        </>}
+      />
 
       <main className="max-w-5xl mx-auto px-5 py-8 space-y-6">
+        <div>
+          <h1 className="font-extrabold text-[26px] truncate tracking-tight">{outing.name}</h1>
+          <p className="text-[13px] text-muted">{outing.status} · {participants.length} {participants.length === 1 ? "participant" : "participants"} · {activities.length} {activities.length === 1 ? "activity" : "activities"}</p>
+        </div>
         {/* Live Balances — financial hero */}
         <section className="surface-20 p-6">
           <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-4">
@@ -116,56 +120,10 @@ export default function ClientOutingPage({
             </div>
           </div>
           <SplitBar paid={totalPaid} responsibility={totalResponsibility} />
-          <div className="divider my-4"></div>
-          <div className="space-y-1">
-            {memberBalances.filter((b: any) => b.netBalance !== 0).map((b: any) => (
-              <div key={b.userId} className="flex items-center justify-between py-1.5">
-                <span className="text-[14px]">{b.displayName}</span>
-                <span className={`money text-[15px] font-semibold ${b.netBalance > 0 ? "text-success" : "text-danger"}`}>
-                  {b.netBalance > 0 ? "+" : ""}{formatDH(b.netBalance)}
-                </span>
-              </div>
-            ))}
-            {memberBalances.filter((b: any) => b.netBalance !== 0).length === 0 ? (
-              <div className="text-center py-3 text-[14px] text-muted">Everyone is settled up!</div>
-            ) : (
-              memberBalances.filter((b: any) => b.netBalance === 0).length > 0 && (
-                <div className="text-[12px] text-muted pt-1">
-                  {memberBalances.filter((b: any) => b.netBalance === 0).length} {memberBalances.filter((b: any) => b.netBalance === 0).length === 1 ? "person" : "people"} balanced
-                </div>
-              )
-            )}
-          </div>
         </section>
 
-        {/* Participants */}
-        <section className="card-elevated p-5">
-          <h2 className="text-[15px] font-semibold mb-3">Participants</h2>
-          <div className="flex flex-wrap items-center gap-2">
-            {participants.map((p: any) => (
-              <span key={p.id} className="tag bg-elevated text-foreground">
-                {p.user.displayName}
-                {p.role === "OWNER" && <span className="tag bg-brand-subtle text-brand ml-1">owner</span>}
-                {isOwner && p.userId !== sessionUserId && (
-                  <WForm action={async () => await removeOutingParticipantAction(outingId, p.userId)} initialState={{}} className="inline ml-1">
-                    <button type="submit" aria-label={`Remove ${p.user.displayName}`} className="inline-flex items-center text-danger/60 hover:text-danger transition-colors ml-1"><IconX size={12} /></button>
-                  </WForm>
-                )}
-              </span>
-            ))}
-          </div>
-          {!isOwner && (
-            <WForm action={async () => await requestLeaveOutingAction(outingId)} initialState={{}} className="mt-2">
-              <button type="submit" className="text-[12px] text-danger hover:underline">Leave outing</button>
-            </WForm>
-          )}
-          {isOwner && outing.publicToken && (
-            <div className="pt-3 mt-3 border-t border-border">
-              <QrInvite token={outing.publicToken} type="outing" name={outing.name} />
-            </div>
-          )}
-        </section>
-
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
+          <div className="min-w-0 order-1">
         {/* Activities — timeline */}
         <section className="space-y-4">
           <h2 className="text-[18px] font-semibold tracking-tight">Activities</h2>
@@ -206,10 +164,61 @@ export default function ClientOutingPage({
             </div>
           )}
         </section>
-
-        {hasSettlement && (
-          <a href={`/groups/${groupId}/outings/${outingId}/settlement`} className="btn-navy w-full py-3 text-[15px] text-center rounded-[20px]">View Settlement</a>
-        )}
+          </div>
+          <aside className="space-y-6 lg:sticky lg:top-[76px] min-w-0 order-2">
+            <section className="card-elevated p-5">
+              <h2 className="text-[15px] font-semibold mb-3">Balances</h2>
+              <div className="space-y-1">
+                {memberBalances.filter((b: any) => b.netBalance !== 0).map((b: any) => (
+                  <div key={b.userId} className="flex items-center justify-between py-1.5">
+                    <span className="text-[14px]">{b.displayName}</span>
+                    <span className={`money text-[15px] font-semibold ${b.netBalance > 0 ? "text-success" : "text-danger"}`}>
+                      {b.netBalance > 0 ? "+" : ""}{formatDH(b.netBalance)}
+                    </span>
+                  </div>
+                ))}
+                {memberBalances.filter((b: any) => b.netBalance !== 0).length === 0 ? (
+                  <div className="text-center py-3 text-[14px] text-muted">Everyone is settled up!</div>
+                ) : (
+                  memberBalances.filter((b: any) => b.netBalance === 0).length > 0 && (
+                    <div className="text-[12px] text-muted pt-1">
+                      {memberBalances.filter((b: any) => b.netBalance === 0).length} {memberBalances.filter((b: any) => b.netBalance === 0).length === 1 ? "person" : "people"} balanced
+                    </div>
+                  )
+                )}
+              </div>
+            </section>
+            <section className="card-elevated p-5">
+              <h2 className="text-[15px] font-semibold mb-3">Participants</h2>
+              <div className="flex flex-wrap items-center gap-2">
+                {participants.map((p: any) => (
+                  <span key={p.id} className="tag bg-elevated text-foreground">
+                    {p.user.displayName}
+                    {p.role === "OWNER" && <span className="tag bg-brand-subtle text-brand ml-1">owner</span>}
+                    {isOwner && p.userId !== sessionUserId && (
+                      <WForm action={async () => await removeOutingParticipantAction(outingId, p.userId)} initialState={{}} className="inline ml-1">
+                        <button type="submit" aria-label={`Remove ${p.user.displayName}`} className="inline-flex items-center text-danger/60 hover:text-danger transition-colors ml-1"><IconX size={12} /></button>
+                      </WForm>
+                    )}
+                  </span>
+                ))}
+              </div>
+              {!isOwner && (
+                <WForm action={async () => await requestLeaveOutingAction(outingId)} initialState={{}} className="mt-2">
+                  <button type="submit" className="text-[12px] text-danger hover:underline">Leave outing</button>
+                </WForm>
+              )}
+              {isOwner && outing.publicToken && (
+                <div className="pt-3 mt-3 border-t border-border">
+                  <QrInvite token={outing.publicToken} type="outing" name={outing.name} />
+                </div>
+              )}
+            </section>
+            {hasSettlement && (
+              <a href={`/groups/${groupId}/outings/${outingId}/settlement`} className="btn-navy w-full py-3 text-[15px] text-center rounded-[20px]">View Settlement</a>
+            )}
+          </aside>
+        </div>
       </main>
     </div>
   );

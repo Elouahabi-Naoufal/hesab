@@ -1,10 +1,10 @@
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/server/auth/session";
 import { redirect } from "next/navigation";
-import Link from "next/link";
 import { updateProfileAction } from "@/server/profile/actions";
 import AvatarPicker from "@/components/AvatarPicker";
 import { avatarSrc } from "@/lib/avatar";
+import SiteHeader from "@/components/SiteHeader";
 
 export default async function ProfilePage() {
   const session = await getSession();
@@ -14,15 +14,7 @@ export default async function ProfilePage() {
 
   return (
     <div className="min-h-screen">
-      <header className="header">
-        <div className="max-w-3xl mx-auto px-5 py-3 flex items-center justify-between">
-          <Link href="/dashboard" className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-[12px] bg-navy flex items-center justify-center text-white font-extrabold text-sm">P</div>
-            <span className="font-semibold text-[15px]">PoolSplit</span>
-          </Link>
-          <Link href="/dashboard" className="btn-ghost text-[13px]">Dashboard</Link>
-        </div>
-      </header>
+      <SiteHeader name={user.displayName} avatarUrl={avatarSrc(user)} isAdmin={user.isAdmin} />
       <main className="max-w-3xl mx-auto px-5 py-8 space-y-6">
         <div className="card-elevated p-6 space-y-4">
           <h1 className="text-[20px] font-bold tracking-tight">Profile</h1>

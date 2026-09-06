@@ -3,9 +3,9 @@ import { getSession } from "@/server/auth/session";
 import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
 import QrInvite from "@/components/QrInvite";
-import BackButton from "@/components/BackButton";
 import { IconChevronRight } from "@/components/icons";
 import { avatarSrc } from "@/lib/avatar";
+import SiteHeader from "@/components/SiteHeader";
 import { formatDH } from "@/lib/utils";
 
 function activityTotal(a: any): number {
@@ -78,23 +78,13 @@ export default async function GroupPage({ params }: { params: Promise<{ id: stri
 
   return (
     <div className="min-h-screen">
-      <header className="header">
-        <div className="header-inner">
-          <BackButton href="/dashboard" label="Back to dashboard" />
-          <div className="flex-1 min-w-0">
-            <h1 className="font-semibold text-[18px] truncate tracking-tight">{group.name}</h1>
-            <p className="text-[13px] text-muted">{members.length} {members.length === 1 ? "member" : "members"} · {outings.length} {outings.length === 1 ? "outing" : "outings"}</p>
-          </div>
-          <div className="text-right flex-shrink-0">
-            <div className={`money text-[16px] font-bold ${myGroupNet > 0 ? "text-success" : myGroupNet < 0 ? "text-danger" : "text-muted"}`}>
-              {myGroupNet > 0 ? "+" : ""}{formatDH(myGroupNet)}
-            </div>
-            <div className="text-[12px] text-muted">your position</div>
-          </div>
-        </div>
-      </header>
+      <SiteHeader back={{ href: "/dashboard", label: "Back to dashboard" }} />
 
       <main className="max-w-5xl mx-auto px-5 py-8 space-y-6">
+        <div>
+          <h1 className="font-extrabold text-[26px] truncate tracking-tight">{group.name}</h1>
+          <p className="text-[13px] text-muted">{members.length} {members.length === 1 ? "member" : "members"} · {outings.length} {outings.length === 1 ? "outing" : "outings"}</p>
+        </div>
         {/* Group financial strip */}
         <section className="surface-20 p-5">
           <div className="grid grid-cols-3 gap-3 text-center">
@@ -118,10 +108,18 @@ export default async function GroupPage({ params }: { params: Promise<{ id: stri
               </div>
             </div>
           )}
+          <div className="divider"></div>
+          <div className="flex items-center justify-between">
+            <span className="text-[13px] text-muted">Your position in this group</span>
+            <span className={`money text-[16px] font-bold ${myGroupNet > 0 ? "text-success" : myGroupNet < 0 ? "text-danger" : "text-muted"}`}>
+              {myGroupNet > 0 ? "+" : ""}{formatDH(myGroupNet)}
+            </span>
+          </div>
         </section>
 
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
         {/* Members */}
-        <section className="card-elevated p-5 space-y-4">
+        <section className="card-elevated p-5 space-y-4 order-2">
           <h2 className="text-[15px] font-semibold">Members</h2>
           <div className="space-y-1">
             {members.map(m => {
@@ -180,7 +178,7 @@ export default async function GroupPage({ params }: { params: Promise<{ id: stri
         </section>
 
         {/* Outings */}
-        <section className="card-elevated p-5 space-y-4">
+        <section className="card-elevated p-5 space-y-4 order-1">
           <h2 className="text-[15px] font-semibold">Outings</h2>
           <div className="space-y-2.5">
             {outingsWithStats.length === 0 ? (
@@ -244,6 +242,7 @@ export default async function GroupPage({ params }: { params: Promise<{ id: stri
             </details>
           )}
         </section>
+        </div>
       </main>
     </div>
   );

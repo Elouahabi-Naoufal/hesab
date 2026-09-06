@@ -3,8 +3,9 @@ import { getSession } from "@/server/auth/session";
 import { redirect, notFound } from "next/navigation";
 import { formatDH } from "@/lib/utils";
 import { explainSettlement } from "@/domain/settlement";
-import BackButton from "@/components/BackButton";
+import SiteHeader from "@/components/SiteHeader";
 import { IconCheck, IconWallet } from "@/components/icons";
+import { avatarSrc } from "@/lib/avatar";
 
 export default async function SettlementPage({ params }: { params: Promise<{ id: string; outingId: string }> }) {
   const { id: groupId, outingId } = await params;
@@ -65,38 +66,39 @@ export default async function SettlementPage({ params }: { params: Promise<{ id:
 
   const paidCount = transfers.filter(t => t.status === "PAID").length;
   const allSettled = transfers.length > 0 && paidCount === transfers.length;
+  const meUser = allParticipants.find(p => p.userId === session.userId)?.user ?? null;
 
   return (
     <div className="min-h-screen">
-      <header className="header">
-        <div className="header-inner">
-          <BackButton href={`/groups/${groupId}/outings/${outingId}`} label="Back to outing" />
-          <div className="flex-1 min-w-0">
-            <h1 className="font-semibold text-[18px] tracking-tight">Settlement</h1>
-            <p className="text-[13px] text-muted">{outing.name}</p>
+      <SiteHeader
+        back={{ href: `/groups/${groupId}/outings/${outingId}`, label: "Back to outing" }}
+        name={meUser?.displayName}
+        avatarUrl={meUser ? avatarSrc(meUser) : null}
+        action={isOwner ? (
+          <div className="flex gap-2">
+            <form action={async () => {
+              "use server";
+              const { recalculateSettlementAction } = await import("@/server/settlement/actions");
+              await recalculateSettlementAction(outingId);
+            }}>
+              <button className="btn-secondary btn-sm">Recalculate</button>
+            </form>
+            <form action={async () => {
+              "use server";
+              const { finalizeSettlementAction } = await import("@/server/settlement/actions");
+              await finalizeSettlementAction(outingId);
+            }}>
+              <button className="btn-navy btn-sm">Finalize</button>
+            </form>
           </div>
-          {isOwner && (
-            <div className="flex gap-2">
-              <form action={async () => {
-                "use server";
-                const { recalculateSettlementAction } = await import("@/server/settlement/actions");
-                await recalculateSettlementAction(outingId);
-              }}>
-                <button className="btn-secondary text-[13px]">Recalculate</button>
-              </form>
-              <form action={async () => {
-                "use server";
-                const { finalizeSettlementAction } = await import("@/server/settlement/actions");
-                await finalizeSettlementAction(outingId);
-              }}>
-                <button className="btn-navy text-[13px] px-4">Finalize</button>
-              </form>
-            </div>
-          )}
-        </div>
-      </header>
+        ) : undefined}
+      />
 
       <main className="max-w-5xl mx-auto px-5 py-8 space-y-6">
+        <div>
+          <h1 className="font-extrabold text-[26px] tracking-tight">Settlement</h1>
+          <p className="text-[13px] text-muted">{outing.name}</p>
+        </div>
         {/* Personal result hero */}
         <section className="surface-20 p-6">
           <div className="flex items-center gap-3 mb-4">
@@ -133,42 +135,9 @@ export default async function SettlementPage({ params }: { params: Promise<{ id:
           )}
         </section>
 
-        {/* Group totals */}
-        <section className="card-elevated p-5">
-          <div className="grid grid-cols-3 gap-3 text-center">
-            <div>
-              <div className="text-[12px] text-muted mb-1">Expenses</div>
-              <div className="money text-[18px] font-bold">{formatDH(settlement.totalExpenses)}</div>
-            </div>
-            <div>
-              <div className="text-[12px] text-muted mb-1">Paid</div>
-              <div className="money text-[18px] font-bold">{formatDH(settlement.totalPaid)}</div>
-            </div>
-            <div>
-              <div className="text-[12px] text-muted mb-1">Transfers</div>
-              <div className="money text-[18px] font-bold">{transfers.length}</div>
-            </div>
-          </div>
-        </section>
-
-        {/* Member Balances */}
-        <section className="card-elevated p-5 space-y-3">
-          <h3 className="text-[15px] font-semibold">Member balances</h3>
-          <div className="space-y-1">
-            {memberBalances.map(b => (
-              <div key={b.userId} className="flex items-center justify-between py-2.5 px-3 rounded-[12px] bg-elevated">
-                <div className="min-w-0">
-                  <div className="text-[14px] font-medium">{b.displayName}{b.userId === session.userId ? <span className="text-[12px] text-muted"> (you)</span> : null}</div>
-                  <div className="text-[12px] text-muted">Paid {formatDH(b.totalPaid)} · Owes {formatDH(b.totalResponsibility)}</div>
-                </div>
-                <div className={`money text-[15px] font-bold ml-3 ${b.netBalance > 0 ? "text-success" : b.netBalance < 0 ? "text-danger" : "text-muted"}`}>
-                  {b.netBalance > 0 ? "+" : ""}{formatDH(b.netBalance)}
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-
+        {/* Transfers + confirmation flow */}
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
+          <div className="min-w-0 order-1 space-y-6">
         {/* Transfers */}
         <section className="card-elevated p-5 space-y-3">
           <h3 className="text-[15px] font-semibold">Who owes whom</h3>
@@ -226,6 +195,46 @@ export default async function SettlementPage({ params }: { params: Promise<{ id:
             </div>
           </section>
         )}
+          </div>
+          <aside className="space-y-6 lg:sticky lg:top-[76px] min-w-0 order-2">
+        {/* Group totals */}
+        <section className="card-elevated p-5">
+          <h3 className="text-[15px] font-semibold mb-3">Group totals</h3>
+          <div className="grid grid-cols-3 gap-3 text-center">
+            <div>
+              <div className="text-[12px] text-muted mb-1">Expenses</div>
+              <div className="money text-[18px] font-bold">{formatDH(settlement.totalExpenses)}</div>
+            </div>
+            <div>
+              <div className="text-[12px] text-muted mb-1">Paid</div>
+              <div className="money text-[18px] font-bold">{formatDH(settlement.totalPaid)}</div>
+            </div>
+            <div>
+              <div className="text-[12px] text-muted mb-1">Transfers</div>
+              <div className="money text-[18px] font-bold">{transfers.length}</div>
+            </div>
+          </div>
+        </section>
+
+        {/* Member Balances */}
+        <section className="card-elevated p-5 space-y-3">
+          <h3 className="text-[15px] font-semibold">Member balances</h3>
+          <div className="space-y-1">
+            {memberBalances.map(b => (
+              <div key={b.userId} className="flex items-center justify-between py-2.5 px-3 rounded-[12px] bg-elevated">
+                <div className="min-w-0">
+                  <div className="text-[14px] font-medium">{b.displayName}{b.userId === session.userId ? <span className="text-[12px] text-muted"> (you)</span> : null}</div>
+                  <div className="text-[12px] text-muted">Paid {formatDH(b.totalPaid)} · Owes {formatDH(b.totalResponsibility)}</div>
+                </div>
+                <div className={`money text-[15px] font-bold ml-3 ${b.netBalance > 0 ? "text-success" : b.netBalance < 0 ? "text-danger" : "text-muted"}`}>
+                  {b.netBalance > 0 ? "+" : ""}{formatDH(b.netBalance)}
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+          </aside>
+        </div>
 
         {/* Completion */}
         {allSettled && (

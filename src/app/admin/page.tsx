@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/server/auth/session";
 import { redirect } from "next/navigation";
-import Link from "next/link";
+import SiteHeader from "@/components/SiteHeader";
 
 export default async function AdminPage() {
   const session = await getSession();
@@ -16,13 +16,9 @@ export default async function AdminPage() {
 
   return (
     <div className="min-h-screen">
-      <header className="header">
-        <div className="header-inner justify-between">
-          <h1 className="font-semibold text-[18px] tracking-tight">Admin</h1>
-          <Link href="/dashboard" className="btn-ghost">Back</Link>
-        </div>
-      </header>
+      <SiteHeader back={{ href: "/dashboard", label: "Back to dashboard" }} name={user.displayName} isAdmin />
       <main className="max-w-5xl mx-auto px-5 py-8 space-y-6">
+        <h1 className="font-extrabold text-[26px] tracking-tight">Admin</h1>
         <div className="grid grid-cols-3 gap-3">
           <div className="card-elevated p-4 text-center">
             <div className="money text-[26px] font-bold">{totalUsers}</div>

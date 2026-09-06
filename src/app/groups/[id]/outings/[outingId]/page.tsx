@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { getSession } from "@/server/auth/session";
 import { redirect, notFound } from "next/navigation";
 import ClientOutingPage from "@/components/ClientOutingPage";
+import { avatarSrc } from "@/lib/avatar";
 
 export default async function OutingPage({ params }: { params: Promise<{ id: string; outingId: string }> }) {
   const { id: groupId, outingId } = await params;
@@ -23,6 +24,7 @@ export default async function OutingPage({ params }: { params: Promise<{ id: str
 
   const participants = await prisma.outingParticipant.findMany({ where: { outingId }, include: { user: true } });
   const usersMap = new Map(participants.map(p => [p.userId, p.user.displayName]));
+  const me = participants.find(p => p.userId === session.userId)?.user ?? null;
 
   const activities = await prisma.activity.findMany({
     where: { outingId },
@@ -93,6 +95,8 @@ export default async function OutingPage({ params }: { params: Promise<{ id: str
       allActivitiesClosed={allActivitiesClosed}
       hasSettlement={!!hasSettlement}
       outing={outing}
+      userName={me?.displayName}
+      avatarUrl={me ? avatarSrc(me) : null}
     />
   );
 }
