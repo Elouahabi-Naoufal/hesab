@@ -3,6 +3,7 @@ import { getSession } from "@/server/auth/session";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { updateProfileAction } from "@/server/profile/actions";
+import AvatarPicker from "@/components/AvatarPicker";
 
 export default async function ProfilePage() {
   const session = await getSession();
@@ -40,15 +41,12 @@ export default async function ProfilePage() {
           </div>
         </div>
 
-        <form action={async (formData: FormData) => { "use server"; await updateProfileAction(formData); }} className="card-elevated p-6 space-y-4">
+        <form action={async (formData: FormData) => { "use server"; await updateProfileAction(formData); }} className="card-elevated p-6 space-y-5">
           <h2 className="text-[15px] font-semibold">Edit Profile</h2>
+          <AvatarPicker currentAvatar={user.avatar} displayName={user.displayName} />
           <div className="space-y-1.5">
             <label className="text-[13px] font-medium text-muted">Display Name</label>
             <input name="displayName" defaultValue={user.displayName} required minLength={2} maxLength={50} className="input" />
-          </div>
-          <div className="space-y-1.5">
-            <label className="text-[13px] font-medium text-muted">Avatar URL (optional)</label>
-            <input name="avatar" defaultValue={user.avatar || ""} placeholder="https://..." className="input" />
           </div>
           <button className="btn-primary">Save</button>
         </form>

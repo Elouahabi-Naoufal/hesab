@@ -6,23 +6,36 @@ import { z } from "zod";
 
 const updateProfileSchema = z.object({
   displayName: z.string().min(2).max(50),
-  avatar: z.string().url().optional().or(z.literal("")),
 });
+
+const MAX_AVATAR_BYTES = 500 * 1024; // 500 KB — keeps the SQLite row lean
 
 export async function updateProfileAction(formData: FormData) {
   const session = await requireSession();
   const raw = {
     displayName: formData.get("displayName") as string,
-    avatar: (formData.get("avatar") as string) || undefined,
   };
   const parsed = updateProfileSchema.safeParse(raw);
   if (!parsed.success) return { error: parsed.error.issues[0].message };
+
+  const removeAvatar = formData.get("removeAvatar") === "on";
+  const file = formData.get("avatarFile");
+
+  let avatar: string | null | undefined;
+  if (removeAvatar) {
+    avatar = null;
+  } else if (file instanceof File && file.size > 0) {
+    if (!file.type.startsWith("image/")) return { error: "Profile picture must be an image file." };
+    if (file.size > MAX_AVATAR_BYTES) return { error: "Profile picture must be under 500 KB." };
+    const bytes = Buffer.from(await file.arrayBuffer()).toString("base64");
+    avatar = `data:${file.type};base64,${bytes}`;
+  }
 
   await prisma.user.update({
     where: { id: session.userId },
     data: {
       displayName: parsed.data.displayName,
-      avatar: parsed.data.avatar || null,
+      ...(avatar !== undefined ? { avatar } : {}),
     },
   });
 

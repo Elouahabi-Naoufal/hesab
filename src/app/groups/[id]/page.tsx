@@ -126,7 +126,14 @@ export default async function GroupPage({ params }: { params: Promise<{ id: stri
             {members.map(m => (
               <div key={m.id} className="flex items-center justify-between py-2.5 px-3 rounded-[10px] hover:bg-elevated transition">
                 <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-full bg-brand-subtle text-brand flex items-center justify-center text-[13px] font-bold">{m.user.displayName[0]}</div>
+                  <div className="w-8 h-8 rounded-full overflow-hidden bg-brand-subtle text-brand flex items-center justify-center text-[13px] font-bold flex-shrink-0">
+                    {m.user.avatar ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={m.user.avatar} alt={m.user.displayName} className="w-full h-full object-cover" />
+                    ) : (
+                      m.user.displayName[0]
+                    )}
+                  </div>
                   <span className="font-medium text-[14px]">{m.user.displayName}</span>
                   {m.role === "OWNER" && <span className="tag bg-brand-subtle text-brand">owner</span>}
                 </div>
