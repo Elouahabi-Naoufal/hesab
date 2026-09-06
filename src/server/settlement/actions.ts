@@ -121,7 +121,7 @@ export async function generateSettlement(outingId: string) {
     }),
   });
 
-  return { settlement, result };
+  return { settlement: JSON.parse(JSON.stringify(settlement)), result };
 }
 
 /**
@@ -257,5 +257,5 @@ export async function getSettlementForOuting(outingId: string) {
   const users = await prisma.user.findMany({ where: { id: { in: userIds } } });
   const userMap = new Map(users.map(u => [u.id, u]));
 
-  return { settlement, userMap };
+  return { settlement: JSON.parse(JSON.stringify(settlement)), userMap };
 }
