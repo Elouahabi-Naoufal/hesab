@@ -1,6 +1,8 @@
 import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
 import Link from "next/link";
+import { formatDH } from "@/lib/utils";
+import { explainSettlement } from "@/domain/settlement";
 
 export default async function PublicSettlementPage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
@@ -19,6 +21,11 @@ export default async function PublicSettlementPage({ params }: { params: Promise
   const userMap = new Map(users.map(u => [u.id, u.displayName]));
 
   const outing = settlement.outingId ? await prisma.outing.findUnique({ where: { id: settlement.outingId } }) : null;
+
+  const explanation = explainSettlement(
+    transfers.map(t => ({ fromUserId: t.fromUserId, toUserId: t.toUserId, amountCentimes: t.amountCentimes })),
+    users.map(u => ({ userId: u.id, displayName: u.displayName, totalPaid: 0, totalResponsibility: 0, netBalance: 0 }))
+  );
 
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 flex items-center justify-center p-4">

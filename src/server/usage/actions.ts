@@ -100,10 +100,11 @@ export async function updateUsageRecordAction(
   if (!record) return { error: "Usage record not found" };
 
   const activity = await prisma.activity.findUnique({ where: { id: record.activityId } });
-  if (!activity || activity.status !== "OPEN") return { error: "Activity is not open" };
+  if (!activity) return { error: "Activity not found" };
 
   const outing = await prisma.outing.findUnique({ where: { id: activity.outingId! } });
   if (!outing) return { error: "Outing not found" };
+  if (outing.status === "SETTLED") return { error: "Outing is settled; activity data is locked." };
 
   const participant = await prisma.outingParticipant.findUnique({
     where: { outingId_userId: { outingId: activity.outingId!, userId: session.userId } },
@@ -157,6 +158,7 @@ export async function deleteUsageRecordAction(usageRecordId: string) {
 
   const outing = await prisma.outing.findUnique({ where: { id: activity.outingId! } });
   if (!outing) return { error: "Outing not found" };
+  if (outing.status === "SETTLED") return { error: "Outing is settled; activity data is locked." };
 
   const participant = await prisma.outingParticipant.findUnique({
     where: { outingId_userId: { outingId: activity.outingId!, userId: session.userId } },
@@ -200,8 +202,9 @@ export async function confirmUsageRecordAction(usageRecordId: string) {
   }
 
   const activity = await prisma.activity.findUnique({ where: { id: record.activityId } });
-  if (activity) {
-    revalidatePath(`/groups/${activity.outingId}/outings/${activity.outingId}`);
+  if (activity?.outingId) {
+    const outing = await prisma.outing.findUnique({ where: { id: activity.outingId } });
+    if (outing) revalidatePath(`/groups/${outing.groupId}/outings/${activity.outingId}`);
   }
   return { success: true };
 }
@@ -232,8 +235,9 @@ export async function disputeUsageRecordAction(usageRecordId: string, notes: str
   });
 
   const activity = await prisma.activity.findUnique({ where: { id: record.activityId } });
-  if (activity) {
-    revalidatePath(`/groups/${activity.outingId}/outings/${activity.outingId}`);
+  if (activity?.outingId) {
+    const outing = await prisma.outing.findUnique({ where: { id: activity.outingId } });
+    if (outing) revalidatePath(`/groups/${outing.groupId}/outings/${activity.outingId}`);
   }
   return { success: true };
 }

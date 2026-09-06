@@ -23,10 +23,10 @@ export async function createLineItemAction(formData: FormData) {
   const activity = await prisma.activity.findUnique({ where: { id: activityId } });
   if (!activity) return { error: "Activity not found" };
   if (activity.pricingModel !== "VARIABLE") return { error: "Line items only for VARIABLE activities" };
-  if (activity.status !== "OPEN") return { error: "Activity is not open" };
 
   const outing = await prisma.outing.findUnique({ where: { id: activity.outingId! } });
   if (!outing) return { error: "Outing not found" };
+  if (outing.status === "SETTLED") return { error: "Outing is settled; activity data is locked." };
 
   // Permission check: can only add for self, unless admin
   const caller = await prisma.outingParticipant.findUnique({
@@ -73,10 +73,11 @@ export async function updateLineItemAction(lineItemId: string, data: { descripti
   if (!item) return { error: "Not found" };
 
   const activity = await prisma.activity.findUnique({ where: { id: item.activityId } });
-  if (!activity || activity.status !== "OPEN") return { error: "Activity is not open" };
+  if (!activity) return { error: "Activity not found" };
 
   const outing = await prisma.outing.findUnique({ where: { id: activity.outingId! } });
   if (!outing) return { error: "Outing not found" };
+  if (outing.status === "SETTLED") return { error: "Outing is settled; activity data is locked." };
 
   const caller = await prisma.outingParticipant.findUnique({
     where: { outingId_userId: { outingId: activity.outingId!, userId: session.userId } },
@@ -112,10 +113,11 @@ export async function deleteLineItemAction(lineItemId: string) {
   if (!item) return { error: "Not found" };
 
   const activity = await prisma.activity.findUnique({ where: { id: item.activityId } });
-  if (!activity || activity.status !== "OPEN") return { error: "Activity is not open" };
+  if (!activity) return { error: "Activity not found" };
 
   const outing = await prisma.outing.findUnique({ where: { id: activity.outingId! } });
   if (!outing) return { error: "Outing not found" };
+  if (outing.status === "SETTLED") return { error: "Outing is settled; activity data is locked." };
 
   const caller = await prisma.outingParticipant.findUnique({
     where: { outingId_userId: { outingId: activity.outingId!, userId: session.userId } },

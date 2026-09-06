@@ -78,10 +78,13 @@ export async function updateActivityProductAction(
 
   const activity = await prisma.activity.findUnique({ where: { id: product.activityId } });
   if (!activity) return { error: "Activity not found" };
-  if (activity.status !== "OPEN") return { error: "Activity is not open" };
 
   const outing = await prisma.outing.findUnique({ where: { id: activity.outingId! } });
   if (!outing) return { error: "Outing not found" };
+  if (outing.status === "SETTLED") return { error: "Outing is settled; activity data is locked." };
+  if (activity.status === "CLOSED" && outing.status !== "SETTLED") {
+    // Admin can edit closed activities before outing settlement (spec §23)
+  }
 
   const participant = await prisma.outingParticipant.findUnique({
     where: { outingId_userId: { outingId: activity.outingId!, userId: session.userId } },
@@ -149,6 +152,7 @@ export async function deleteActivityProductAction(productId: string) {
 
   const outing = await prisma.outing.findUnique({ where: { id: activity.outingId! } });
   if (!outing) return { error: "Outing not found" };
+  if (outing.status === "SETTLED") return { error: "Outing is settled; activity data is locked." };
 
   const participant = await prisma.outingParticipant.findUnique({
     where: { outingId_userId: { outingId: activity.outingId!, userId: session.userId } },

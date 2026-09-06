@@ -13,9 +13,6 @@ export default async function Dashboard() {
   const user = await prisma.user.findUnique({ where: { id: session.userId } });
   if (!user) redirect("/login");
 
-  let wallet = await prisma.wallet.findUnique({ where: { userId: user.id } });
-  if (!wallet) wallet = await prisma.wallet.create({ data: { userId: user.id, balance: 0 } });
-
   const memberships = await prisma.groupMember.findMany({
     where: { userId: session.userId },
     include: { group: true },
@@ -29,15 +26,9 @@ export default async function Dashboard() {
 
   const groupsWithStats = await Promise.all(
     memberships.map(async (m) => {
-      const expenses = await prisma.expense.aggregate({ where: { groupId: m.group.id }, _sum: { totalCentimes: true } });
       const memberCount = await prisma.groupMember.count({ where: { groupId: m.group.id } });
       const activityCount = await prisma.activity.count({ where: { groupId: m.group.id } });
-      return {
-        membership: m,
-        totalSpent: expenses._sum.totalCentimes || 0,
-        memberCount,
-        activityCount,
-      };
+      return { membership: m, memberCount, activityCount };
     })
   );
 
@@ -53,7 +44,6 @@ export default async function Dashboard() {
             <span className="hidden sm:inline text-sm text-zinc-500">{user.displayName} • <span className="font-mono text-xs bg-zinc-100 dark:bg-zinc-800 px-2 py-1 rounded">{user.publicId}</span></span>
             <Link href="/scan" className="text-sm px-3 py-1 rounded-full border border-zinc-200 dark:border-zinc-700 flex items-center gap-1">📱 Scan</Link>
             <Link href="/profile" className="text-sm px-3 py-1 rounded-full border">Profile</Link>
-            <Link href="/wallet" className="text-sm px-3 py-1 rounded-full bg-emerald-100 text-emerald-700">Wallet {(wallet.balance/100).toFixed(0)} DH</Link>
             {user.isAdmin && <Link href="/admin" className="text-sm px-3 py-1 rounded-full bg-amber-100 text-amber-700 font-medium">Admin</Link>}
             <form action={logoutAction}><button className="text-sm px-3 py-1 rounded-full border border-zinc-200 dark:border-zinc-700">Logout</button></form>
           </div>
@@ -86,19 +76,11 @@ export default async function Dashboard() {
                 <div key={inv.id} className="bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div>
                     <div className="font-medium">{inv.group.name}</div>
-                    <div className="text-sm text-zinc-600 dark:text-zinc-400">Suggested: {(inv.suggestedContribution / 100).toFixed(inv.suggestedContribution % 100 === 0 ? 0 : 2)} DH • Wallet: {(wallet.balance/100).toFixed(2)} DH</div>
-                    {wallet.balance < inv.suggestedContribution && <div className="text-xs text-red-600">Insufficient wallet — <Link href="/wallet" className="underline">deposit</Link></div>}
+                    <div className="text-sm text-zinc-600 dark:text-zinc-400">Group invitation pending</div>
                   </div>
                   <div className="flex gap-2 items-center">
-                    <form action={async (formData: FormData) => {
-                      "use server";
-                      const v = ((formData.get("contribution") as string) || "").trim();
-                      const res = await acceptInvitationAction(inv.id, v === "" ? inv.suggestedContribution / 100 : v);
-                      if (res?.error) throw new Error(res.error);
-                    }} className="flex gap-2 items-center" title="Contribution in DH — deducted from your wallet">
-                      <input name="contribution" type="number" min={0} step="0.01" defaultValue={(inv.suggestedContribution / 100).toString()} className="w-24 px-2 py-2 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-sm" />
-                      <span className="text-xs text-zinc-500">DH</span>
-                      <SubmitButton className="px-4 py-2 rounded-xl bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 text-sm font-medium" pendingText="Joining…">Accept</SubmitButton>
+                    <form action={async () => { "use server"; await acceptInvitationAction(inv.id); }} className="flex gap-2">
+                      <SubmitButton className="px-4 py-2 rounded-xl bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 text-sm font-medium">Accept</SubmitButton>
                     </form>
                     <form action={async () => { "use server"; await declineInvitationAction(inv.id); }}><button className="px-4 py-2 rounded-xl border border-zinc-200 dark:border-zinc-700 text-sm">Decline</button></form>
                   </div>
@@ -119,14 +101,14 @@ export default async function Dashboard() {
             </div>
           ) : (
             <div className="grid gap-3">
-              {groupsWithStats.map(({ membership, totalSpent, memberCount, activityCount }) => (
+              {groupsWithStats.map(({ membership, memberCount, activityCount }) => (
                 <Link key={membership.group.id} href={`/groups/${membership.group.id}`} className="bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 p-4 flex items-center justify-between hover:shadow-md transition">
                   <div>
                     <div className="font-medium flex items-center gap-2">
                       <span>🎱</span> {membership.group.name}
                       <span className={`text-xs px-2 py-0.5 rounded-full ${membership.group.status === "ACTIVE" ? "bg-emerald-100 text-emerald-700" : membership.group.status === "SETTLED" ? "bg-zinc-100 text-zinc-600" : "bg-amber-100 text-amber-700"}`}>{membership.group.status}</span>
                     </div>
-                    <div className="text-sm text-zinc-500">{memberCount} members • {activityCount} activities • {(totalSpent / 100).toFixed(0)} DH spent</div>
+                    <div className="text-sm text-zinc-500">{memberCount} members • {activityCount} activities</div>
                   </div>
                   <div className="text-zinc-400">→</div>
                 </Link>

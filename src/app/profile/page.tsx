@@ -10,9 +10,6 @@ export default async function ProfilePage() {
   const user = await prisma.user.findUnique({ where: { id: session.userId } });
   if (!user) redirect("/login");
 
-  const wallet = await prisma.wallet.findUnique({ where: { userId: user.id } });
-  const balance = wallet?.balance ?? 0;
-
   return (
     <div className="min-h-screen">
       <header className="sticky top-0 z-10 bg-white/80 dark:bg-zinc-900/80 backdrop-blur border-b border-zinc-200 dark:border-zinc-800">
@@ -22,7 +19,6 @@ export default async function ProfilePage() {
             <span className="font-semibold">Hesab</span>
           </Link>
           <div className="flex gap-2">
-            <Link href="/wallet" className="text-sm px-3 py-1 rounded-full bg-emerald-100 text-emerald-700">Wallet {(balance/100).toFixed(0)} DH</Link>
             <Link href="/dashboard" className="text-sm px-3 py-1 rounded-full border">Dashboard</Link>
           </div>
         </div>
@@ -34,7 +30,6 @@ export default async function ProfilePage() {
             <div><span className="text-zinc-500">Public ID:</span> <span className="font-mono bg-zinc-100 dark:bg-zinc-800 px-2 py-1 rounded">{user.publicId}</span></div>
             <div><span className="text-zinc-500">Username:</span> {user.username}</div>
             <div><span className="text-zinc-500">Email:</span> {user.email}</div>
-            <div><span className="text-zinc-500">Wallet:</span> {(balance/100).toFixed(2)} DH — <Link href="/wallet" className="text-emerald-600 underline">Manage</Link></div>
           </div>
         </div>
 

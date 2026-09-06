@@ -83,10 +83,11 @@ export async function updateActivityPaymentAction(paymentId: string, amountDH: s
   if (!payment) return { error: "Not found" };
 
   const activity = await prisma.activity.findUnique({ where: { id: payment.activityId } });
-  if (!activity || activity.status !== "OPEN") return { error: "Activity is not open" };
+  if (!activity) return { error: "Activity not found" };
 
   const outing = await prisma.outing.findUnique({ where: { id: activity.outingId! } });
   if (!outing) return { error: "Outing not found" };
+  if (outing.status === "SETTLED") return { error: "Outing is settled; activity data is locked." };
 
   const caller = await prisma.outingParticipant.findUnique({
     where: { outingId_userId: { outingId: activity.outingId!, userId: session.userId } },

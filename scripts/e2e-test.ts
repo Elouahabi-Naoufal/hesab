@@ -60,7 +60,7 @@ async function main() {
       publicToken: tok(),
     }
   });
-  await prisma.groupMember.create({ data: { groupId: group.id, userId: naoufal.id, role: "OWNER", contribution: 10000 } });
+  await prisma.groupMember.create({ data: { groupId: group.id, userId: naoufal.id, role: "OWNER" } });
 
   // Invite others
   for (const u of [mohamed, yassine, anour]) {
@@ -71,12 +71,11 @@ async function main() {
         inviteePublicId: u.publicId,
         inviteeUserId: u.id,
         status: "PENDING",
-        suggestedContribution: 10000,
       }
     });
     await prisma.groupInvitation.update({ where: { id: inv.id }, data: { status: "ACCEPTED" } });
     await prisma.groupMember.create({
-      data: { groupId: group.id, userId: u.id, role: "MEMBER", contribution: 10000 }
+      data: { groupId: group.id, userId: u.id, role: "MEMBER" }
     });
     console.log(`Invited and accepted ${u.displayName}`);
   }
