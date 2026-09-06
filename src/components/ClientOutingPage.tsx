@@ -21,6 +21,8 @@ import {
   removeOutingParticipantAction, requestLeaveOutingAction, activateOutingAction,
 } from "@/server/outings/actions";
 import QrInvite from "@/components/QrInvite";
+import BackButton from "@/components/BackButton";
+import { IconCheck, IconX, IconPencil, IconChevronRight, IconReceipt } from "@/components/icons";
 
 type AR = { error?: string };
 
@@ -78,7 +80,7 @@ export default function ClientOutingPage({
     <div className="min-h-screen">
       <header className="header">
         <div className="header-inner">
-          <a href={`/groups/${groupId}`} className="p-2 rounded-[10px] hover:bg-elevated transition text-muted">←</a>
+          <BackButton href={`/groups/${groupId}`} label="Back to group" />
           <div className="flex-1 min-w-0">
             <h1 className="font-semibold text-[18px] truncate tracking-tight">{outing.name}</h1>
             <p className="text-[13px] text-muted">{outing.status} · {participants.length} participants · {activities.length} activities</p>
@@ -92,7 +94,7 @@ export default function ClientOutingPage({
             <a href={`/groups/${groupId}/outings/${outingId}/settlement`} className="btn-settle text-[13px] px-4 py-2 rounded-[10px]">Settle Outing</a>
           )}
           {isOwner && outing.status === "SETTLED" && (
-            <span className="tag bg-success-subtle text-success">Settled ✓</span>
+            <span className="tag bg-success-subtle text-success"><IconCheck size={12} />Settled</span>
           )}
         </div>
       </header>
@@ -140,10 +142,10 @@ export default function ClientOutingPage({
             {participants.map((p: any) => (
               <span key={p.id} className="tag bg-elevated text-foreground">
                 {p.user.displayName}
-                {p.role === "OWNER" && <span className="text-brand ml-1">★</span>}
+                {p.role === "OWNER" && <span className="tag bg-brand-subtle text-brand ml-1">owner</span>}
                 {isOwner && p.userId !== sessionUserId && (
                   <WForm action={async () => await removeOutingParticipantAction(outingId, p.userId)} initialState={{}} className="inline ml-1">
-                    <button type="submit" className="text-danger hover:opacity-70 ml-0.5">×</button>
+                    <button type="submit" aria-label={`Remove ${p.user.displayName}`} className="inline-flex items-center text-danger/60 hover:text-danger transition-colors ml-1"><IconX size={12} /></button>
                   </WForm>
                 )}
               </span>
@@ -166,7 +168,7 @@ export default function ClientOutingPage({
           <h2 className="text-[18px] font-semibold tracking-tight">Activities</h2>
           {activities.length === 0 ? (
             <div className="card border-dashed p-10 text-center">
-              <div className="text-3xl mb-2 opacity-30">📝</div>
+              <div className="w-12 h-12 mx-auto rounded-[14px] bg-elevated text-muted flex items-center justify-center mb-3"><IconReceipt size={22} /></div>
               <p className="text-[14px] text-muted">No activities yet</p>
             </div>
           ) : (
@@ -294,7 +296,7 @@ function ActivityCard({ activity, outingId, groupId, isOwner, participants, user
                           </WForm>
                         </details>
                         <WForm action={async () => await deleteActivityProductAction(p.id)} initialState={{}} className="inline">
-                          <button type="submit" className="text-danger text-[12px] hover:underline">✕</button>
+                          <button type="submit" aria-label={`Delete ${p.name}`} className="inline-flex items-center text-danger/60 hover:text-danger transition-colors"><IconX size={12} /></button>
                         </WForm>
                       </div>
                     )}
@@ -305,7 +307,7 @@ function ActivityCard({ activity, outingId, groupId, isOwner, participants, user
           )}
           {canEdit && (
             <details className="rounded-[14px] border border-border p-3.5">
-              <summary className="text-[13px] cursor-pointer text-muted font-semibold"><span className="chev">›</span> Add product</summary>
+              <summary className="flex items-center gap-1 text-[13px] cursor-pointer text-muted font-semibold"><IconChevronRight size={13} className="chev" /> Add product</summary>
               <WForm action={async (prevState, formData) => await createActivityProductAction(formData)} initialState={{}} className="space-y-2.5 mt-3">
                 <input type="hidden" name="activityId" value={activity.id} />
                 <input name="name" placeholder="Product name" required className="input text-[13px]" />
@@ -374,9 +376,9 @@ function ActivityCard({ activity, outingId, groupId, isOwner, participants, user
                             return conf && conf.status === "PENDING";
                           }).map((pp: any) => (
                             <WForm key={pp.userId} action={async () => await adminConfirmUsageRecordAction(r.id, pp.userId)} initialState={{}}>
-                              <button type="submit" className="btn-ghost text-brand" title={`Confirm on behalf of ${usersMap.get(pp.userId) || pp.userId}`}>
-                                ✓ {usersMap.get(pp.userId) || pp.userId}
-                              </button>
+                            <button type="submit" className="btn-ghost text-brand" title={`Confirm on behalf of ${usersMap.get(pp.userId) || pp.userId}`}>
+                              <IconCheck size={13} />{usersMap.get(pp.userId) || pp.userId}
+                            </button>
                             </WForm>
                           ))}
                         </div>
@@ -406,7 +408,7 @@ function ActivityCard({ activity, outingId, groupId, isOwner, participants, user
           )}
           {canEdit && (
             <details className="rounded-[14px] border border-border p-3.5">
-              <summary className="text-[13px] cursor-pointer text-muted font-semibold"><span className="chev">›</span> Record usage</summary>
+              <summary className="flex items-center gap-1 text-[13px] cursor-pointer text-muted font-semibold"><IconChevronRight size={13} className="chev" /> Record usage</summary>
               <WForm action={async (prevState, formData) => await createUsageRecordAction(formData)} initialState={{}} className="space-y-2.5 mt-3">
                 <input type="hidden" name="activityId" value={activity.id} />
                 <select name="productId" required className="input text-[13px]">
@@ -465,7 +467,7 @@ function ActivityCard({ activity, outingId, groupId, isOwner, participants, user
                             </WForm>
                           </details>
                           <WForm action={async () => await deleteLineItemAction(l.id)} initialState={{}}>
-                            <button type="submit" className="text-danger text-[12px] hover:underline">✕</button>
+                            <button type="submit" aria-label={`Delete ${l.description}`} className="inline-flex items-center text-danger/60 hover:text-danger transition-colors"><IconX size={12} /></button>
                           </WForm>
                         </div>
                       )}
@@ -478,7 +480,7 @@ function ActivityCard({ activity, outingId, groupId, isOwner, participants, user
           {activity.lineItems.length === 0 && <div className="text-[13px] text-muted italic">No items yet</div>}
           {canEdit && (
             <details className="rounded-[14px] border border-border p-3.5">
-              <summary className="text-[13px] cursor-pointer text-muted font-semibold"><span className="chev">›</span> Add item</summary>
+              <summary className="flex items-center gap-1 text-[13px] cursor-pointer text-muted font-semibold"><IconChevronRight size={13} className="chev" /> Add item</summary>
               <WForm action={async (prevState, formData) => await createLineItemAction(formData)} initialState={{}} className="space-y-2.5 mt-3">
                 <input type="hidden" name="activityId" value={activity.id} />
                 <input type="hidden" name="userId" defaultValue={userId} className="hidden" />
@@ -490,7 +492,7 @@ function ActivityCard({ activity, outingId, groupId, isOwner, participants, user
           )}
           {!isOwner && activity.status === "OPEN" && (
             <details className="rounded-[14px] border border-border p-3.5">
-              <summary className="text-[13px] cursor-pointer text-muted font-semibold"><span className="chev">›</span> Add my item</summary>
+              <summary className="flex items-center gap-1 text-[13px] cursor-pointer text-muted font-semibold"><IconChevronRight size={13} className="chev" /> Add my item</summary>
               <WForm action={async (prevState, formData) => await createLineItemAction(formData)} initialState={{}} className="space-y-2.5 mt-3">
                 <input type="hidden" name="activityId" value={activity.id} />
                 <input type="hidden" name="userId" value={userId} className="hidden" />
@@ -524,9 +526,9 @@ function ActivityCard({ activity, outingId, groupId, isOwner, participants, user
                           <button type="submit" className="btn-primary py-2 px-3 text-[12px]">Save</button>
                         </WForm>
                       </details>
-                      <WForm action={async () => await deleteActivityPaymentAction(p.id)} initialState={{}}>
-                        <button type="submit" className="text-danger text-[12px] hover:underline">✕</button>
-                      </WForm>
+                <WForm action={async () => await deleteActivityPaymentAction(p.id)} initialState={{}}>
+                  <button type="submit" aria-label="Delete payment" className="inline-flex items-center text-danger/60 hover:text-danger transition-colors"><IconX size={12} /></button>
+                </WForm>
                     </span>
                   )}
                 </span>
@@ -536,7 +538,7 @@ function ActivityCard({ activity, outingId, groupId, isOwner, participants, user
         )}
         {canEdit && (
           <details className="rounded-[14px] border border-border p-3.5">
-            <summary className="text-[13px] cursor-pointer text-muted font-semibold"><span className="chev">›</span> Record payment</summary>
+            <summary className="flex items-center gap-1 text-[13px] cursor-pointer text-muted font-semibold"><IconChevronRight size={13} className="chev" /> Record payment</summary>
             <WForm action={async (prevState, formData) => await recordActivityPaymentAction(formData)} initialState={{}} className="space-y-2.5 mt-3">
               <input type="hidden" name="activityId" value={activity.id} />
               <select name="userId" required className="input text-[13px]">

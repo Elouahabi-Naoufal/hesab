@@ -2,6 +2,7 @@
 import { useSearchParams, useRouter } from "next/navigation";
 import { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
+import { IconCheck, IconUsers, IconX } from "@/components/icons";
 
 function JoinContent() {
   const searchParams = useSearchParams();
@@ -88,8 +89,8 @@ function JoinContent() {
   if (status === "login") {
     return (
       <div className="text-center space-y-4">
-        <div className="w-16 h-16 mx-auto rounded-[20px] bg-brand-subtle text-brand flex items-center justify-center text-2xl">
-          {type === "outing" ? "🎉" : "👥"}
+        <div className="w-16 h-16 mx-auto rounded-[20px] bg-brand-subtle text-brand flex items-center justify-center">
+          <IconUsers size={28} />
         </div>
         <div>
           <h2 className="text-[20px] font-bold tracking-tight">You&apos;re invited!</h2>
@@ -119,8 +120,8 @@ function JoinContent() {
   if (status === "success") {
     return (
       <div className="text-center space-y-4">
-        <div className="w-16 h-16 mx-auto rounded-[20px] bg-success-subtle flex items-center justify-center text-2xl text-success">
-          ✓
+        <div className="w-16 h-16 mx-auto rounded-[20px] bg-success-subtle flex items-center justify-center text-success">
+          <IconCheck size={28} />
         </div>
         <div>
           <h2 className="text-[20px] font-bold text-success tracking-tight">Joined!</h2>
@@ -133,8 +134,8 @@ function JoinContent() {
 
   return (
     <div className="text-center space-y-4">
-      <div className="w-16 h-16 mx-auto rounded-[20px] bg-danger-subtle flex items-center justify-center text-2xl text-danger">
-        ✗
+      <div className="w-16 h-16 mx-auto rounded-[20px] bg-danger-subtle flex items-center justify-center text-danger">
+        <IconX size={28} />
       </div>
       <div>
         <h2 className="text-[20px] font-bold text-danger tracking-tight">Something went wrong</h2>

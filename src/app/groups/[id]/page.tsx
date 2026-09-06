@@ -3,6 +3,8 @@ import { getSession } from "@/server/auth/session";
 import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
 import QrInvite from "@/components/QrInvite";
+import BackButton from "@/components/BackButton";
+import { IconChevronRight } from "@/components/icons";
 import { formatDH } from "@/lib/utils";
 
 function activityTotal(a: any): number {
@@ -77,7 +79,7 @@ export default async function GroupPage({ params }: { params: Promise<{ id: stri
     <div className="min-h-screen">
       <header className="header">
         <div className="header-inner">
-          <Link href="/dashboard" className="p-2 rounded-[10px] hover:bg-elevated transition text-muted">←</Link>
+          <BackButton href="/dashboard" label="Back to dashboard" />
           <div className="flex-1 min-w-0">
             <h1 className="font-semibold text-[18px] truncate tracking-tight">{group.name}</h1>
             <p className="text-[13px] text-muted">{members.length} members · {outings.length} outings</p>
@@ -195,7 +197,7 @@ export default async function GroupPage({ params }: { params: Promise<{ id: stri
                       <div className={`money text-[15px] font-bold ${o.myNet > 0 ? "text-success" : o.myNet < 0 ? "text-danger" : "text-muted"}`}>
                         {o.myNet > 0 ? "+" : ""}{formatDH(o.myNet)}
                       </div>
-                      <div className="text-muted text-sm">→</div>
+                      <div className="text-muted flex justify-end mt-1"><IconChevronRight size={16} /></div>
                     </div>
                   </div>
                 </Link>
@@ -205,7 +207,7 @@ export default async function GroupPage({ params }: { params: Promise<{ id: stri
 
           {isOwner && (
             <details className="rounded-[14px] border border-border p-4">
-              <summary className="text-[14px] font-medium cursor-pointer text-muted"><span className="chev">›</span> Create outing</summary>
+              <summary className="flex items-center gap-1 text-[14px] font-medium cursor-pointer text-muted"><IconChevronRight size={13} className="chev" />Create outing</summary>
               <form action={async (formData: FormData) => {
                 "use server";
                 const { createOutingAction } = await import("@/server/outings/actions");

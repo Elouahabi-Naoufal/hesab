@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import dynamic from "next/dynamic";
+import { IconQr } from "@/components/icons";
 
 const QrCode = dynamic(() => import("@/components/QrCode"), { ssr: false });
 
@@ -18,9 +19,9 @@ export default function QrInvite({ token, type, name }: QrInviteProps) {
     <div className="space-y-2">
       <button
         onClick={() => setShowQr(!showQr)}
-        className="w-full px-4 py-2.5 rounded-[10px] border border-dashed border-border text-[13px] font-medium hover:bg-elevated transition flex items-center justify-center gap-2 text-muted"
+        className="w-full px-4 py-2.5 rounded-[10px] border border-dashed border-border text-[13px] font-medium hover:bg-elevated transition-colors flex items-center justify-center gap-2 text-muted"
       >
-        📱 {showQr ? "Hide QR Code" : "Show QR Code"}
+        <IconQr size={15} />{showQr ? "Hide QR code" : "Show QR code"}
       </button>
 
       {showQr && (

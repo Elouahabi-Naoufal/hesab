@@ -95,14 +95,46 @@ body {
   text-rendering: optimizeLegibility;
 }
 
-/* Subtle teal atmosphere — one radial wash, no SaaS rainbow */
-body::before {
-  content: "";
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  z-index: -1;
-  background: radial-gradient(ellipse 90% 55% at 50% -18%, var(--brand-subtle), transparent 70%);
+/* ---------- Focus: every interactive state is designed ---------- */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+summary:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* ---------- Icon button (nav affordances: back, row chevrons) ---------- */
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-input);
+  background: transparent;
+  color: var(--muted);
+  border: 1px solid transparent;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 150ms ease, color 150ms ease, border-color 150ms ease;
+}
+.icon-btn:hover {
+  background: var(--elevated);
+  color: var(--foreground);
+  border-color: var(--border-color);
+}
+.icon-btn:active { transform: scale(0.94); }
+
+h1, h2 {
+  text-wrap: balance;
+  letter-spacing: -0.02em;
+}
+
+p {
+  text-wrap: pretty;
 }
 
 ::selection { background: var(--brand-subtle); color: var(--foreground); }
@@ -284,9 +316,7 @@ input[type="checkbox"].accent-brand { accent-color: var(--brand); width: 16px; h
   position: sticky;
   top: 0;
   z-index: 40;
-  background: color-mix(in srgb, var(--background) 78%, transparent);
-  backdrop-filter: blur(18px) saturate(170%);
-  -webkit-backdrop-filter: blur(18px) saturate(170%);
+  background: var(--surface);
   border-bottom: 1px solid var(--border-color);
 }
 .header-inner {
@@ -388,9 +418,6 @@ details[open] > summary .chev { transform: rotate(90deg); }
 
 /* ---------- Misc ---------- */
 .divider { height: 1px; background: var(--border-color); }
-.accent-edge-brand { border-left: 3px solid var(--brand); }
-.accent-edge-settle { border-left: 3px solid var(--settle); }
-.accent-edge-warn { border-left: 3px solid var(--warn); }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }

@@ -1,9 +1,10 @@
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/server/auth/session";
 import { redirect, notFound } from "next/navigation";
-import Link from "next/link";
 import { formatDH } from "@/lib/utils";
 import { explainSettlement } from "@/domain/settlement";
+import BackButton from "@/components/BackButton";
+import { IconCheck } from "@/components/icons";
 
 export default async function SettlementPage({ params }: { params: Promise<{ id: string; outingId: string }> }) {
   const { id: groupId, outingId } = await params;
@@ -69,7 +70,7 @@ export default async function SettlementPage({ params }: { params: Promise<{ id:
     <div className="min-h-screen">
       <header className="header">
         <div className="header-inner">
-          <Link href={`/groups/${groupId}/outings/${outingId}`} className="p-2 rounded-[10px] hover:bg-elevated transition text-muted">←</Link>
+          <BackButton href={`/groups/${groupId}/outings/${outingId}`} label="Back to outing" />
           <div className="flex-1 min-w-0">
             <h1 className="font-semibold text-[18px] tracking-tight">Settlement</h1>
             <p className="text-[13px] text-muted">{outing.name}</p>
@@ -97,7 +98,7 @@ export default async function SettlementPage({ params }: { params: Promise<{ id:
 
       <main className="max-w-5xl mx-auto px-5 py-8 space-y-6">
         {/* Personal result hero */}
-        <section className="surface-20 accent-edge-settle p-6">
+        <section className="surface-20 p-6">
           <div className="flex items-center gap-3 mb-4">
             <div className="w-10 h-10 rounded-[14px] bg-settle-subtle text-settle flex items-center justify-center text-lg font-bold">⇄</div>
             <div>
@@ -185,7 +186,7 @@ export default async function SettlementPage({ params }: { params: Promise<{ id:
                   </div>
                   <div className="flex items-center gap-2.5 flex-shrink-0 ml-3">
                     <span className="money text-[16px] font-bold text-settle">{formatDH(t.amountCentimes)}</span>
-                    {t.status === "PAID" && <span className="tag bg-success-subtle text-success">Paid ✓</span>}
+                    {t.status === "PAID" && <span className="tag bg-success-subtle text-success"><IconCheck size={12} />Paid</span>}
                   </div>
                 </div>
               ))}
@@ -216,7 +217,7 @@ export default async function SettlementPage({ params }: { params: Promise<{ id:
                     {userMap.get(t.fromUserId)} → {userMap.get(t.toUserId)}: <span className="money font-semibold">{formatDH(t.amountCentimes)}</span>
                   </span>
                   {t.status === "PAID" ? (
-                    <span className="tag bg-success-subtle text-success flex-shrink-0">Paid ✓</span>
+                    <span className="tag bg-success-subtle text-success flex-shrink-0"><IconCheck size={12} />Paid</span>
                   ) : (
                     <button type="submit" className="btn-primary text-[12px] px-3 py-1.5 flex-shrink-0">Mark Paid</button>
                   )}
@@ -229,7 +230,7 @@ export default async function SettlementPage({ params }: { params: Promise<{ id:
         {/* Completion */}
         {allSettled && (
           <section className="surface-20 p-8 text-center">
-            <div className="w-12 h-12 mx-auto rounded-full bg-success-subtle text-success flex items-center justify-center text-xl font-bold mb-3">✓</div>
+            <div className="w-12 h-12 mx-auto rounded-full bg-success-subtle text-success flex items-center justify-center mb-3"><IconCheck size={22} /></div>
             <div className="text-[22px] font-bold text-success">Group settled</div>
             <div className="money text-[16px] font-semibold mt-1">{formatDH(settlement.totalExpenses)} reconciled</div>
             <div className="text-[13px] text-muted mt-1">All {transfers.length} transfer(s) confirmed</div>

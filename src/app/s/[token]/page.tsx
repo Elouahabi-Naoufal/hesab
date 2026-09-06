@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { formatDH } from "@/lib/utils";
+import { IconCheck } from "@/components/icons";
 
 export default async function PublicSettlementPage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
@@ -53,7 +54,7 @@ export default async function PublicSettlementPage({ params }: { params: Promise
           </div>
         ) : (
           <div className="text-center py-4">
-            <div className="text-success text-2xl mb-1">✓</div>
+            <div className="w-10 h-10 mx-auto rounded-full bg-success-subtle text-success flex items-center justify-center mb-2"><IconCheck size={18} /></div>
             <div className="text-[14px] font-semibold text-success">Everyone is settled up!</div>
           </div>
         )}

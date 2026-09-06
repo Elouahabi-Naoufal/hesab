@@ -19,7 +19,7 @@ export default async function AdminPage() {
       <header className="header">
         <div className="header-inner justify-between">
           <h1 className="font-semibold text-[18px] tracking-tight">Admin</h1>
-          <Link href="/dashboard" className="btn-ghost">← Back</Link>
+          <Link href="/dashboard" className="btn-ghost">Back</Link>
         </div>
       </header>
       <main className="max-w-5xl mx-auto px-5 py-8 space-y-6">
@@ -42,7 +42,7 @@ export default async function AdminPage() {
           <div className="space-y-1.5">
             {users.map(u => (
               <div key={u.id} className="flex items-center justify-between gap-3 text-[14px] py-2 px-3 rounded-[10px] bg-elevated">
-                <span className="min-w-0 truncate">{u.displayName} · {u.username} · <span className="font-mono text-[12px]">{u.publicId}</span> {u.isAdmin && "★"}</span>
+                <span className="min-w-0 truncate">{u.displayName} · {u.username} · <span className="font-mono text-[12px]">{u.publicId}</span> {u.isAdmin && <span className="text-[12px] text-muted">(admin)</span>}</span>
                 <span className="text-muted text-[13px] flex-shrink-0">{u.email}</span>
               </div>
             ))}

@@ -6,6 +6,7 @@ import { logoutAction } from "@/server/auth/actions";
 import { acceptInvitationAction, declineInvitationAction } from "@/server/groups/actions";
 import SubmitButton from "@/app/components/SubmitButton";
 import { formatDH } from "@/lib/utils";
+import { IconUsers } from "@/components/icons";
 
 function activityTotal(a: any): number {
   if (a.pricingModel === "FIXED") {
@@ -225,7 +226,7 @@ export default async function Dashboard() {
             </h2>
             <div className="space-y-2">
               {invitations.map(inv => (
-                <div key={inv.id} className="card-elevated accent-edge-warn p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div key={inv.id} className="card-elevated p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div>
                     <div className="font-medium text-[15px]">{inv.group.name}</div>
                     <div className="text-[13px] text-muted">Group invitation pending</div>
@@ -252,9 +253,9 @@ export default async function Dashboard() {
           </div>
           {groupsWithStats.length === 0 ? (
             <div className="card border-dashed p-12 text-center">
-              <div className="text-3xl mb-3 opacity-40">🎱</div>
+              <div className="w-12 h-12 mx-auto rounded-[14px] bg-elevated text-muted flex items-center justify-center mb-3"><IconUsers size={22} /></div>
               <p className="font-medium text-[15px]">No groups yet</p>
-              <p className="text-[13px] text-muted mt-1">Create a group for your next outing.</p>
+              <p className="text-[13px] text-muted mt-1">Create a group for your next outing</p>
             </div>
           ) : (
             <div className="space-y-2.5">
@@ -262,7 +263,7 @@ export default async function Dashboard() {
                 <Link key={membership.group.id} href={`/groups/${membership.group.id}`} className="card card-hover p-4 block">
                   <div className="flex items-center justify-between gap-3">
                     <div className="flex items-center gap-3 min-w-0">
-                      <div className="w-10 h-10 rounded-[14px] bg-brand-subtle text-brand flex items-center justify-center font-bold text-[15px] flex-shrink-0">🎱</div>
+                      <div className="w-10 h-10 rounded-[14px] bg-brand-subtle text-brand flex items-center justify-center flex-shrink-0"><IconUsers size={18} /></div>
                       <div className="min-w-0">
                         <div className="font-medium text-[15px] truncate">{membership.group.name}</div>
                         <div className="text-[13px] text-muted">{memberCount} members · {outingCount} outings · {formatDH(expenseTotal)} spent</div>
