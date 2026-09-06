@@ -3,6 +3,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        BUILD_ID: "${CI_DEPLOY_ID:-$(git rev-parse --short HEAD 2>/dev/null || echo dev)}"
     image: hesab:latest
     restart: unless-stopped
     ports:

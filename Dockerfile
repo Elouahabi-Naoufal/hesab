@@ -25,10 +25,7 @@ COPY . .
 RUN mkdir -p data
 ENV DATABASE_URL="file:./data/app.db"
 ENV NEXT_TELEMETRY_DISABLED=1
-# Generate Prisma Client (force rebuild on schema change)
-ARG BUILD_ID=1
-RUN npx prisma generate
-# Build Next.js (standalone output)
+# Build Next.js (standalone output) — Prisma Client will be generated at runtime
 RUN npm run build
 
 # Runner stage
@@ -48,11 +45,9 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
 # Copy prisma schema and migrations for runtime migrate
 COPY --from=builder /app/prisma ./prisma
-COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
-COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
-COPY --from=builder /app/node_modules/prisma ./node_modules/prisma
-COPY --from=builder /app/node_modules/.bin ./node_modules/.bin
-COPY --from=builder /app/package.json ./package.json
+# Note: we DO NOT copy node_modules/.prisma from builder —
+# we generate the Prisma Client at runtime via the entrypoint
+# so it always matches the current prisma/schema.prisma.
 
 # Data volume
 RUN mkdir -p /app/data && chown nextjs:nodejs /app/data
