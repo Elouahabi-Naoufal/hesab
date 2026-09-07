@@ -22,6 +22,7 @@ import {
 } from "@/server/outings/actions";
 import QrInvite from "@/components/QrInvite";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { IconCheck, IconX, IconPencil, IconChevronRight, IconReceipt } from "@/components/icons";
 
 type AR = { error?: string };
@@ -96,9 +97,19 @@ export default function ClientOutingPage({
                 <button className="btn-primary btn-sm">Activate</button>
               </WForm>
             )}
-            {isOwner && allActivitiesClosed && outing.status !== "SETTLED" && !hasSettlement && (
-              <a href={`/groups/${groupId}/outings/${outingId}/settlement`} className="btn-navy btn-sm">Settle Outing</a>
-            )}
+          {isOwner && allActivitiesClosed && outing.status !== "SETTLED" && !hasSettlement && (
+            <WForm
+              action={async () => {
+                const { finalizeSettlementAction } = await import("@/server/settlement/actions");
+                const res = await finalizeSettlementAction(outingId);
+                if (res?.error) return res;
+                redirect(`/groups/${groupId}/outings/${outingId}/settlement`);
+              }}
+              initialState={{}}
+            >
+              <button className="btn-navy btn-sm">Settle Outing</button>
+            </WForm>
+          )}
             {isOwner && outing.status === "SETTLED" && (
               <span className="tag bg-success-subtle text-success"><IconCheck size={12} />Settled</span>
             )}

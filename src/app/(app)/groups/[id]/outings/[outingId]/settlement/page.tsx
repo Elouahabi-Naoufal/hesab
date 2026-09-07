@@ -21,7 +21,45 @@ export default async function SettlementPage({ params }: { params: Promise<{ id:
   const isOwner = participant.role === "OWNER";
 
   const settlement = await prisma.settlement.findFirst({ where: { outingId } });
-  if (!settlement) notFound();
+  if (!settlement) {
+    const openCount = await prisma.activity.count({ where: { outingId, status: "OPEN" } });
+    const canGenerate = isOwner && openCount === 0;
+    return (
+      <main className="mx-auto max-w-5xl px-4 sm:px-6 py-6 sm:py-8 space-y-8">
+        <div>
+          <nav aria-label="Breadcrumb" className="text-[13px] text-muted mb-1.5">
+            <Link href="/dashboard" className="hover:text-foreground transition-colors">Groups</Link>
+            <span className="mx-1.5">/</span>
+            <Link href={`/groups/${groupId}`} className="hover:text-foreground transition-colors">Group</Link>
+            <span className="mx-1.5">/</span>
+            <Link href={`/groups/${groupId}/outings/${outingId}`} className="hover:text-foreground transition-colors">{outing.name}</Link>
+            <span className="mx-1.5">/</span>
+            <span className="text-foreground font-medium">Settlement</span>
+          </nav>
+          <h1 className="font-extrabold text-[26px] tracking-tight">Settlement</h1>
+        </div>
+        <div className="card border-dashed p-10 text-center space-y-3">
+          <p className="font-semibold text-[15px]">No settlement yet</p>
+          {!isOwner ? (
+            <p className="text-[13px] text-muted">The outing owner hasn&apos;t generated the settlement yet.</p>
+          ) : openCount > 0 ? (
+            <p className="text-[13px] text-muted">Close all activities first, then generate the settlement.</p>
+          ) : (
+            <form action={async () => {
+              "use server";
+              const { finalizeSettlementAction } = await import("@/server/settlement/actions");
+              await finalizeSettlementAction(outingId);
+            }}>
+              <button className="btn-navy">Generate settlement</button>
+            </form>
+          )}
+          <div>
+            <Link href={`/groups/${groupId}/outings/${outingId}`} className="text-[13px] text-brand hover:underline">Back to outing</Link>
+          </div>
+        </div>
+      </main>
+    );
+  }
 
   const transfers = await prisma.settlementTransfer.findMany({ where: { settlementId: settlement.id } });
   const allParticipants = await prisma.outingParticipant.findMany({ where: { outingId }, include: { user: true } });
