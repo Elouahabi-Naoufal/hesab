@@ -95,8 +95,8 @@ export default async function SettlementPage({ params }: { params: Promise<{ id:
   const toReceive = myTransfersIn.reduce((s, t) => s + t.amountCentimes, 0);
   const toPay = myTransfersOut.reduce((s, t) => s + t.amountCentimes, 0);
 
-  const paidCount = transfers.filter(t => t.status === "PAID").length;
-  const allSettled = transfers.length > 0 && paidCount === transfers.length;
+  const doneCount = transfers.filter(t => t.status !== "PENDING").length;
+  const allSettled = transfers.length > 0 && doneCount === transfers.length;
 
   return (
     <main className="mx-auto max-w-5xl px-4 sm:px-6 py-6 sm:py-8 space-y-8">
@@ -150,9 +150,9 @@ export default async function SettlementPage({ params }: { params: Promise<{ id:
           {transfers.length > 0 && (
             <div className="mt-4 max-w-xs">
               <div className="progress-track">
-                <div className="progress-fill navy" style={{ width: `${Math.round((paidCount / transfers.length) * 100)}%` }} />
+                <div className="progress-fill navy" style={{ width: `${Math.round((doneCount / transfers.length) * 100)}%` }} />
               </div>
-              <div className="text-[12px] text-muted mt-1.5">{paidCount} of {transfers.length} transfers confirmed</div>
+              <div className="text-[12px] text-muted mt-1.5">{doneCount} of {transfers.length} transfers confirmed</div>
             </div>
           )}
           <div className="divider mt-6"></div>
@@ -178,7 +178,11 @@ export default async function SettlementPage({ params }: { params: Promise<{ id:
                   </div>
                   <div className="flex items-center gap-2.5 flex-shrink-0 ml-3">
                     <span className="money text-[16px] font-bold text-navy">{formatDH(t.amountCentimes)}</span>
-                    {t.status === "PAID" && <span className="tag bg-success-subtle text-success"><IconCheck size={12} />Paid</span>}
+                    {t.status === "CONFIRMED" ? (
+                      <span className="tag bg-success-subtle text-success"><IconCheck size={12} />Confirmed</span>
+                    ) : t.status === "PAID" ? (
+                      <span className="tag bg-success-subtle text-success"><IconCheck size={12} />Paid</span>
+                    ) : null}
                   </div>
                 </div>
               ))}
@@ -208,27 +212,47 @@ export default async function SettlementPage({ params }: { params: Promise<{ id:
           </div>
         </section>
 
-        {/* Mark Transfer Paid */}
-        {isOwner && transfers.length > 0 && (
-          <section className="card-elevated p-5 space-y-3">
-            <h3 className="text-[15px] font-semibold">Confirm transfers</h3>
-            <div className="space-y-2">
-              {transfers.map(t => (
-                <form key={t.id} action={async () => {
-                  "use server";
-                  const { markTransferPaidAction } = await import("@/server/settlement/actions");
-                  await markTransferPaidAction(t.id);
-                }} className="flex items-center justify-between py-2.5 px-3 rounded-[12px] bg-elevated gap-3">
-                  <span className="text-[14px] min-w-0">
-                    {userMap.get(t.fromUserId)} → {userMap.get(t.toUserId)}: <span className="money font-semibold">{formatDH(t.amountCentimes)}</span>
-                  </span>
-                  {t.status === "PAID" ? (
-                    <span className="tag bg-success-subtle text-success flex-shrink-0"><IconCheck size={12} />Paid</span>
-                  ) : (
-                    <button type="submit" className="btn-primary text-[12px] px-3 py-1.5 flex-shrink-0">Mark Paid</button>
-                  )}
-                </form>
-              ))}
+        {/* Settle up — actions go to the people involved, not just the owner */}
+        {transfers.length > 0 && (
+          <section className="space-y-1">
+            <h3 className="section-label">Settle up</h3>
+            <div className="ledger">
+              {transfers.map(t => {
+                const iAmDebtor = t.fromUserId === session.userId;
+                const iAmCreditor = t.toUserId === session.userId;
+                return (
+                  <div key={t.id} className="flex items-center justify-between py-2.5 gap-3">
+                    <span className="text-[14px] min-w-0">
+                      {userMap.get(t.fromUserId)} → {userMap.get(t.toUserId)}: <span className="money font-semibold">{formatDH(t.amountCentimes)}</span>
+                    </span>
+                    {t.status === "CONFIRMED" ? (
+                      <span className="tag bg-success-subtle text-success flex-shrink-0"><IconCheck size={12} />Confirmed</span>
+                    ) : t.status === "PAID" ? (
+                      iAmCreditor ? (
+                        <form action={async () => {
+                          "use server";
+                          const { confirmTransferReceivedAction } = await import("@/server/settlement/actions");
+                          await confirmTransferReceivedAction(t.id);
+                        }}>
+                          <button type="submit" className="btn-primary text-[12px] px-3 py-1.5 flex-shrink-0">Confirm receipt</button>
+                        </form>
+                      ) : (
+                        <span className="tag bg-success-subtle text-success flex-shrink-0"><IconCheck size={12} />Paid</span>
+                      )
+                    ) : iAmDebtor ? (
+                      <form action={async () => {
+                        "use server";
+                        const { markTransferPaidAction } = await import("@/server/settlement/actions");
+                        await markTransferPaidAction(t.id);
+                      }}>
+                        <button type="submit" className="btn-primary text-[12px] px-3 py-1.5 flex-shrink-0">Mark Paid</button>
+                      </form>
+                    ) : (
+                      <span className="text-[12px] text-muted flex-shrink-0">Awaiting payment</span>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </section>
         )}
