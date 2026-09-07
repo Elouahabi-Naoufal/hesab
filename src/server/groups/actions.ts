@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/server/auth/session";
 import { z } from "zod";
 import { generateGroupPublicToken } from "@/lib/utils";
+import { userError } from "@/lib/errors";
 import { logEvent } from "@/server/audit";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -98,7 +99,7 @@ export async function acceptInvitationAction(invitationId: string) {
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e);
     if (msg.includes("already answered") || msg.includes("already a member")) return { error: msg };
-    throw e;
+    return { error: userError(e, "Could not accept this invitation. Please try again.") };
   }
 
   revalidatePath(`/groups/${inv.groupId}`);

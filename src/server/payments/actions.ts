@@ -3,7 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/server/auth/session";
 import { logEvent } from "@/server/audit";
 import { revalidatePath } from "next/cache";
-import { parseDHToCentimes, errMsg } from "@/lib/utils";
+import { parseDHToCentimes } from "@/lib/utils";
+import { userError } from "@/lib/errors";
 
 /**
  * Record a payment for an activity. Only outing owner can record payments.
@@ -35,7 +36,7 @@ export async function recordActivityPaymentAction(formData: FormData) {
   try {
     amountCentimes = parseDHToCentimes(amountDH, { minCentimes: 1, field: "Amount" });
   } catch (e: unknown) {
-    return { error: errMsg(e) };
+    return { error: userError(e, "Could not record this payment. Please try again.") };
   }
 
   // Overflow guard: check total payments don't exceed responsibility
@@ -98,7 +99,7 @@ export async function updateActivityPaymentAction(paymentId: string, amountDH: s
   try {
     newAmount = parseDHToCentimes(amountDH, { minCentimes: 0, field: "Amount" });
   } catch (e: unknown) {
-    return { error: errMsg(e) };
+    return { error: userError(e, "Could not update this payment. Please try again.") };
   }
 
   // Overflow guard

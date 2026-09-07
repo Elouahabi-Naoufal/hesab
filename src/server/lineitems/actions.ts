@@ -3,7 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/server/auth/session";
 import { logEvent } from "@/server/audit";
 import { revalidatePath } from "next/cache";
-import { parseDHToCentimes, errMsg } from "@/lib/utils";
+import { parseDHToCentimes } from "@/lib/utils";
+import { userError } from "@/lib/errors";
 
 /**
  * Create a line item for a variable-price activity.
@@ -48,7 +49,7 @@ export async function createLineItemAction(formData: FormData) {
   try {
     priceCentimes = parseDHToCentimes(priceDH, { minCentimes: 0, field: "Price" });
   } catch (e: unknown) {
-    return { error: errMsg(e) };
+    return { error: userError(e, "Could not add this item. Please try again.") };
   }
 
   const lineItem = await prisma.lineItem.create({
@@ -95,7 +96,7 @@ export async function updateLineItemAction(lineItemId: string, data: { descripti
     try {
       updateData.priceCentimes = parseDHToCentimes(data.priceDH, { minCentimes: 0, field: "Price" });
     } catch (e: unknown) {
-      return { error: errMsg(e) };
+      return { error: userError(e, "Could not update this item. Please try again.") };
     }
   }
 

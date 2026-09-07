@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/server/auth/session";
 import { logEvent } from "@/server/audit";
 import { revalidatePath } from "next/cache";
-import { errMsg } from "@/lib/utils";
+import { formatDH } from "@/lib/utils";
 
 /**
  * Create an activity within an outing. Only outing OWNER can create.
@@ -172,11 +172,12 @@ export async function closeActivityAction(activityId: string) {
   const errors: string[] = [];
 
   if (activity.pricingModel === "FIXED") {
-    const usageRecords = await prisma.usageRecord.findMany({ where: { activityId }, include: { confirmations: true } });
+    const usageRecords = await prisma.usageRecord.findMany({ where: { activityId }, include: { confirmations: true, product: true } });
     for (const record of usageRecords) {
-      if (record.status === "DISPUTED") errors.push(`Usage record "${record.id}" is disputed.`);
+      const label = `"${record.quantity} × ${record.product?.name ?? "item"}"`;
+      if (record.status === "DISPUTED") errors.push(`${label} is disputed — resolve it before closing.`);
       const pending = record.confirmations.filter(c => c.status === "PENDING");
-      if (pending.length > 0) errors.push(`Usage record "${record.id}" has ${pending.length} pending confirmation(s).`);
+      if (pending.length > 0) errors.push(`${label} still needs confirmation from ${pending.length} ${pending.length === 1 ? "person" : "people"}.`);
     }
   } else {
     const lineItems = await prisma.lineItem.findMany({ where: { activityId } });
@@ -201,11 +202,11 @@ export async function closeActivityAction(activityId: string) {
   const pendingInvites = await prisma.activityInvitation.findMany({ where: { activityId, status: "PENDING" } });
   if (pendingInvites.length > 0) {
     await prisma.activityInvitation.updateMany({ where: { activityId, status: "PENDING" }, data: { status: "DECLINED" } });
-    errors.push(`${pendingInvites.length} pending invitation(s) auto-declined at closure.`);
+    errors.push(`${pendingInvites.length} pending ${pendingInvites.length === 1 ? "invitation" : "invitations"} auto-declined at closure.`);
   }
 
   if (totalPaid !== totalResponsibility && totalResponsibility > 0) {
-    errors.push(`${Math.abs(totalResponsibility - totalPaid)} DH of payments missing.`);
+    errors.push(`${formatDH(Math.abs(totalResponsibility - totalPaid))} of payments missing.`);
   }
 
   if (errors.length > 0) return { error: `Cannot close activity:\n${errors.join("\n")}` };

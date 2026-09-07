@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/server/auth/session";
 import { logEvent } from "@/server/audit";
 import { revalidatePath } from "next/cache";
-import { errMsg } from "@/lib/utils";
+import { userError } from "@/lib/errors";
 
 /**
  * Create a product for a fixed-price activity.
@@ -38,7 +38,7 @@ export async function createActivityProductAction(formData: FormData) {
   try {
     priceCentimes = parseDHToCentimes(pricePerUnitDH, { minCentimes: 1, field: "Price" });
   } catch (e: unknown) {
-    return { error: errMsg(e) };
+    return { error: userError(e, "Could not add this product. Please try again.") };
   }
 
   const product = await prisma.activityProduct.create({
@@ -100,7 +100,7 @@ export async function updateActivityProductAction(
     try {
       updateData.pricePerUnitCt = parseDHToCentimes(data.pricePerUnitDH, { minCentimes: 1, field: "Price" });
     } catch (e: unknown) {
-      return { error: errMsg(e) };
+      return { error: userError(e, "Could not update this product. Please try again.") };
     }
   }
 

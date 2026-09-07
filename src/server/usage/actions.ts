@@ -3,7 +3,6 @@ import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/server/auth/session";
 import { logEvent } from "@/server/audit";
 import { revalidatePath } from "next/cache";
-import { errMsg } from "@/lib/utils";
 
 /**
  * Create a usage record for a fixed-price activity.

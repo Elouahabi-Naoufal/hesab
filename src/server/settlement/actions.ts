@@ -2,7 +2,8 @@
 import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/server/auth/session";
 import { calculateSettlement, explainSettlement } from "@/domain/settlement";
-import { generatePublicToken, errMsg } from "@/lib/utils";
+import { generatePublicToken } from "@/lib/utils";
+import { userError } from "@/lib/errors";
 import { logEvent } from "@/server/audit";
 import { revalidatePath } from "next/cache";
 
@@ -142,7 +143,7 @@ export async function finalizeSettlementAction(outingId: string) {
   try {
     await generateSettlement(outingId);
   } catch (e: unknown) {
-    return { error: errMsg(e) || "Finalize failed." };
+    return { error: userError(e, "Could not generate the settlement. Please try again.") };
   }
 
   revalidatePath(`/groups/${outing.groupId}/outings/${outingId}`);
@@ -166,7 +167,7 @@ export async function recalculateSettlementAction(outingId: string) {
   try {
     await generateSettlement(outingId);
   } catch (e: unknown) {
-    return { error: errMsg(e) };
+    return { error: userError(e, "Could not recalculate the settlement. Please try again.") };
   }
 
   revalidatePath(`/groups/${outing.groupId}/outings/${outingId}`);
