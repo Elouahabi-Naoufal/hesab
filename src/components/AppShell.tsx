@@ -1,6 +1,6 @@
 "use client";
-import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { Link, usePathname } from "@/i18n/navigation";
+import { useTranslations } from "next-intl";
 import { logoutAction } from "@/server/auth/actions";
 import { IconUsers, IconQr, IconPlus } from "@/components/icons";
 
@@ -40,6 +40,7 @@ export default function AppShell({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
+  const t = useTranslations("nav");
   const groupsActive = isGroupsActive(pathname);
   const scanActive = pathname.startsWith("/scan");
   const profileActive = pathname.startsWith("/profile");
@@ -52,7 +53,7 @@ export default function AppShell({
   return (
     <div className="min-h-screen lg:flex lg:items-stretch">
       {/* Desktop rail */}
-      <aside className="hidden lg:flex w-60 flex-shrink-0 flex-col bg-surface border-r border-border sticky top-0 h-screen">
+      <aside className="hidden lg:flex w-60 flex-shrink-0 flex-col bg-surface border-e border-border sticky top-0 h-screen">
         <div className="px-4 pt-4 pb-3">
           <Link href="/dashboard" className="flex items-center gap-2.5">
             <div className="brand-mark">P</div>
@@ -61,15 +62,15 @@ export default function AppShell({
         </div>
         <div className="px-4 pb-3">
           <Link href="/dashboard#new-group" className="btn-primary btn-sm w-full">
-            <IconPlus size={14} />New
+            <IconPlus size={14} />{t("new")}
           </Link>
         </div>
-        <nav aria-label="Primary" className="flex-1 overflow-y-auto px-3 pb-3 space-y-0.5">
+        <nav aria-label={t("mainNav")} className="flex-1 overflow-y-auto px-3 pb-3 space-y-0.5">
           <Link href="/dashboard" className={navRow(groupsActive)}>
-            <IconUsers size={16} />Groups
+            <IconUsers size={16} />{t("groups")}
           </Link>
           <Link href="/scan" className={navRow(scanActive)}>
-            <IconQr size={16} />Scan
+            <IconQr size={16} />{t("scan")}
           </Link>
           <Link href="/profile" className={navRow(profileActive)}>
             {user.avatarUrl ? (
@@ -80,11 +81,11 @@ export default function AppShell({
                 {user.displayName[0]?.toUpperCase()}
               </span>
             )}
-            Profile
+            {t("profile")}
           </Link>
           {groups.length > 0 && (
             <div className="pt-4">
-              <div className="px-2.5 pb-1.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted">Groups</div>
+              <div className="px-2.5 pb-1.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted">{t("groups")}</div>
               <div className="space-y-0.5">
                 {groups.map(g => {
                   const active = pathname.includes(`/groups/${g.id}`);
@@ -103,7 +104,7 @@ export default function AppShell({
         </nav>
         <div className="p-3 border-t border-border">
           {user.isAdmin && (
-            <Link href="/admin" className="tag bg-warn-subtle text-warn mb-2">Admin</Link>
+            <Link href="/admin" className="tag bg-warn-subtle text-warn mb-2">{t("admin")}</Link>
           )}
           <div className="flex items-center gap-2.5">
             <Link href="/profile" className="w-8 h-8 rounded-full overflow-hidden bg-brand-subtle text-brand flex items-center justify-center text-[13px] font-bold flex-shrink-0">
@@ -119,7 +120,7 @@ export default function AppShell({
               <div className="text-[11px] text-muted font-mono truncate">{user.publicId}</div>
             </div>
             <form action={logoutAction}>
-              <button className="btn-ghost text-[12px] px-2" title="Log out">Logout</button>
+              <button className="btn-ghost text-[12px] px-2" title={t("logout")}>{t("logout")}</button>
             </form>
           </div>
         </div>
@@ -148,16 +149,16 @@ export default function AppShell({
       <div className="flex-1 min-w-0 pb-24 lg:pb-0">{children}</div>
 
       {/* Mobile tab bar */}
-      <nav aria-label="Primary" className="lg:hidden fixed bottom-0 inset-x-0 z-40 bg-surface border-t border-border">
+      <nav aria-label={t("mainNav")} className="lg:hidden fixed bottom-0 inset-x-0 z-40 bg-surface border-t border-border">
         <div className="grid grid-cols-4 h-[60px] px-2">
           <Link href="/dashboard" className={`flex flex-col items-center justify-center gap-0.5 text-[11px] font-semibold ${groupsActive ? "text-action" : "text-muted"}`}>
-            <IconUsers size={20} />Groups
+            <IconUsers size={20} />{t("groups")}
           </Link>
           <Link href="/scan" className={`flex flex-col items-center justify-center gap-0.5 text-[11px] font-semibold ${scanActive ? "text-action" : "text-muted"}`}>
-            <IconQr size={20} />Scan
+            <IconQr size={20} />{t("scan")}
           </Link>
           <Link href="/dashboard#new-group" className="flex flex-col items-center justify-center gap-0.5 text-[11px] font-semibold text-muted">
-            <span className="w-10 h-7 rounded-full bg-action text-white flex items-center justify-center"><IconPlus size={16} /></span>New
+            <span className="w-10 h-7 rounded-full bg-action text-white flex items-center justify-center"><IconPlus size={16} /></span>{t("new")}
           </Link>
           <Link href="/profile" className={`flex flex-col items-center justify-center gap-0.5 text-[11px] font-semibold ${profileActive ? "text-action" : "text-muted"}`}>
             {user.avatarUrl ? (
@@ -168,7 +169,7 @@ export default function AppShell({
                 {user.displayName[0]?.toUpperCase()}
               </span>
             )}
-            Profile
+            {t("profile")}
           </Link>
         </div>
       </nav>

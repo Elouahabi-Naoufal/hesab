@@ -4,6 +4,7 @@ import { requireSession } from "@/server/auth/session";
 import { calculateSettlement, explainSettlement } from "@/domain/settlement";
 import { generatePublicToken } from "@/lib/utils";
 import { userError } from "@/lib/errors";
+import { getTranslations } from "next-intl/server";
 import { logEvent } from "@/server/audit";
 import { revalidatePath } from "next/cache";
 
@@ -130,15 +131,16 @@ export async function generateSettlement(outingId: string) {
  */
 export async function finalizeSettlementAction(outingId: string) {
   const session = await requireSession();
+  const t = await getTranslations("errors");
   const outing = await prisma.outing.findUnique({ where: { id: outingId } });
-  if (!outing) return { error: "Outing not found" };
+  if (!outing) return { error: t("outingNotFound") };
 
   const participant = await prisma.outingParticipant.findUnique({
     where: { outingId_userId: { outingId, userId: session.userId } },
   });
-  if (!participant || participant.role !== "OWNER") return { error: "Only owner can finalize" };
+  if (!participant || participant.role !== "OWNER") return { error: t("onlyOwnerFinalize") };
 
-  if (outing.status === "SETTLED") return { error: "Already settled" };
+  if (outing.status === "SETTLED") return { error: t("alreadySettled") };
 
   try {
     await generateSettlement(outingId);
@@ -156,13 +158,14 @@ export async function finalizeSettlementAction(outingId: string) {
  */
 export async function recalculateSettlementAction(outingId: string) {
   const session = await requireSession();
+  const t = await getTranslations("errors");
   const outing = await prisma.outing.findUnique({ where: { id: outingId } });
-  if (!outing) return { error: "Outing not found" };
+  if (!outing) return { error: t("outingNotFound") };
 
   const participant = await prisma.outingParticipant.findUnique({
     where: { outingId_userId: { outingId, userId: session.userId } },
   });
-  if (!participant || participant.role !== "OWNER") return { error: "Only owner" };
+  if (!participant || participant.role !== "OWNER") return { error: t("onlyOwner") };
 
   try {
     await generateSettlement(outingId);
@@ -180,9 +183,10 @@ export async function recalculateSettlementAction(outingId: string) {
  */
 export async function markTransferPaidAction(transferId: string) {
   const session = await requireSession();
+  const t = await getTranslations("errors");
   const transfer = await prisma.settlementTransfer.findUnique({ where: { id: transferId } });
-  if (!transfer) return { error: "Not found" };
-  if (transfer.fromUserId !== session.userId) return { error: "Only debtor can mark as paid" };
+  if (!transfer) return { error: t("notFound") };
+  if (transfer.fromUserId !== session.userId) return { error: t("payerMismatch") };
 
   await prisma.settlementTransfer.update({
     where: { id: transferId },
@@ -212,9 +216,10 @@ export async function markTransferPaidAction(transferId: string) {
  */
 export async function confirmTransferReceivedAction(transferId: string) {
   const session = await requireSession();
+  const t = await getTranslations("errors");
   const transfer = await prisma.settlementTransfer.findUnique({ where: { id: transferId } });
-  if (!transfer) return { error: "Not found" };
-  if (transfer.toUserId !== session.userId) return { error: "Only receiver can confirm" };
+  if (!transfer) return { error: t("notFound") };
+  if (transfer.toUserId !== session.userId) return { error: t("receiverMismatch") };
 
   await prisma.settlementTransfer.update({
     where: { id: transferId },

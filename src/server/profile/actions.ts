@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/server/auth/session";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import { getTranslations } from "next-intl/server";
 
 const updateProfileSchema = z.object({
   displayName: z.string().min(2).max(50),
@@ -12,11 +13,12 @@ const MAX_AVATAR_BYTES = 500 * 1024; // 500 KB — keeps the SQLite row lean
 
 export async function updateProfileAction(formData: FormData) {
   const session = await requireSession();
+  const t = await getTranslations("errors");
   const raw = {
     displayName: formData.get("displayName") as string,
   };
   const parsed = updateProfileSchema.safeParse(raw);
-  if (!parsed.success) return { error: parsed.error.issues[0].message };
+  if (!parsed.success) return { error: t("displayNameLen") };
 
   const removeAvatar = formData.get("removeAvatar") === "on";
   const file = formData.get("avatarFile");
@@ -31,8 +33,8 @@ export async function updateProfileAction(formData: FormData) {
     avatarData = null;
     avatarMime = null;
   } else if (file instanceof File && file.size > 0) {
-    if (!file.type.startsWith("image/")) return { error: "Profile picture must be an image file." };
-    if (file.size > MAX_AVATAR_BYTES) return { error: "Profile picture must be under 500 KB." };
+    if (!file.type.startsWith("image/")) return { error: t("avatarImageOnly") };
+    if (file.size > MAX_AVATAR_BYTES) return { error: t("avatarTooBig") };
     avatarData = Buffer.from(await file.arrayBuffer());
     avatarMime = file.type;
   }

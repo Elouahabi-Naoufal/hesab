@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/server/auth/session";
 import { logEvent } from "@/server/audit";
 import { revalidatePath } from "next/cache";
+import { getTranslations } from "next-intl/server";
 
 /**
  * Request a post-settlement correction. Only for own data.
@@ -16,23 +17,24 @@ export async function requestCorrectionAction(
   newValue: string
 ) {
   const session = await requireSession();
+  const t = await getTranslations("errors");
   const outing = await prisma.outing.findUnique({ where: { id: outingId } });
-  if (!outing) return { error: "Outing not found" };
-  if (outing.status !== "SETTLED") return { error: "Outing must be settled to request corrections" };
+  if (!outing) return { error: t("outingNotFound") };
+  if (outing.status !== "SETTLED") return { error: t("settledRequired") };
 
   // Verify requester is a participant
   const participant = await prisma.outingParticipant.findUnique({
     where: { outingId_userId: { outingId, userId: session.userId } },
   });
-  if (!participant) return { error: "Not an outing participant" };
+  if (!participant) return { error: t("notOutingParticipant") };
 
   // Verify the entity belongs to the requester (IDOR guard)
   if (entityType === "LineItem") {
     const item = await prisma.lineItem.findUnique({ where: { id: entityId } });
-    if (!item || item.userId !== session.userId) return { error: "Can only correct your own data" };
+    if (!item || item.userId !== session.userId) return { error: t("ownDataOnly") };
   } else if (entityType === "ActivityPayment") {
     const payment = await prisma.activityPayment.findUnique({ where: { id: entityId } });
-    if (!payment || payment.userId !== session.userId) return { error: "Can only correct your own data" };
+    if (!payment || payment.userId !== session.userId) return { error: t("ownDataOnly") };
   }
 
   const request = await prisma.correctionRequest.create({
@@ -68,17 +70,18 @@ export async function requestCorrectionAction(
  */
 export async function approveCorrectionAction(requestId: string, decisionNote?: string) {
   const session = await requireSession();
+  const t = await getTranslations("errors");
   const request = await prisma.correctionRequest.findUnique({ where: { id: requestId } });
-  if (!request) return { error: "Not found" };
-  if (request.status !== "PENDING") return { error: "Already decided" };
+  if (!request) return { error: t("notFound") };
+  if (request.status !== "PENDING") return { error: t("alreadyDecided") };
 
   const outing = await prisma.outing.findUnique({ where: { id: request.outingId } });
-  if (!outing) return { error: "Outing not found" };
+  if (!outing) return { error: t("outingNotFound") };
 
   const caller = await prisma.outingParticipant.findUnique({
     where: { outingId_userId: { outingId: request.outingId, userId: session.userId } },
   });
-  if (!caller || caller.role !== "OWNER") return { error: "Only owner can approve" };
+  if (!caller || caller.role !== "OWNER") return { error: t("onlyOwnerApprove") };
 
   await prisma.$transaction(async (tx) => {
     // Apply the correction
@@ -126,17 +129,18 @@ export async function approveCorrectionAction(requestId: string, decisionNote?: 
  */
 export async function rejectCorrectionAction(requestId: string, decisionNote?: string) {
   const session = await requireSession();
+  const t = await getTranslations("errors");
   const request = await prisma.correctionRequest.findUnique({ where: { id: requestId } });
-  if (!request) return { error: "Not found" };
-  if (request.status !== "PENDING") return { error: "Already decided" };
+  if (!request) return { error: t("notFound") };
+  if (request.status !== "PENDING") return { error: t("alreadyDecided") };
 
   const outing = await prisma.outing.findUnique({ where: { id: request.outingId } });
-  if (!outing) return { error: "Outing not found" };
+  if (!outing) return { error: t("outingNotFound") };
 
   const caller = await prisma.outingParticipant.findUnique({
     where: { outingId_userId: { outingId: request.outingId, userId: session.userId } },
   });
-  if (!caller || caller.role !== "OWNER") return { error: "Only owner can reject" };
+  if (!caller || caller.role !== "OWNER") return { error: t("onlyOwnerReject") };
 
   await prisma.correctionRequest.update({
     where: { id: requestId },

@@ -4,6 +4,7 @@ import { requireSession } from "@/server/auth/session";
 import { logEvent } from "@/server/audit";
 import { revalidatePath } from "next/cache";
 import { userError } from "@/lib/errors";
+import { getTranslations } from "next-intl/server";
 
 /**
  * Create a product for a fixed-price activity.
@@ -11,26 +12,27 @@ import { userError } from "@/lib/errors";
  */
 export async function createActivityProductAction(formData: FormData) {
   const session = await requireSession();
+  const t = await getTranslations("errors");
   const activityId = formData.get("activityId") as string;
   const name = ((formData.get("name") as string) || "").trim();
   const unit = ((formData.get("unit") as string) || "unit").trim();
   const pricePerUnitDH = formData.get("pricePerUnitDH") as string;
 
-  if (!activityId) return { error: "Activity is required." };
-  if (!name) return { error: "Product name is required." };
-  if (!pricePerUnitDH) return { error: "Price is required." };
+  if (!activityId) return { error: t("activityRequired") };
+  if (!name) return { error: t("productNameRequired") };
+  if (!pricePerUnitDH) return { error: t("priceRequired") };
 
   const activity = await prisma.activity.findUnique({ where: { id: activityId } });
-  if (!activity) return { error: "Activity not found" };
-  if (activity.pricingModel !== "FIXED") return { error: "Products only for FIXED activities" };
+  if (!activity) return { error: t("activityNotFound") };
+  if (activity.pricingModel !== "FIXED") return { error: t("fixedOnlyProducts") };
 
   const outing = await prisma.outing.findUnique({ where: { id: activity.outingId! } });
-  if (!outing) return { error: "Outing not found" };
+  if (!outing) return { error: t("outingNotFound") };
 
   const participant = await prisma.outingParticipant.findUnique({
     where: { outingId_userId: { outingId: activity.outingId!, userId: session.userId } },
   });
-  if (!participant || participant.role !== "OWNER") return { error: "Only owner" };
+  if (!participant || participant.role !== "OWNER") return { error: t("onlyOwner") };
 
   // Parse price
   const { parseDHToCentimes } = await import("@/domain/money");
@@ -73,15 +75,16 @@ export async function updateActivityProductAction(
   data: { name?: string; unit?: string; pricePerUnitDH?: string }
 ) {
   const session = await requireSession();
+  const t = await getTranslations("errors");
   const product = await prisma.activityProduct.findUnique({ where: { id: productId } });
-  if (!product) return { error: "Product not found" };
+  if (!product) return { error: t("productMissing") };
 
   const activity = await prisma.activity.findUnique({ where: { id: product.activityId } });
-  if (!activity) return { error: "Activity not found" };
+  if (!activity) return { error: t("activityNotFound") };
 
   const outing = await prisma.outing.findUnique({ where: { id: activity.outingId! } });
-  if (!outing) return { error: "Outing not found" };
-  if (outing.status === "SETTLED") return { error: "Outing is settled; activity data is locked." };
+  if (!outing) return { error: t("outingNotFound") };
+  if (outing.status === "SETTLED") return { error: t("outingSettledLocked") };
   if (activity.status === "CLOSED" && outing.status !== "SETTLED") {
     // Admin can edit closed activities before outing settlement (spec §23)
   }
@@ -89,7 +92,7 @@ export async function updateActivityProductAction(
   const participant = await prisma.outingParticipant.findUnique({
     where: { outingId_userId: { outingId: activity.outingId!, userId: session.userId } },
   });
-  if (!participant || participant.role !== "OWNER") return { error: "Only owner" };
+  if (!participant || participant.role !== "OWNER") return { error: t("onlyOwner") };
 
   const updateData: { name?: string; unit?: string; pricePerUnitCt?: number } = {};
   if (data.name !== undefined) updateData.name = data.name;
@@ -144,20 +147,21 @@ export async function updateActivityProductAction(
  */
 export async function deleteActivityProductAction(productId: string) {
   const session = await requireSession();
+  const t = await getTranslations("errors");
   const product = await prisma.activityProduct.findUnique({ where: { id: productId } });
-  if (!product) return { error: "Product not found" };
+  if (!product) return { error: t("productMissing") };
 
   const activity = await prisma.activity.findUnique({ where: { id: product.activityId } });
-  if (!activity) return { error: "Activity not found" };
+  if (!activity) return { error: t("activityNotFound") };
 
   const outing = await prisma.outing.findUnique({ where: { id: activity.outingId! } });
-  if (!outing) return { error: "Outing not found" };
-  if (outing.status === "SETTLED") return { error: "Outing is settled; activity data is locked." };
+  if (!outing) return { error: t("outingNotFound") };
+  if (outing.status === "SETTLED") return { error: t("outingSettledLocked") };
 
   const participant = await prisma.outingParticipant.findUnique({
     where: { outingId_userId: { outingId: activity.outingId!, userId: session.userId } },
   });
-  if (!participant || participant.role !== "OWNER") return { error: "Only owner" };
+  if (!participant || participant.role !== "OWNER") return { error: t("onlyOwner") };
 
   const usageCount = await prisma.usageRecord.count({ where: { productId } });
   if (usageCount > 0) {

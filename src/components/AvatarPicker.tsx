@@ -4,9 +4,17 @@ import { useRef, useState } from "react";
 export default function AvatarPicker({
   currentAvatar,
   displayName,
+  uploadLabel,
+  changeLabel,
+  removeLabel,
+  hint,
 }: {
   currentAvatar: string | null;
   displayName: string;
+  uploadLabel: string;
+  changeLabel: string;
+  removeLabel: string;
+  hint: string;
 }) {
   const [preview, setPreview] = useState<string | null>(null);
   const [removed, setRemoved] = useState(false);
@@ -19,7 +27,7 @@ export default function AvatarPicker({
       <div className="w-[72px] h-[72px] rounded-[20px] overflow-hidden bg-brand-subtle text-brand flex items-center justify-center flex-shrink-0">
         {shown ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={shown} alt="Profile picture" className="w-full h-full object-cover" />
+          <img src={shown} alt={displayName} className="w-full h-full object-cover" />
         ) : (
           <span className="text-[26px] font-bold">{displayName[0]?.toUpperCase()}</span>
         )}
@@ -45,7 +53,7 @@ export default function AvatarPicker({
         />
         <div className="flex gap-2 flex-wrap">
           <button type="button" onClick={() => inputRef.current?.click()} className="btn-secondary text-[13px] px-4 py-2">
-            {currentAvatar || preview ? "Change picture" : "Upload picture"}
+            {currentAvatar || preview ? changeLabel : uploadLabel}
           </button>
           {(currentAvatar || preview) && !removed && (
             <button
@@ -57,12 +65,12 @@ export default function AvatarPicker({
               }}
               className="btn-ghost text-danger"
             >
-              Remove
+              {removeLabel}
             </button>
           )}
         </div>
         <input type="hidden" name="removeAvatar" value={removed ? "on" : ""} />
-        <p className="text-[12px] text-muted">JPG or PNG, under 500 KB.</p>
+        <p className="text-[12px] text-muted">{hint}</p>
       </div>
     </div>
   );

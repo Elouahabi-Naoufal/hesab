@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import * as jose from "jose";
+import createMiddleware from "next-intl/middleware";
+import { routing } from "./src/i18n/routing";
 
 // Lazy (see session.ts): build-time import must not throw; a missing secret
 // fails the first real verification instead, loudly.
@@ -21,33 +23,47 @@ async function verify(token: string) {
   }
 }
 
-const publicPaths = ["/login", "/register", "/s", "/api", "/_next", "/favicon.ico", "/", "/public"];
+const intlMiddleware = createMiddleware(routing);
+
+function stripLocale(pathname: string): { locale: string | null; path: string } {
+  const segments = pathname.split("/");
+  const maybeLocale = segments[1];
+  if ((routing.locales as readonly string[]).includes(maybeLocale)) {
+    const rest = segments.slice(2).join("/");
+    return { locale: maybeLocale, path: "/" + rest };
+  }
+  return { locale: null, path: pathname };
+}
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Allow public paths
+  // Allow public paths (locale-aware)
+  const { locale, path } = stripLocale(pathname);
   if (
-    pathname.startsWith("/login") ||
-    pathname.startsWith("/register") ||
-    pathname.startsWith("/s/") ||
-    pathname.startsWith("/api/") ||
-    pathname === "/" ||
-    pathname.startsWith("/_next") ||
-    pathname === "/favicon.ico"
+    path.startsWith("/login") ||
+    path.startsWith("/register") ||
+    path.startsWith("/s/") ||
+    path.startsWith("/api/") ||
+    path === "/" ||
+    path.startsWith("/_next") ||
+    path === "/favicon.ico"
   ) {
-    return NextResponse.next();
+    return intlMiddleware(request);
   }
 
   const token = request.cookies.get("session")?.value;
   if (!token || !(await verify(token))) {
-    if (pathname.startsWith("/dashboard") || pathname.startsWith("/groups") || pathname.startsWith("/admin")) {
-      return NextResponse.redirect(new URL("/login", request.url));
+    if (path.startsWith("/dashboard") || path.startsWith("/groups") || path.startsWith("/admin")) {
+      const loginUrl = new URL(`${locale ? `/${locale}` : ""}/login`, request.url);
+      const returnUrl = `${locale ? `/${locale}` : ""}${pathname}`;
+      loginUrl.searchParams.set("returnUrl", returnUrl);
+      return NextResponse.redirect(loginUrl);
     }
-    return NextResponse.next();
+    return intlMiddleware(request);
   }
 
-  return NextResponse.next();
+  return intlMiddleware(request);
 }
 
 export const config = {

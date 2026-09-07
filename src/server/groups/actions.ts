@@ -4,6 +4,7 @@ import { requireSession } from "@/server/auth/session";
 import { z } from "zod";
 import { generateGroupPublicToken } from "@/lib/utils";
 import { userError } from "@/lib/errors";
+import { getTranslations } from "next-intl/server";
 import { logEvent } from "@/server/audit";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -15,12 +16,19 @@ const createGroupSchema = z.object({
 
 export async function createGroupAction(formData: FormData) {
   const session = await requireSession();
+  const t = await getTranslations("errors");
   const raw = {
     name: formData.get("name") as string,
     description: (formData.get("description") as string) || undefined,
   };
   const parsed = createGroupSchema.safeParse(raw);
-  if (!parsed.success) return { error: parsed.error.issues[0].message };
+  if (!parsed.success) {
+    const issue = parsed.error.issues[0];
+    const field = String(issue?.path?.[0] ?? "");
+    if (field === "name") return { error: t("groupNameLen") };
+    if (field === "description") return { error: t("groupDescLen") };
+    return { error: t("invalidInput") };
+  }
 
   const group = await prisma.group.create({
     data: {
@@ -44,25 +52,26 @@ export async function createGroupAction(formData: FormData) {
 
 export async function inviteMemberAction(formData: FormData) {
   const session = await requireSession();
+  const t = await getTranslations("errors");
   const groupId = formData.get("groupId") as string;
   const publicId = formData.get("publicId") as string;
 
   const group = await prisma.group.findUnique({ where: { id: groupId } });
-  if (!group) return { error: "Group not found" };
-  if (group.ownerId !== session.userId) return { error: "Only owner can invite" };
+  if (!group) return { error: t("groupMissing") };
+  if (group.ownerId !== session.userId) return { error: t("onlyOwner") };
 
   const invitedUser = await prisma.user.findUnique({ where: { publicId } });
-  if (!invitedUser) return { error: "User not found with that ID" };
+  if (!invitedUser) return { error: t("userMissing") };
 
   const existingMember = await prisma.groupMember.findUnique({
     where: { groupId_userId: { groupId, userId: invitedUser.id } },
   });
-  if (existingMember) return { error: "User already a member" };
+  if (existingMember) return { error: t("alreadyMember") };
 
   const existingInvite = await prisma.groupInvitation.findFirst({
     where: { groupId, inviteeUserId: invitedUser.id, status: "PENDING" },
   });
-  if (existingInvite) return { error: "Invitation already pending" };
+  if (existingInvite) return { error: t("alreadyInvited") };
 
   const inv = await prisma.groupInvitation.create({
     data: { groupId, inviterId: session.userId, inviteePublicId: publicId, inviteeUserId: invitedUser.id, status: "PENDING" },
@@ -75,13 +84,14 @@ export async function inviteMemberAction(formData: FormData) {
 
 export async function acceptInvitationAction(invitationId: string) {
   const session = await requireSession();
+  const t = await getTranslations("errors");
   const inv = await prisma.groupInvitation.findUnique({ where: { id: invitationId } });
-  if (!inv) return { error: "Invitation not found" };
-  if (inv.inviteeUserId !== session.userId) return { error: "Not your invitation" };
-  if (inv.status !== "PENDING") return { error: "This invitation was already answered." };
+  if (!inv) return { error: t("inviteNotFound") };
+  if (inv.inviteeUserId !== session.userId) return { error: t("notYourInvite") };
+  if (inv.status !== "PENDING") return { error: t("alreadyResponded") };
 
   const group = await prisma.group.findUnique({ where: { id: inv.groupId } });
-  if (!group) return { error: "Group not found" };
+  if (!group) return { error: t("groupMissing") };
 
   try {
     await prisma.$transaction(async (tx) => {
@@ -109,9 +119,10 @@ export async function acceptInvitationAction(invitationId: string) {
 
 export async function declineInvitationAction(invitationId: string) {
   const session = await requireSession();
+  const t = await getTranslations("errors");
   const inv = await prisma.groupInvitation.findUnique({ where: { id: invitationId } });
-  if (!inv) return { error: "Invitation not found" };
-  if (inv.inviteeUserId !== session.userId) return { error: "Not your invitation" };
+  if (!inv) return { error: t("inviteNotFound") };
+  if (inv.inviteeUserId !== session.userId) return { error: t("notYourInvite") };
   await prisma.groupInvitation.update({ where: { id: inv.id }, data: { status: "DECLINED" } });
   revalidatePath("/dashboard");
   return { success: true };
@@ -119,13 +130,14 @@ export async function declineInvitationAction(invitationId: string) {
 
 export async function removeMemberAction(groupId: string, userId: string) {
   const session = await requireSession();
+  const t = await getTranslations("errors");
   const group = await prisma.group.findUnique({ where: { id: groupId } });
-  if (!group) return { error: "Group not found" };
-  if (group.ownerId !== session.userId) return { error: "Only owner" };
-  if (userId === group.ownerId) return { error: "Cannot remove owner" };
+  if (!group) return { error: t("groupMissing") };
+  if (group.ownerId !== session.userId) return { error: t("onlyOwner") };
+  if (userId === group.ownerId) return { error: t("cantRemoveOwner") };
 
   const member = await prisma.groupMember.findUnique({ where: { groupId_userId: { groupId, userId } } });
-  if (!member) return { error: "Not a member" };
+  if (!member) return { error: t("notGroupMember") };
 
   await prisma.$transaction(async (tx) => {
     await tx.groupMember.delete({ where: { id: member.id } });

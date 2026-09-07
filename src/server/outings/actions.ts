@@ -4,6 +4,7 @@ import { requireSession } from "@/server/auth/session";
 import { logEvent } from "@/server/audit";
 import { revalidatePath } from "next/cache";
 import { generateGroupPublicToken } from "@/lib/utils";
+import { getTranslations } from "next-intl/server";
 
 /**
  * Create an outing within a group. Only group members can create outings.
@@ -11,21 +12,22 @@ import { generateGroupPublicToken } from "@/lib/utils";
  */
 export async function createOutingAction(formData: FormData) {
   const session = await requireSession();
+  const t = await getTranslations("errors");
   const groupId = formData.get("groupId") as string;
   const name = ((formData.get("name") as string) || "").trim();
   const description = ((formData.get("description") as string) || "").trim() || undefined;
   const participantIds = formData.getAll("participantIds") as string[];
 
-  if (!groupId) return { error: "Group is required." };
-  if (!name) return { error: "Outing name is required." };
+  if (!groupId) return { error: t("groupRequired") };
+  if (!name) return { error: t("outingNameRequired") };
 
   const group = await prisma.group.findUnique({ where: { id: groupId } });
-  if (!group) return { error: "Group not found" };
+  if (!group) return { error: t("groupMissing") };
 
   const member = await prisma.groupMember.findUnique({
     where: { groupId_userId: { groupId, userId: session.userId } },
   });
-  if (!member) return { error: "Not a member of this group" };
+  if (!member) return { error: t("notGroupMember") };
 
   const outing = await prisma.outing.create({
     data: {
@@ -79,25 +81,26 @@ export async function createOutingAction(formData: FormData) {
  */
 export async function inviteToOutingAction(outingId: string, userId: string) {
   const session = await requireSession();
+  const t = await getTranslations("errors");
   const outing = await prisma.outing.findUnique({ where: { id: outingId } });
-  if (!outing) return { error: "Outing not found" };
+  if (!outing) return { error: t("outingNotFound") };
 
   const inviter = await prisma.outingParticipant.findUnique({
     where: { outingId_userId: { outingId, userId: session.userId } },
   });
-  if (!inviter || inviter.role !== "OWNER") return { error: "Only outing owner can invite" };
+  if (!inviter || inviter.role !== "OWNER") return { error: t("onlyOutingOwnerInvite") };
 
   // Must be a group member
   const groupMember = await prisma.groupMember.findUnique({
     where: { groupId_userId: { groupId: outing.groupId, userId } },
   });
-  if (!groupMember) return { error: "User is not a group member" };
+  if (!groupMember) return { error: t("userNotGroupMember") };
 
   // Check if already a participant
   const existing = await prisma.outingParticipant.findUnique({
     where: { outingId_userId: { outingId, userId } },
   });
-  if (existing) return { error: "Already a participant" };
+  if (existing) return { error: t("alreadyParticipant") };
 
   await prisma.outingParticipant.create({
     data: { outingId, userId, role: "MEMBER" },
@@ -124,28 +127,29 @@ export async function inviteToOutingAction(outingId: string, userId: string) {
  */
 export async function inviteOutsiderToOutingAction(outingId: string, userPublicId: string) {
   const session = await requireSession();
+  const t = await getTranslations("errors");
   const outing = await prisma.outing.findUnique({ where: { id: outingId } });
-  if (!outing) return { error: "Outing not found" };
+  if (!outing) return { error: t("outingNotFound") };
 
   const inviter = await prisma.outingParticipant.findUnique({
     where: { outingId_userId: { outingId, userId: session.userId } },
   });
-  if (!inviter || inviter.role !== "OWNER") return { error: "Only outing owner can invite" };
+  if (!inviter || inviter.role !== "OWNER") return { error: t("onlyOutingOwnerInvite") };
 
   const invitee = await prisma.user.findUnique({ where: { publicId: userPublicId } });
-  if (!invitee) return { error: "User not found" };
+  if (!invitee) return { error: t("userMissing") };
 
   // Check not already invited
   const existingInvite = await prisma.outingInvitation.findUnique({
     where: { outingId_inviteeUserId: { outingId, inviteeUserId: invitee.id } },
   });
-  if (existingInvite) return { error: "Already invited" };
+  if (existingInvite) return { error: t("alreadyInvited") };
 
   // Check not already a participant
   const existingParticipant = await prisma.outingParticipant.findUnique({
     where: { outingId_userId: { outingId, userId: invitee.id } },
   });
-  if (existingParticipant) return { error: "Already a participant" };
+  if (existingParticipant) return { error: t("alreadyParticipant") };
 
   const invite = await prisma.outingInvitation.create({
     data: {
@@ -175,10 +179,11 @@ export async function inviteOutsiderToOutingAction(outingId: string, userPublicI
  */
 export async function acceptOutingInvitationAction(invitationId: string) {
   const session = await requireSession();
+  const t = await getTranslations("errors");
   const invite = await prisma.outingInvitation.findUnique({ where: { id: invitationId } });
-  if (!invite) return { error: "Invitation not found" };
-  if (invite.inviteeUserId !== session.userId) return { error: "Not your invitation" };
-  if (invite.status !== "PENDING") return { error: "Already responded" };
+  if (!invite) return { error: t("inviteNotFound") };
+  if (invite.inviteeUserId !== session.userId) return { error: t("notYourInvite") };
+  if (invite.status !== "PENDING") return { error: t("alreadyResponded") };
 
   await prisma.$transaction(async (tx) => {
     const fresh = await tx.outingInvitation.findUnique({ where: { id: invitationId } });
@@ -210,9 +215,10 @@ export async function acceptOutingInvitationAction(invitationId: string) {
  */
 export async function declineOutingInvitationAction(invitationId: string) {
   const session = await requireSession();
+  const t = await getTranslations("errors");
   const invite = await prisma.outingInvitation.findUnique({ where: { id: invitationId } });
-  if (!invite) return { error: "Invitation not found" };
-  if (invite.inviteeUserId !== session.userId) return { error: "Not your invitation" };
+  if (!invite) return { error: t("inviteNotFound") };
+  if (invite.inviteeUserId !== session.userId) return { error: t("notYourInvite") };
 
   await prisma.outingInvitation.update({
     where: { id: invitationId },
@@ -233,11 +239,12 @@ export async function declineOutingInvitationAction(invitationId: string) {
  */
 export async function requestLeaveOutingAction(outingId: string) {
   const session = await requireSession();
+  const t = await getTranslations("errors");
   const participant = await prisma.outingParticipant.findUnique({
     where: { outingId_userId: { outingId, userId: session.userId } },
   });
-  if (!participant) return { error: "Not a participant" };
-  if (participant.role === "OWNER") return { error: "Owner cannot leave" };
+  if (!participant) return { error: t("notOutingParticipant") };
+  if (participant.role === "OWNER") return { error: t("ownerCantLeave") };
 
   // Check if user has financial data in the outing
   const hasActivityPayments = await prisma.activityPayment.findFirst({
@@ -288,19 +295,20 @@ export async function requestLeaveOutingAction(outingId: string) {
  */
 export async function removeOutingParticipantAction(outingId: string, userId: string) {
   const session = await requireSession();
+  const t = await getTranslations("errors");
   const outing = await prisma.outing.findUnique({ where: { id: outingId } });
-  if (!outing) return { error: "Outing not found" };
+  if (!outing) return { error: t("outingNotFound") };
 
   const caller = await prisma.outingParticipant.findUnique({
     where: { outingId_userId: { outingId, userId: session.userId } },
   });
-  if (!caller || caller.role !== "OWNER") return { error: "Only owner can remove" };
-  if (userId === session.userId) return { error: "Cannot remove yourself" };
+  if (!caller || caller.role !== "OWNER") return { error: t("onlyOwner") };
+  if (userId === session.userId) return { error: t("cantRemoveSelf") };
 
   const target = await prisma.outingParticipant.findUnique({
     where: { outingId_userId: { outingId, userId } },
   });
-  if (!target) return { error: "Not a participant" };
+  if (!target) return { error: t("notOutingParticipant") };
 
   await prisma.outingParticipant.delete({
     where: { outingId_userId: { outingId, userId } },
@@ -324,14 +332,15 @@ export async function removeOutingParticipantAction(outingId: string, userId: st
  */
 export async function activateOutingAction(outingId: string) {
   const session = await requireSession();
+  const t = await getTranslations("errors");
   const outing = await prisma.outing.findUnique({ where: { id: outingId } });
-  if (!outing) return { error: "Outing not found" };
+  if (!outing) return { error: t("outingNotFound") };
 
   const participant = await prisma.outingParticipant.findUnique({
     where: { outingId_userId: { outingId, userId: session.userId } },
   });
-  if (!participant || participant.role !== "OWNER") return { error: "Only owner" };
-  if (outing.status !== "PLANNING") return { error: "Outing is not in PLANNING status" };
+  if (!participant || participant.role !== "OWNER") return { error: t("onlyOwner") };
+  if (outing.status !== "PLANNING") return { error: t("notPlanning") };
 
   await prisma.outing.update({
     where: { id: outingId },

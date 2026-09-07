@@ -1,5 +1,6 @@
 "use client";
 import { useState, useCallback, useRef, useEffect } from "react";
+import { useTranslations } from "next-intl";
 import { useZxing, type DetectedBarcode } from "react-zxing";
 
 interface QrScannerProps {
@@ -35,6 +36,7 @@ async function probePermission(): Promise<"granted" | "denied" | "unknown"> {
 }
 
 function ScannerView({ onScan, onStreamError }: { onScan: (v: string) => void; onStreamError: (e: unknown) => void }) {
+  const t = useTranslations("scanner");
   const [paused, setPaused] = useState(false);
   const scannedRef = useRef(false);
 
@@ -67,13 +69,14 @@ function ScannerView({ onScan, onStreamError }: { onScan: (v: string) => void; o
         <video ref={ref} muted playsInline className="w-full h-auto" style={{ minHeight: 250 }} />
       </div>
       <button onClick={togglePause} className="btn-secondary px-6">
-        {paused ? "Resume" : "Pause"}
+          {paused ? t("resume") : t("pause")}
       </button>
     </div>
   );
 }
 
 export default function QrScanner({ onScan, onError }: QrScannerProps) {
+  const t = useTranslations("scanner");
   const [phase, setPhase] = useState<Phase>({ kind: "checking" });
   const [busy, setBusy] = useState(false);
   const [runId, setRunId] = useState(0);
@@ -103,19 +106,18 @@ export default function QrScanner({ onScan, onError }: QrScannerProps) {
         video: { facingMode: "environment" },
         audio: false,
       });
-      stream.getTracks().forEach(t => t.stop());
+      stream.getTracks().forEach(track => track.stop());
       setRunId(id => id + 1);
       setPhase({ kind: "active" });
     } catch (err) {
       const next = describeError(err);
       setPhase(next);
-      if (next.kind === "denied" || next.kind === "error") {
-        onError?.(next.kind === "denied" ? "Camera permission denied" : next.message);
-      }
+      if (next.kind === "denied") onError?.(t("deniedToast"));
+      else if (next.kind === "error") onError?.(next.message);
     } finally {
       setBusy(false);
     }
-  }, [onError]);
+  }, [onError, t]);
 
   const retry = useCallback(() => {
     setPhase({ kind: "checking" });
@@ -129,7 +131,7 @@ export default function QrScanner({ onScan, onError }: QrScannerProps) {
     return (
       <div className="flex flex-col items-center gap-3 py-10">
         <div className="animate-spin w-8 h-8 border-4 border-border border-t-action rounded-full" />
-        <p className="text-muted text-[14px]">Checking camera…</p>
+        <p className="text-muted text-[14px]">{t("checking")}</p>
       </div>
     );
   }
@@ -137,10 +139,10 @@ export default function QrScanner({ onScan, onError }: QrScannerProps) {
   if (phase.kind === "ready") {
     return (
       <div className="flex flex-col items-center gap-3 py-8 text-center">
-        <p className="text-[14px] font-semibold">Allow camera access to scan</p>
-        <p className="text-[13px] text-muted max-w-xs">Your browser will ask for permission. The camera is only used to read the QR code.</p>
+        <p className="text-[14px] font-semibold">{t("allowTitle")}</p>
+        <p className="text-[13px] text-muted max-w-xs">{t("allowSub")}</p>
         <button onClick={() => void request()} disabled={busy} className="btn-primary px-6">
-          {busy ? "Requesting…" : "Enable camera"}
+          {busy ? t("requesting") : t("enable")}
         </button>
       </div>
     );
@@ -149,14 +151,10 @@ export default function QrScanner({ onScan, onError }: QrScannerProps) {
   if (phase.kind === "denied") {
     return (
       <div className="flex flex-col items-center gap-3 py-8 text-center">
-        <p className="text-[14px] font-semibold text-danger">Camera is blocked</p>
-        <p className="text-[13px] text-muted max-w-xs">
-          The browser is not showing the permission prompt because camera access was blocked for this site.
-          Tap the lock (or <span className="font-mono">⋯</span>) icon in the address bar → Site settings → Camera → Allow,
-          then try again.
-        </p>
+        <p className="text-[14px] font-semibold text-danger">{t("blockedTitle")}</p>
+        <p className="text-[13px] text-muted max-w-xs">{t("blockedSub")}</p>
         <button onClick={retry} className="btn-primary px-6">
-          Try again
+          {t("tryAgain")}
         </button>
       </div>
     );
@@ -165,10 +163,10 @@ export default function QrScanner({ onScan, onError }: QrScannerProps) {
   if (phase.kind === "no-camera") {
     return (
       <div className="flex flex-col items-center gap-3 py-8 text-center">
-        <p className="text-[14px] font-semibold">No camera found</p>
-        <p className="text-[13px] text-muted max-w-xs">This device has no available camera, or it is already in use by another app.</p>
+        <p className="text-[14px] font-semibold">{t("noCameraTitle")}</p>
+        <p className="text-[13px] text-muted max-w-xs">{t("noCameraSub")}</p>
         <button onClick={retry} className="btn-secondary px-6">
-          Try again
+          {t("tryAgain")}
         </button>
       </div>
     );
@@ -177,8 +175,8 @@ export default function QrScanner({ onScan, onError }: QrScannerProps) {
   if (phase.kind === "insecure") {
     return (
       <div className="flex flex-col items-center gap-3 py-8 text-center">
-        <p className="text-[14px] font-semibold">Camera unavailable</p>
-        <p className="text-[13px] text-muted max-w-xs">Browsers only allow camera access on secure (HTTPS) pages. Open this page over HTTPS and try again.</p>
+        <p className="text-[14px] font-semibold">{t("insecureTitle")}</p>
+        <p className="text-[13px] text-muted max-w-xs">{t("insecureSub")}</p>
       </div>
     );
   }
@@ -186,10 +184,10 @@ export default function QrScanner({ onScan, onError }: QrScannerProps) {
   if (phase.kind === "error") {
     return (
       <div className="flex flex-col items-center gap-3 py-8 text-center">
-        <p className="text-[14px] font-semibold text-danger">Camera error</p>
+        <p className="text-[14px] font-semibold text-danger">{t("errorTitle")}</p>
         <p className="text-[13px] text-muted max-w-xs">{phase.message}</p>
         <button onClick={retry} className="btn-secondary px-6">
-          Try again
+          {t("tryAgain")}
         </button>
       </div>
     );

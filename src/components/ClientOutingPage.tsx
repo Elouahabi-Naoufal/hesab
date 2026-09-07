@@ -1,5 +1,6 @@
 "use client";
 import { useActionState } from "react";
+import { useTranslations } from "next-intl";
 import { formatDH } from "@/lib/utils";
 import {
   createActivityAction, closeActivityAction, deleteActivityAction,
@@ -21,7 +22,7 @@ import {
   removeOutingParticipantAction, requestLeaveOutingAction, activateOutingAction,
 } from "@/server/outings/actions";
 import QrInvite from "@/components/QrInvite";
-import Link from "next/link";
+import { Link } from "@/i18n/navigation";
 import { redirect } from "next/navigation";
 import { IconCheck, IconX, IconPencil, IconChevronRight, IconReceipt } from "@/components/icons";
 
@@ -44,22 +45,23 @@ function WForm({ action, initialState, children, className }: {
 }
 
 function SplitBar({ paid, responsibility }: { paid: number; responsibility: number }) {
+  const t = useTranslations("outing");
   const max = Math.max(paid, responsibility, 1);
   return (
     <div className="space-y-1.5">
       <div className="flex items-center gap-2">
-        <span className="text-[12px] text-muted w-20">Paid</span>
+        <span className="text-[12px] text-muted w-20">{t("paid")}</span>
         <div className="progress-track flex-1">
           <div className="progress-fill" style={{ width: `${Math.round((paid / max) * 100)}%` }} />
         </div>
-        <span className="money text-[12px] font-semibold w-20 text-right">{formatDH(paid)}</span>
+        <span className="money text-[12px] font-semibold w-20 text-end">{formatDH(paid)}</span>
       </div>
       <div className="flex items-center gap-2">
-        <span className="text-[12px] text-muted w-20">Owed</span>
+        <span className="text-[12px] text-muted w-20">{t("owed")}</span>
         <div className="progress-track flex-1">
           <div className="progress-fill" style={{ width: `${Math.round((responsibility / max) * 100)}%`, background: "var(--muted)", opacity: 0.7 }} />
         </div>
-        <span className="money text-[12px] font-semibold w-20 text-right">{formatDH(responsibility)}</span>
+        <span className="money text-[12px] font-semibold w-20 text-end">{formatDH(responsibility)}</span>
       </div>
     </div>
   );
@@ -78,14 +80,17 @@ export default function ClientOutingPage({
   groupName?: string;
 }) {
   const netDiff = totalResponsibility - totalPaid;
+  const t = useTranslations("outing");
+  const tc = useTranslations("common");
+  const tn = useTranslations("nav");
 
   return (
     <main className="mx-auto max-w-5xl px-4 sm:px-6 py-6 sm:py-8 space-y-8">
       <div>
-        <nav aria-label="Breadcrumb" className="text-[13px] text-muted mb-1.5">
-          <Link href="/dashboard" className="hover:text-foreground transition-colors">Groups</Link>
+        <nav aria-label={tc("breadcrumb")} className="text-[13px] text-muted mb-1.5">
+          <Link href="/dashboard" className="hover:text-foreground transition-colors">{tn("groups")}</Link>
           <span className="mx-1.5">/</span>
-          <Link href={`/groups/${groupId}`} className="hover:text-foreground transition-colors">{groupName ?? "Group"}</Link>
+          <Link href={`/groups/${groupId}`} className="hover:text-foreground transition-colors">{groupName ?? tn("groups")}</Link>
           <span className="mx-1.5">/</span>
           <span className="text-foreground font-medium">{outing.name}</span>
         </nav>
@@ -94,7 +99,7 @@ export default function ClientOutingPage({
           <div className="flex items-center gap-2 flex-shrink-0">
             {isOwner && outing.status === "PLANNING" && (
               <WForm action={async () => await activateOutingAction(outingId)} initialState={{}}>
-                <button className="btn-primary btn-sm">Activate</button>
+                <button className="btn-primary btn-sm">{t("activate")}</button>
               </WForm>
             )}
           {isOwner && allActivitiesClosed && outing.status !== "SETTLED" && !hasSettlement && (
@@ -107,26 +112,26 @@ export default function ClientOutingPage({
               }}
               initialState={{}}
             >
-              <button className="btn-navy btn-sm">Settle Outing</button>
+              <button className="btn-navy btn-sm">{t("settleOuting")}</button>
             </WForm>
           )}
             {isOwner && outing.status === "SETTLED" && (
-              <span className="tag bg-success-subtle text-success"><IconCheck size={12} />Settled</span>
+              <span className="tag bg-success-subtle text-success"><IconCheck size={12} />{t("settled")}</span>
             )}
           </div>
         </div>
-        <p className="text-[13px] text-muted mt-1">{outing.status} · {participants.length} {participants.length === 1 ? "participant" : "participants"} · {activities.length} {activities.length === 1 ? "activity" : "activities"}</p>
+        <p className="text-[13px] text-muted mt-1">{outing.status === "PLANNING" ? tc("planning") : outing.status === "ACTIVE" ? tc("activeTag") : outing.status === "SETTLED" ? tc("settledTag") : outing.status} · {t("headMeta", { p: participants.length, a: activities.length })}</p>
       </div>
         {/* Live balances — borderless band */}
         <section>
           <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-4">
             <div>
-              <div className="text-[13px] text-muted mb-1">Live balances</div>
+              <div className="text-[13px] text-muted mb-1">{t("liveBalances")}</div>
               <div className="money-hero text-[40px] font-extrabold">{formatDH(totalPaid)}</div>
-              <div className="text-[13px] text-muted mt-1">paid of {formatDH(totalResponsibility)} owed</div>
+              <div className="text-[13px] text-muted mt-1">{t("paidOf", { total: formatDH(totalResponsibility) })}</div>
             </div>
-            <div className="sm:text-right">
-              <div className="text-[13px] text-muted">Net difference</div>
+            <div className="sm:text-end">
+              <div className="text-[13px] text-muted">{t("netDiff")}</div>
               <div className={`money text-[20px] font-bold ${netDiff > 0 ? "text-success" : netDiff < 0 ? "text-danger" : "text-muted"}`}>
                 {netDiff > 0 ? "+" : ""}{formatDH(netDiff)}
               </div>
@@ -140,11 +145,11 @@ export default function ClientOutingPage({
           <div className="min-w-0 order-1">
         {/* Activities — timeline */}
         <section className="space-y-4">
-          <h2 className="text-[18px] font-semibold tracking-tight">Activities</h2>
+          <h2 className="text-[18px] font-semibold tracking-tight">{t("activities")}</h2>
           {activities.length === 0 ? (
             <div className="card border-dashed p-10 text-center">
               <div className="w-12 h-12 mx-auto rounded-[20px] bg-elevated text-muted flex items-center justify-center mb-3"><IconReceipt size={22} /></div>
-              <p className="text-[14px] text-muted">No activities yet</p>
+              <p className="text-[14px] text-muted">{t("noActivities")}</p>
             </div>
           ) : (
             <div className="timeline space-y-3">
@@ -164,16 +169,16 @@ export default function ClientOutingPage({
 
           {isOwner && outing.status !== "SETTLED" && (
             <div className="card-elevated p-5">
-              <h3 className="text-[14px] font-semibold mb-3">New activity</h3>
+              <h3 className="text-[14px] font-semibold mb-3">{t("newActivity")}</h3>
               <WForm action={async (prevState, formData) => await createActivityAction(formData)} initialState={{}} className="space-y-3">
                 <input type="hidden" name="outingId" value={outingId} />
-                <input name="name" placeholder="Pool / Restaurant / InDrive" required className="input" />
+                <input name="name" placeholder={t("activityNamePh")} required className="input" />
                 <select name="pricingModel" className="input">
-                  <option value="FIXED">FIXED — per-unit pricing</option>
-                  <option value="VARIABLE">VARIABLE — custom items</option>
+                  <option value="FIXED">{t("fixedOpt")}</option>
+                  <option value="VARIABLE">{t("variableOpt")}</option>
                 </select>
-                <input name="notes" placeholder="Notes (optional)" className="input" />
-                <button className="btn-primary w-full py-2.5">Create Activity</button>
+                <input name="notes" placeholder={t("notesPh")} className="input" />
+                <button className="btn-primary w-full py-2.5">{t("createActivity")}</button>
               </WForm>
             </div>
           )}
@@ -181,7 +186,7 @@ export default function ClientOutingPage({
           </div>
           <aside className="space-y-8 lg:sticky lg:top-6 min-w-0 order-2">
             <section>
-              <h2 className="section-label mb-1">Balances</h2>
+              <h2 className="section-label mb-1">{t("balances")}</h2>
               <div className="ledger">
                 {memberBalances.filter((b: any) => b.netBalance !== 0).map((b: any) => (
                   <div key={b.userId} className="flex items-center justify-between py-1.5">
@@ -192,26 +197,26 @@ export default function ClientOutingPage({
                   </div>
                 ))}
                 {memberBalances.filter((b: any) => b.netBalance !== 0).length === 0 ? (
-                  <div className="text-center py-3 text-[14px] text-muted">Everyone is settled up!</div>
+                  <div className="text-center py-3 text-[14px] text-muted">{t("settledUp")}</div>
                 ) : (
                   memberBalances.filter((b: any) => b.netBalance === 0).length > 0 && (
                     <div className="text-[12px] text-muted pt-1">
-                      {memberBalances.filter((b: any) => b.netBalance === 0).length} {memberBalances.filter((b: any) => b.netBalance === 0).length === 1 ? "person" : "people"} balanced
+                      {t("balancedN", { count: memberBalances.filter((b: any) => b.netBalance === 0).length })}
                     </div>
                   )
                 )}
               </div>
             </section>
             <section>
-              <h2 className="section-label mb-2">Participants</h2>
+              <h2 className="section-label mb-2">{t("participants")}</h2>
               <div className="flex flex-wrap items-center gap-2">
                 {participants.map((p: any) => (
                   <span key={p.id} className="tag bg-elevated text-foreground">
                     {p.user.displayName}
-                    {p.role === "OWNER" && <span className="tag bg-brand-subtle text-brand ml-1">owner</span>}
+                    {p.role === "OWNER" && <span className="tag bg-brand-subtle text-brand ms-1">{tc("owner")}</span>}
                     {isOwner && p.userId !== sessionUserId && (
-                      <WForm action={async () => await removeOutingParticipantAction(outingId, p.userId)} initialState={{}} className="inline ml-1">
-                        <button type="submit" aria-label={`Remove ${p.user.displayName}`} className="inline-flex items-center text-danger/60 hover:text-danger transition-colors ml-1"><IconX size={12} /></button>
+                      <WForm action={async () => await removeOutingParticipantAction(outingId, p.userId)} initialState={{}} className="inline ms-1">
+                        <button type="submit" aria-label={t("removeParticipant", { name: p.user.displayName })} className="inline-flex items-center text-danger/60 hover:text-danger transition-colors ms-1"><IconX size={12} /></button>
                       </WForm>
                     )}
                   </span>
@@ -219,7 +224,7 @@ export default function ClientOutingPage({
               </div>
               {!isOwner && (
                 <WForm action={async () => await requestLeaveOutingAction(outingId)} initialState={{}} className="mt-2">
-                  <button type="submit" className="text-[12px] text-danger hover:underline">Leave outing</button>
+                  <button type="submit" className="text-[12px] text-danger hover:underline">{t("leaveOuting")}</button>
                 </WForm>
               )}
               {isOwner && outing.publicToken && (
@@ -229,7 +234,7 @@ export default function ClientOutingPage({
               )}
             </section>
             {hasSettlement && (
-              <a href={`/groups/${groupId}/outings/${outingId}/settlement`} className="btn-navy w-full py-3 text-[15px] text-center rounded-[20px]">View Settlement</a>
+              <a href={`/groups/${groupId}/outings/${outingId}/settlement`} className="btn-navy w-full py-3 text-[15px] text-center rounded-[20px]">{t("viewSettlement")}</a>
             )}
           </aside>
         </div>
@@ -238,14 +243,15 @@ export default function ClientOutingPage({
 }
 
 function StatusTag({ status }: { status: string }) {
+  const tc = useTranslations("common");
   if (status === "CONFIRMED") return (
-    <span className="tag bg-success-subtle text-success"><span className="status-dot bg-success"></span>Confirmed</span>
+    <span className="tag bg-success-subtle text-success"><span className="status-dot bg-success"></span>{tc("confirmedTag")}</span>
   );
   if (status === "DISPUTED") return (
-    <span className="tag bg-danger-subtle text-danger"><span className="status-dot bg-danger"></span>Disputed</span>
+    <span className="tag bg-danger-subtle text-danger"><span className="status-dot bg-danger"></span>{tc("disputedTag")}</span>
   );
   return (
-    <span className="tag bg-warn-subtle text-warn"><span className="status-dot bg-warn"></span>Pending</span>
+    <span className="tag bg-warn-subtle text-warn"><span className="status-dot bg-warn"></span>{tc("pendingTag")}</span>
   );
 }
 
@@ -253,6 +259,8 @@ function ActivityCard({ activity, outingId, groupId, isOwner, participants, user
   activity: any; outingId: string; groupId: string; isOwner: boolean;
   participants: any[]; usersMap: Map<string, string>; userId: string;
 }) {
+  const t = useTranslations("outing");
+  const tc = useTranslations("common");
   const isFixed = activity.pricingModel === "FIXED";
   const isVariable = activity.pricingModel === "VARIABLE";
   const canEdit = isOwner && activity.status === "OPEN";
@@ -264,28 +272,28 @@ function ActivityCard({ activity, outingId, groupId, isOwner, participants, user
         <div className="min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-[15px] font-semibold tracking-tight">{activity.name}</span>
-            <span className="tag bg-elevated text-muted">{activity.pricingModel}</span>
+            <span className="tag bg-elevated text-muted">{isFixed ? tc("fixed") : tc("variable")}</span>
             {activity.status === "OPEN" ? (
-              <span className="tag bg-success-subtle text-success"><span className="status-dot bg-success"></span>Open</span>
+              <span className="tag bg-success-subtle text-success"><span className="status-dot bg-success"></span>{tc("open")}</span>
             ) : (
-              <span className="tag bg-elevated text-muted"><span className="status-dot bg-muted"></span>{activity.status}</span>
+              <span className="tag bg-elevated text-muted"><span className="status-dot bg-muted"></span>{activity.status === "CLOSED" ? tc("closed") : activity.status}</span>
             )}
           </div>
           <div className="money text-[22px] font-bold mt-2">{formatDH(activity.responsibility)}</div>
           <div className="flex items-center gap-3 mt-1.5 text-[13px] text-muted flex-wrap">
-            <span>Paid <span className="money font-semibold text-foreground">{formatDH(activity.paid)}</span></span>
+            <span>{t("paid")} <span className="money font-semibold text-foreground">{formatDH(activity.paid)}</span></span>
             <span className={activity.balance !== 0 ? (activity.balance > 0 ? "text-success" : "text-danger") : ""}>
-              Balance <span className="money font-semibold">{activity.balance > 0 ? "+" : ""}{formatDH(activity.balance)}</span>
+              {t("balance")} <span className="money font-semibold">{activity.balance > 0 ? "+" : ""}{formatDH(activity.balance)}</span>
             </span>
           </div>
         </div>
         {canEdit && (
           <div className="flex gap-1 flex-shrink-0">
             <WForm action={async () => await closeActivityAction(activity.id)} initialState={{}}>
-              <button type="submit" className="btn-ghost text-warn">Close</button>
+              <button type="submit" className="btn-ghost text-warn">{tc("close")}</button>
             </WForm>
             <WForm action={async () => await deleteActivityAction(activity.id)} initialState={{}}>
-              <button type="submit" className="btn-ghost text-danger">Delete</button>
+              <button type="submit" className="btn-ghost text-danger">{tc("delete")}</button>
             </WForm>
           </div>
         )}
@@ -298,30 +306,30 @@ function ActivityCard({ activity, outingId, groupId, isOwner, participants, user
         <div className="space-y-4">
           {activity.products.length > 0 && (
             <div>
-              <div className="text-[12px] font-semibold text-muted mb-2 uppercase tracking-wide">Products</div>
+              <div className="text-[12px] font-semibold text-muted mb-2 uppercase tracking-wide">{t("products")}</div>
               <div className="space-y-1.5">
                 {activity.products.map((p: any) => (
                   <div key={p.id} className="flex items-center justify-between py-2 px-3 rounded-[12px] bg-elevated">
                     <span className="text-[14px] min-w-0">{p.name} <span className="text-muted">· {formatDH(p.pricePerUnitCt)}/{p.unit}</span></span>
                     {canEdit && (
-                      <div className="flex items-center gap-1.5 flex-shrink-0 ml-2">
+                      <div className="flex items-center gap-1.5 flex-shrink-0 ms-2">
                         <details className="relative">
-                          <summary className="cursor-pointer text-brand text-[12px] font-semibold hover:underline">Edit</summary>
+                          <summary className="cursor-pointer text-brand text-[12px] font-semibold hover:underline">{tc("edit")}</summary>
                           <WForm action={async (prevState, formData) => {
                             return await updateActivityProductAction(p.id, {
                               name: formData.get("name") as string || undefined,
                               unit: formData.get("unit") as string || undefined,
                               pricePerUnitDH: formData.get("pricePerUnitDH") as string || undefined,
                             });
-                          }} initialState={{}} className="absolute right-0 z-10 mt-1 p-3 rounded-[20px] bg-surface border border-border shadow-lg space-y-2 w-56">
-                            <input name="name" defaultValue={p.name} placeholder="Name" className="input text-[13px]" />
-                            <input name="unit" defaultValue={p.unit} placeholder="Unit" className="input text-[13px]" />
-                            <input name="pricePerUnitDH" defaultValue={(p.pricePerUnitCt / 100).toFixed(2)} placeholder="Price (DH)" className="input text-[13px]" />
-                            <button type="submit" className="btn-primary w-full py-2 text-[12px]">Save</button>
+                          }} initialState={{}} className="absolute end-0 z-10 mt-1 p-3 rounded-[20px] bg-surface border border-border shadow-lg space-y-2 w-56">
+                            <input name="name" defaultValue={p.name} placeholder={t("namePh")} className="input text-[13px]" />
+                            <input name="unit" defaultValue={p.unit} placeholder={t("unitLabel")} className="input text-[13px]" />
+                            <input name="pricePerUnitDH" defaultValue={(p.pricePerUnitCt / 100).toFixed(2)} placeholder={t("pricePh")} className="input text-[13px]" />
+                            <button type="submit" className="btn-primary w-full py-2 text-[12px]">{tc("save")}</button>
                           </WForm>
                         </details>
                         <WForm action={async () => await deleteActivityProductAction(p.id)} initialState={{}} className="inline">
-                          <button type="submit" aria-label={`Delete ${p.name}`} className="inline-flex items-center text-danger/60 hover:text-danger transition-colors"><IconX size={12} /></button>
+                          <button type="submit" aria-label={t("deleteItem", { name: p.name })} className="inline-flex items-center text-danger/60 hover:text-danger transition-colors"><IconX size={12} /></button>
                         </WForm>
                       </div>
                     )}
@@ -332,13 +340,13 @@ function ActivityCard({ activity, outingId, groupId, isOwner, participants, user
           )}
           {canEdit && (
             <details className="rounded-[20px] border border-border p-3.5">
-              <summary className="flex items-center gap-1 text-[13px] cursor-pointer text-muted font-semibold"><IconChevronRight size={13} className="chev" /> Add product</summary>
+              <summary className="flex items-center gap-1 text-[13px] cursor-pointer text-muted font-semibold"><IconChevronRight size={13} className="chev" /> {t("addProduct")}</summary>
               <WForm action={async (prevState, formData) => await createActivityProductAction(formData)} initialState={{}} className="space-y-2.5 mt-3">
                 <input type="hidden" name="activityId" value={activity.id} />
-                <input name="name" placeholder="Product name" required className="input text-[13px]" />
-                <input name="unit" placeholder="Unit (game, hour, etc.)" className="input text-[13px]" />
-                <input name="pricePerUnitDH" placeholder="Price per unit (DH)" required className="input text-[13px]" />
-                <button className="btn-primary w-full py-2 text-[13px]">Add Product</button>
+                <input name="name" placeholder={t("productNamePh")} required className="input text-[13px]" />
+                <input name="unit" placeholder={t("unitPh")} className="input text-[13px]" />
+                <input name="pricePerUnitDH" placeholder={t("pricePh")} required className="input text-[13px]" />
+                <button className="btn-primary w-full py-2 text-[13px]">{t("addProductBtn")}</button>
               </WForm>
             </details>
           )}
@@ -346,7 +354,7 @@ function ActivityCard({ activity, outingId, groupId, isOwner, participants, user
           {/* Usage records as financial objects */}
           {activity.usageRecords.length > 0 && (
             <div>
-              <div className="text-[12px] font-semibold text-muted mb-2 uppercase tracking-wide">Usage</div>
+              <div className="text-[12px] font-semibold text-muted mb-2 uppercase tracking-wide">{t("usage")}</div>
               <div className="space-y-2">
                 {activity.usageRecords.map((r: any) => {
                   const product = activity.products.find((p: any) => p.id === r.productId);
@@ -370,16 +378,16 @@ function ActivityCard({ activity, outingId, groupId, isOwner, participants, user
                       </div>
                       <div className="grid grid-cols-3 gap-2 text-center">
                         <div className="rounded-[12px] bg-surface p-2">
-                          <div className="text-[11px] text-muted">Each</div>
+                          <div className="text-[11px] text-muted">{t("each")}</div>
                           <div className="money text-[13px] font-bold">{formatDH(each)}</div>
                         </div>
                         <div className="rounded-[12px] bg-surface p-2">
-                          <div className="text-[11px] text-muted">Your share</div>
+                          <div className="text-[11px] text-muted">{t("yourShare")}</div>
                           <div className="money text-[13px] font-bold">{formatDH(myShare)}</div>
                         </div>
                         <div className="rounded-[12px] bg-surface p-2">
-                          <div className="text-[11px] text-muted">Split</div>
-                          <div className="text-[13px] font-bold">{n} {n === 1 ? "person" : "people"}</div>
+                          <div className="text-[11px] text-muted">{t("split")}</div>
+                          <div className="text-[13px] font-bold">{t("splitN", { count: n })}</div>
                         </div>
                       </div>
                       <div className="text-[12px] text-muted">
@@ -388,20 +396,20 @@ function ActivityCard({ activity, outingId, groupId, isOwner, participants, user
                       {r.status !== "CONFIRMED" && (
                         <div className="flex gap-2 flex-wrap">
                           <WForm action={async () => await confirmUsageRecordAction(r.id)} initialState={{}}>
-                            <button type="submit" className="btn-ghost text-success">Confirm</button>
+                            <button type="submit" className="btn-ghost text-success">{tc("confirm")}</button>
                           </WForm>
                           <WForm action={async (prevState, formData) => {
                             const notes = formData.get("notes") as string;
                             return await disputeUsageRecordAction(r.id, notes);
                           }} initialState={{}}>
-                            <button type="submit" className="btn-ghost text-danger">Dispute</button>
+                            <button type="submit" className="btn-ghost text-danger">{t("dispute")}</button>
                           </WForm>
                           {isOwner && r.participants.filter((pp: any) => {
                             const conf = r.confirmations.find((c: any) => c.userId === pp.userId);
                             return conf && conf.status === "PENDING";
                           }).map((pp: any) => (
                             <WForm key={pp.userId} action={async () => await adminConfirmUsageRecordAction(r.id, pp.userId)} initialState={{}}>
-                            <button type="submit" className="btn-ghost text-brand" title={`Confirm on behalf of ${usersMap.get(pp.userId) || pp.userId}`}>
+                            <button type="submit" className="btn-ghost text-brand" title={t("confirmOnBehalf", { name: usersMap.get(pp.userId) || pp.userId })}>
                               <IconCheck size={13} />{usersMap.get(pp.userId) || pp.userId}
                             </button>
                             </WForm>
@@ -411,17 +419,17 @@ function ActivityCard({ activity, outingId, groupId, isOwner, participants, user
                       {canEdit && (
                         <div className="flex gap-2 items-center pt-1">
                           <details className="relative">
-                            <summary className="cursor-pointer text-brand text-[12px] font-semibold hover:underline">Edit</summary>
+                            <summary className="cursor-pointer text-brand text-[12px] font-semibold hover:underline">{tc("edit")}</summary>
                             <WForm action={async (prevState, formData) => {
                               const qty = parseInt(formData.get("quantity") as string, 10);
                               return await updateUsageRecordAction(r.id, { quantity: qty });
-                            }} initialState={{}} className="absolute left-0 z-10 mt-1 p-3 rounded-[20px] bg-surface border border-border shadow-lg flex gap-2 items-center">
+                            }} initialState={{}} className="absolute start-0 z-10 mt-1 p-3 rounded-[20px] bg-surface border border-border shadow-lg flex gap-2 items-center">
                               <input name="quantity" type="number" min="1" defaultValue={r.quantity} className="input text-[13px] w-20" />
-                              <button type="submit" className="btn-primary py-2 px-3 text-[12px]">Save</button>
+                              <button type="submit" className="btn-primary py-2 px-3 text-[12px]">{tc("save")}</button>
                             </WForm>
                           </details>
                           <WForm action={async () => await deleteUsageRecordAction(r.id)} initialState={{}}>
-                            <button type="submit" className="text-[12px] text-danger hover:underline">Delete</button>
+                            <button type="submit" className="text-[12px] text-danger hover:underline">{tc("delete")}</button>
                           </WForm>
                         </div>
                       )}
@@ -433,15 +441,15 @@ function ActivityCard({ activity, outingId, groupId, isOwner, participants, user
           )}
           {canEdit && (
             <details className="rounded-[20px] border border-border p-3.5">
-              <summary className="flex items-center gap-1 text-[13px] cursor-pointer text-muted font-semibold"><IconChevronRight size={13} className="chev" /> Record usage</summary>
+              <summary className="flex items-center gap-1 text-[13px] cursor-pointer text-muted font-semibold"><IconChevronRight size={13} className="chev" /> {t("recordUsage")}</summary>
               <WForm action={async (prevState, formData) => await createUsageRecordAction(formData)} initialState={{}} className="space-y-2.5 mt-3">
                 <input type="hidden" name="activityId" value={activity.id} />
                 <select name="productId" required className="input text-[13px]">
-                  <option value="">Select product...</option>
+                  <option value="">{t("selectProduct")}</option>
                   {activity.products.map((p: any) => <option key={p.id} value={p.id}>{p.name} ({formatDH(p.pricePerUnitCt)}/{p.unit})</option>)}
                 </select>
-                <input name="quantity" type="number" min="1" placeholder="Quantity" required className="input text-[13px]" />
-                <div className="text-[12px] font-medium text-muted">Select participants:</div>
+                <input name="quantity" type="number" min="1" placeholder={t("quantity")} required className="input text-[13px]" />
+                <div className="text-[12px] font-medium text-muted">{t("selectParticipants")}</div>
                 <div className="space-y-1">
                   {participants.map((p: any) => (
                     <label key={p.userId} className="flex items-center gap-2 text-[13px] py-1 cursor-pointer">
@@ -450,7 +458,7 @@ function ActivityCard({ activity, outingId, groupId, isOwner, participants, user
                     </label>
                   ))}
                 </div>
-                <button className="btn-primary w-full py-2 text-[13px]">Record Usage</button>
+                <button className="btn-primary w-full py-2 text-[13px]">{t("recordUsageBtn")}</button>
               </WForm>
             </details>
           )}
@@ -462,7 +470,7 @@ function ActivityCard({ activity, outingId, groupId, isOwner, participants, user
         <div className="space-y-3">
           {activity.lineItems.length > 0 && (
             <div>
-              <div className="text-[12px] font-semibold text-muted mb-2 uppercase tracking-wide">Items</div>
+              <div className="text-[12px] font-semibold text-muted mb-2 uppercase tracking-wide">{t("items")}</div>
               <div className="space-y-2">
                 {activity.lineItems.map((l: any) => {
                   const canEditItem = l.userId === userId || isOwner;
@@ -472,27 +480,27 @@ function ActivityCard({ activity, outingId, groupId, isOwner, participants, user
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
                           <div className="text-[14px] font-medium">{l.description}</div>
-                          <div className="text-[12px] text-muted">Paid by {usersMap.get(l.userId) || "?"}{isMine ? " (you)" : ""}</div>
+                          <div className="text-[12px] text-muted">{t("paidBy")} {usersMap.get(l.userId) || "?"}{isMine ? ` ${t("youSuffix")}` : ""}</div>
                         </div>
                         <div className="money text-[18px] font-bold flex-shrink-0">{formatDH(l.priceCentimes)}</div>
                       </div>
                       {canEditItem && canEdit && (
                         <div className="flex items-center gap-1.5">
                           <details className="relative">
-                            <summary className="cursor-pointer text-brand text-[12px] font-semibold hover:underline">Edit</summary>
+                            <summary className="cursor-pointer text-brand text-[12px] font-semibold hover:underline">{tc("edit")}</summary>
                             <WForm action={async (prevState, formData) => {
                               return await updateLineItemAction(l.id, {
                                 description: formData.get("description") as string || undefined,
                                 priceDH: formData.get("priceDH") as string || undefined,
                               });
-                            }} initialState={{}} className="absolute right-0 z-10 mt-1 p-3 rounded-[20px] bg-surface border border-border shadow-lg space-y-2 w-56">
-                              <input name="description" defaultValue={l.description} placeholder="Description" className="input text-[13px]" />
-                              <input name="priceDH" defaultValue={(l.priceCentimes / 100).toFixed(2)} placeholder="Price (DH)" className="input text-[13px]" />
-                              <button type="submit" className="btn-primary w-full py-2 text-[12px]">Save</button>
+                            }} initialState={{}} className="absolute end-0 z-10 mt-1 p-3 rounded-[20px] bg-surface border border-border shadow-lg space-y-2 w-56">
+                          <input name="description" defaultValue={l.description} placeholder={t("descPh")} className="input text-[13px]" />
+                          <input name="priceDH" defaultValue={(l.priceCentimes / 100).toFixed(2)} placeholder={t("priceItemPh")} className="input text-[13px]" />
+                              <button type="submit" className="btn-primary w-full py-2 text-[12px]">{tc("save")}</button>
                             </WForm>
                           </details>
                           <WForm action={async () => await deleteLineItemAction(l.id)} initialState={{}}>
-                            <button type="submit" aria-label={`Delete ${l.description}`} className="inline-flex items-center text-danger/60 hover:text-danger transition-colors"><IconX size={12} /></button>
+                            <button type="submit" aria-label={t("deleteItem", { name: l.description })} className="inline-flex items-center text-danger/60 hover:text-danger transition-colors"><IconX size={12} /></button>
                           </WForm>
                         </div>
                       )}
@@ -502,28 +510,28 @@ function ActivityCard({ activity, outingId, groupId, isOwner, participants, user
               </div>
             </div>
           )}
-          {activity.lineItems.length === 0 && <div className="text-[13px] text-muted italic">No items yet</div>}
+          {activity.lineItems.length === 0 && <div className="text-[13px] text-muted italic">{t("noItems")}</div>}
           {canEdit && (
             <details className="rounded-[20px] border border-border p-3.5">
-              <summary className="flex items-center gap-1 text-[13px] cursor-pointer text-muted font-semibold"><IconChevronRight size={13} className="chev" /> Add item</summary>
+              <summary className="flex items-center gap-1 text-[13px] cursor-pointer text-muted font-semibold"><IconChevronRight size={13} className="chev" /> {t("addItem")}</summary>
               <WForm action={async (prevState, formData) => await createLineItemAction(formData)} initialState={{}} className="space-y-2.5 mt-3">
                 <input type="hidden" name="activityId" value={activity.id} />
                 <input type="hidden" name="userId" defaultValue={userId} className="hidden" />
-                <input name="description" placeholder="What was consumed?" required className="input text-[13px]" />
-                <input name="priceDH" placeholder="Price (DH)" required className="input text-[13px]" />
-                <button className="btn-primary w-full py-2 text-[13px]">Add Item</button>
+                <input name="description" placeholder={t("descPh")} required className="input text-[13px]" />
+                <input name="priceDH" placeholder={t("priceItemPh")} required className="input text-[13px]" />
+                <button className="btn-primary w-full py-2 text-[13px]">{t("addItemBtn")}</button>
               </WForm>
             </details>
           )}
           {!isOwner && activity.status === "OPEN" && (
             <details className="rounded-[20px] border border-border p-3.5">
-              <summary className="flex items-center gap-1 text-[13px] cursor-pointer text-muted font-semibold"><IconChevronRight size={13} className="chev" /> Add my item</summary>
+              <summary className="flex items-center gap-1 text-[13px] cursor-pointer text-muted font-semibold"><IconChevronRight size={13} className="chev" /> {t("addMyItem")}</summary>
               <WForm action={async (prevState, formData) => await createLineItemAction(formData)} initialState={{}} className="space-y-2.5 mt-3">
                 <input type="hidden" name="activityId" value={activity.id} />
                 <input type="hidden" name="userId" value={userId} className="hidden" />
-                <input name="description" placeholder="What did you consume?" required className="input text-[13px]" />
-                <input name="priceDH" placeholder="Price (DH)" required className="input text-[13px]" />
-                <button className="btn-primary w-full py-2 text-[13px]">Add Item</button>
+                <input name="description" placeholder={t("descMinePh")} required className="input text-[13px]" />
+                <input name="priceDH" placeholder={t("priceItemPh")} required className="input text-[13px]" />
+                <button className="btn-primary w-full py-2 text-[13px]">{t("addItemBtn")}</button>
               </WForm>
             </details>
           )}
@@ -532,27 +540,27 @@ function ActivityCard({ activity, outingId, groupId, isOwner, participants, user
 
       {/* Payments */}
       <div className="space-y-2">
-        <div className="text-[12px] font-semibold text-muted uppercase tracking-wide">Payments</div>
+        <div className="text-[12px] font-semibold text-muted uppercase tracking-wide">{t("payments")}</div>
         {activity.payments.length > 0 && (
           <div className="space-y-1.5">
             {activity.payments.map((p: any) => (
               <div key={p.id} className="flex items-center justify-between py-2 px-3 rounded-[12px] bg-elevated">
-                <span className="text-[14px]">{usersMap.get(p.userId) || "?"}{p.userId === userId ? <span className="text-[12px] text-muted"> (you)</span> : null}</span>
+                <span className="text-[14px]">{usersMap.get(p.userId) || "?"}{p.userId === userId ? ` ${t("youSuffix")}` : ""}</span>
                 <span className="flex items-center gap-2">
                   <span className="money text-[15px] font-semibold">{formatDH(p.amountCentimes)}</span>
                   {canEdit && (
                     <span className="flex items-center gap-1">
                       <details className="relative">
-                        <summary className="cursor-pointer text-brand text-[12px] font-semibold hover:underline">Edit</summary>
+                        <summary className="cursor-pointer text-brand text-[12px] font-semibold hover:underline">{tc("edit")}</summary>
                         <WForm action={async (prevState, formData) => {
                           return await updateActivityPaymentAction(p.id, formData.get("amountDH") as string);
-                        }} initialState={{}} className="absolute right-0 z-10 mt-1 p-3 rounded-[20px] bg-surface border border-border shadow-lg flex gap-2 items-center">
-                          <input name="amountDH" defaultValue={(p.amountCentimes / 100).toFixed(2)} placeholder="Amount (DH)" className="input text-[13px] w-24" />
-                          <button type="submit" className="btn-primary py-2 px-3 text-[12px]">Save</button>
+                        }} initialState={{}} className="absolute end-0 z-10 mt-1 p-3 rounded-[20px] bg-surface border border-border shadow-lg flex gap-2 items-center">
+                          <input name="amountDH" defaultValue={(p.amountCentimes / 100).toFixed(2)} placeholder={t("amountPh")} className="input text-[13px] w-24" />
+                          <button type="submit" className="btn-primary py-2 px-3 text-[12px]">{tc("save")}</button>
                         </WForm>
                       </details>
                 <WForm action={async () => await deleteActivityPaymentAction(p.id)} initialState={{}}>
-                  <button type="submit" aria-label="Delete payment" className="inline-flex items-center text-danger/60 hover:text-danger transition-colors"><IconX size={12} /></button>
+                  <button type="submit" aria-label={t("deletePayment")} className="inline-flex items-center text-danger/60 hover:text-danger transition-colors"><IconX size={12} /></button>
                 </WForm>
                     </span>
                   )}
@@ -563,15 +571,15 @@ function ActivityCard({ activity, outingId, groupId, isOwner, participants, user
         )}
         {canEdit && (
           <details className="rounded-[20px] border border-border p-3.5">
-            <summary className="flex items-center gap-1 text-[13px] cursor-pointer text-muted font-semibold"><IconChevronRight size={13} className="chev" /> Record payment</summary>
+            <summary className="flex items-center gap-1 text-[13px] cursor-pointer text-muted font-semibold"><IconChevronRight size={13} className="chev" /> {t("recordPayment")}</summary>
             <WForm action={async (prevState, formData) => await recordActivityPaymentAction(formData)} initialState={{}} className="space-y-2.5 mt-3">
               <input type="hidden" name="activityId" value={activity.id} />
               <select name="userId" required className="input text-[13px]">
-                <option value="">Who paid?</option>
+                <option value="">{t("whoPaid")}</option>
                 {participants.map((p: any) => <option key={p.userId} value={p.userId}>{p.user.displayName}</option>)}
               </select>
-              <input name="amountDH" placeholder="Amount (DH)" required className="input text-[13px]" />
-              <button className="btn-primary w-full py-2 text-[13px]">Record Payment</button>
+              <input name="amountDH" placeholder={t("amountPh")} required className="input text-[13px]" />
+              <button className="btn-primary w-full py-2 text-[13px]">{t("recordPaymentBtn")}</button>
             </WForm>
           </details>
         )}

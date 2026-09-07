@@ -5,6 +5,7 @@ import { logEvent } from "@/server/audit";
 import { revalidatePath } from "next/cache";
 import { parseDHToCentimes } from "@/lib/utils";
 import { userError } from "@/lib/errors";
+import { getTranslations } from "next-intl/server";
 
 /**
  * Record a payment for an activity. Only outing owner can record payments.
@@ -12,25 +13,26 @@ import { userError } from "@/lib/errors";
  */
 export async function recordActivityPaymentAction(formData: FormData) {
   const session = await requireSession();
+  const t = await getTranslations("errors");
   const activityId = formData.get("activityId") as string;
   const userId = formData.get("userId") as string;
   const amountDH = formData.get("amountDH") as string;
 
-  if (!activityId) return { error: "Activity is required." };
-  if (!userId) return { error: "User is required." };
-  if (!amountDH) return { error: "Amount is required." };
+  if (!activityId) return { error: t("activityRequired") };
+  if (!userId) return { error: t("userRequired") };
+  if (!amountDH) return { error: t("amountRequired") };
 
   const activity = await prisma.activity.findUnique({ where: { id: activityId } });
-  if (!activity) return { error: "Activity not found" };
-  if (activity.status !== "OPEN") return { error: "Activity is not open" };
+  if (!activity) return { error: t("activityNotFound") };
+  if (activity.status !== "OPEN") return { error: t("activityNotOpen") };
 
   const outing = await prisma.outing.findUnique({ where: { id: activity.outingId! } });
-  if (!outing) return { error: "Outing not found" };
+  if (!outing) return { error: t("outingNotFound") };
 
   const caller = await prisma.outingParticipant.findUnique({
     where: { outingId_userId: { outingId: activity.outingId!, userId: session.userId } },
   });
-  if (!caller || caller.role !== "OWNER") return { error: "Only owner can record payments" };
+  if (!caller || caller.role !== "OWNER") return { error: t("onlyOwner") };
 
   let amountCentimes: number;
   try {
@@ -47,7 +49,7 @@ export async function recordActivityPaymentAction(formData: FormData) {
   if (totalPaid + amountCentimes > totalResponsibility) {
     const maxAllowed = totalResponsibility - totalPaid;
     if (maxAllowed <= 0) {
-      return { error: "All responsibility is already covered by payments." };
+      return { error: t("coveredAll") };
     }
     return { error: `Payment would exceed responsibility. Maximum additional: ${(maxAllowed / 100).toFixed(2)} DH` };
   }
@@ -80,20 +82,22 @@ export async function recordActivityPaymentAction(formData: FormData) {
  */
 export async function updateActivityPaymentAction(paymentId: string, amountDH: string) {
   const session = await requireSession();
+  const t = await getTranslations("errors");
   const payment = await prisma.activityPayment.findUnique({ where: { id: paymentId } });
-  if (!payment) return { error: "Not found" };
+  if (!payment) return { error: t("notFound") };
 
   const activity = await prisma.activity.findUnique({ where: { id: payment.activityId } });
-  if (!activity) return { error: "Activity not found" };
+  if (!activity) return { error: t("activityNotFound") };
 
   const outing = await prisma.outing.findUnique({ where: { id: activity.outingId! } });
-  if (!outing) return { error: "Outing not found" };
-  if (outing.status === "SETTLED") return { error: "Outing is settled; activity data is locked." };
+  if (!outing) return { error: t("outingNotFound") };
+  if (outing.status === "SETTLED") return { error: t("outingSettledLocked") };
 
   const caller = await prisma.outingParticipant.findUnique({
     where: { outingId_userId: { outingId: activity.outingId!, userId: session.userId } },
   });
-  if (!caller || caller.role !== "OWNER") return { error: "Only owner" };
+  if (!caller || caller.role !== "OWNER") return { error: t("onlyOwner") };
+  void 0;
 
   let newAmount: number;
   try {
@@ -128,19 +132,21 @@ export async function updateActivityPaymentAction(paymentId: string, amountDH: s
  */
 export async function deleteActivityPaymentAction(paymentId: string) {
   const session = await requireSession();
+  const t = await getTranslations("errors");
   const payment = await prisma.activityPayment.findUnique({ where: { id: paymentId } });
-  if (!payment) return { error: "Not found" };
+  if (!payment) return { error: t("notFound") };
 
   const activity = await prisma.activity.findUnique({ where: { id: payment.activityId } });
-  if (!activity) return { error: "Activity not found" };
+  if (!activity) return { error: t("activityNotFound") };
 
   const outing = await prisma.outing.findUnique({ where: { id: activity.outingId! } });
-  if (!outing) return { error: "Outing not found" };
+  if (!outing) return { error: t("outingNotFound") };
 
   const caller = await prisma.outingParticipant.findUnique({
     where: { outingId_userId: { outingId: activity.outingId!, userId: session.userId } },
   });
-  if (!caller || caller.role !== "OWNER") return { error: "Only owner" };
+  if (!caller || caller.role !== "OWNER") return { error: t("onlyOwner") };
+  void 0;
 
   await prisma.activityPayment.delete({ where: { id: paymentId } });
   revalidatePath(`/groups/${outing.groupId}/outings/${activity.outingId}`);

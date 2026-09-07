@@ -105,6 +105,10 @@ body {
   text-rendering: optimizeLegibility;
 }
 
+html[dir="rtl"] body {
+  font-family: var(--font-arabic), var(--font-jakarta), system-ui, sans-serif;
+}
+
 h1, h2 {
   text-wrap: balance;
   letter-spacing: -0.02em;
@@ -169,7 +173,7 @@ summary:focus-visible {
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  margin-right: 7px;
+  margin-inline-end: 7px;
   flex-shrink: 0;
   vertical-align: 1px;
 }
@@ -375,7 +379,7 @@ input[type="checkbox"].accent-brand { accent-color: var(--brand); width: 16px; h
 .timeline { position: relative; }
 .timeline-rail {
   position: absolute;
-  left: 11px;
+  inset-inline-start: 11px;
   top: 26px;
   bottom: 8px;
   width: 2px;

@@ -5,6 +5,7 @@ import { logEvent } from "@/server/audit";
 import { revalidatePath } from "next/cache";
 import { parseDHToCentimes } from "@/lib/utils";
 import { userError } from "@/lib/errors";
+import { getTranslations } from "next-intl/server";
 
 /**
  * Create a line item for a variable-price activity.
@@ -12,38 +13,39 @@ import { userError } from "@/lib/errors";
  */
 export async function createLineItemAction(formData: FormData) {
   const session = await requireSession();
+  const t = await getTranslations("errors");
   const activityId = formData.get("activityId") as string;
   const targetUserId = (formData.get("userId") as string) || session.userId;
   const description = ((formData.get("description") as string) || "").trim();
   const priceDH = formData.get("priceDH") as string;
 
-  if (!activityId) return { error: "Activity is required." };
-  if (!description) return { error: "Description is required." };
-  if (!priceDH) return { error: "Price is required." };
+  if (!activityId) return { error: t("activityRequired") };
+  if (!description) return { error: t("descRequired") };
+  if (!priceDH) return { error: t("priceRequired") };
 
   const activity = await prisma.activity.findUnique({ where: { id: activityId } });
-  if (!activity) return { error: "Activity not found" };
-  if (activity.pricingModel !== "VARIABLE") return { error: "Line items only for VARIABLE activities" };
+  if (!activity) return { error: t("activityNotFound") };
+  if (activity.pricingModel !== "VARIABLE") return { error: t("variableOnly") };
 
   const outing = await prisma.outing.findUnique({ where: { id: activity.outingId! } });
-  if (!outing) return { error: "Outing not found" };
-  if (outing.status === "SETTLED") return { error: "Outing is settled; activity data is locked." };
+  if (!outing) return { error: t("outingNotFound") };
+  if (outing.status === "SETTLED") return { error: t("outingSettledLocked") };
 
   // Permission check: can only add for self, unless admin
   const caller = await prisma.outingParticipant.findUnique({
     where: { outingId_userId: { outingId: activity.outingId!, userId: session.userId } },
   });
-  if (!caller) return { error: "Not an outing participant" };
+  if (!caller) return { error: t("notOutingParticipant") };
 
   if (targetUserId !== session.userId && caller.role !== "OWNER") {
-    return { error: "Only owner can add items for other participants" };
+    return { error: t("onlyOwner") };
   }
 
   // Validate target is an activity participant
   const targetParticipant = await prisma.outingParticipant.findUnique({
     where: { outingId_userId: { outingId: activity.outingId!, userId: targetUserId } },
   });
-  if (!targetParticipant) return { error: "Target user is not an outing participant" };
+  if (!targetParticipant) return { error: t("targetNotParticipant") };
 
   let priceCentimes: number;
   try {
@@ -70,24 +72,25 @@ export async function createLineItemAction(formData: FormData) {
  */
 export async function updateLineItemAction(lineItemId: string, data: { description?: string; priceDH?: string }) {
   const session = await requireSession();
+  const t = await getTranslations("errors");
   const item = await prisma.lineItem.findUnique({ where: { id: lineItemId } });
-  if (!item) return { error: "Not found" };
+  if (!item) return { error: t("notFound") };
 
   const activity = await prisma.activity.findUnique({ where: { id: item.activityId } });
-  if (!activity) return { error: "Activity not found" };
+  if (!activity) return { error: t("activityNotFound") };
 
   const outing = await prisma.outing.findUnique({ where: { id: activity.outingId! } });
-  if (!outing) return { error: "Outing not found" };
-  if (outing.status === "SETTLED") return { error: "Outing is settled; activity data is locked." };
+  if (!outing) return { error: t("outingNotFound") };
+  if (outing.status === "SETTLED") return { error: t("outingSettledLocked") };
 
   const caller = await prisma.outingParticipant.findUnique({
     where: { outingId_userId: { outingId: activity.outingId!, userId: session.userId } },
   });
-  if (!caller) return { error: "Not an outing participant" };
+  if (!caller) return { error: t("notOutingParticipant") };
 
   // Can only edit own items unless admin
   if (item.userId !== session.userId && caller.role !== "OWNER") {
-    return { error: "You can only edit your own items" };
+    return { error: t("editOwn") };
   }
 
   const updateData: { description?: string; priceCentimes?: number } = {};
@@ -110,23 +113,24 @@ export async function updateLineItemAction(lineItemId: string, data: { descripti
  */
 export async function deleteLineItemAction(lineItemId: string) {
   const session = await requireSession();
+  const t = await getTranslations("errors");
   const item = await prisma.lineItem.findUnique({ where: { id: lineItemId } });
-  if (!item) return { error: "Not found" };
+  if (!item) return { error: t("notFound") };
 
   const activity = await prisma.activity.findUnique({ where: { id: item.activityId } });
-  if (!activity) return { error: "Activity not found" };
+  if (!activity) return { error: t("activityNotFound") };
 
   const outing = await prisma.outing.findUnique({ where: { id: activity.outingId! } });
-  if (!outing) return { error: "Outing not found" };
-  if (outing.status === "SETTLED") return { error: "Outing is settled; activity data is locked." };
+  if (!outing) return { error: t("outingNotFound") };
+  if (outing.status === "SETTLED") return { error: t("outingSettledLocked") };
 
   const caller = await prisma.outingParticipant.findUnique({
     where: { outingId_userId: { outingId: activity.outingId!, userId: session.userId } },
   });
-  if (!caller) return { error: "Not an outing participant" };
+  if (!caller) return { error: t("notOutingParticipant") };
 
   if (item.userId !== session.userId && caller.role !== "OWNER") {
-    return { error: "You can only delete your own items" };
+    return { error: t("deleteOwn") };
   }
 
   await prisma.lineItem.delete({ where: { id: lineItemId } });
