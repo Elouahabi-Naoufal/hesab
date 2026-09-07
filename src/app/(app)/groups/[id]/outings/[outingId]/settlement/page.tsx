@@ -2,7 +2,6 @@ import { prisma } from "@/lib/prisma";
 import { getSession } from "@/server/auth/session";
 import { redirect, notFound } from "next/navigation";
 import { formatDH } from "@/lib/utils";
-import { explainSettlement } from "@/domain/settlement";
 import Link from "next/link";
 import { IconCheck } from "@/components/icons";
 
@@ -96,11 +95,6 @@ export default async function SettlementPage({ params }: { params: Promise<{ id:
   const toReceive = myTransfersIn.reduce((s, t) => s + t.amountCentimes, 0);
   const toPay = myTransfersOut.reduce((s, t) => s + t.amountCentimes, 0);
 
-  const explanation = explainSettlement(
-    transfers.map(t => ({ fromUserId: t.fromUserId, toUserId: t.toUserId, amountCentimes: t.amountCentimes })),
-    memberBalances
-  );
-
   const paidCount = transfers.filter(t => t.status === "PAID").length;
   const allSettled = transfers.length > 0 && paidCount === transfers.length;
 
@@ -192,12 +186,26 @@ export default async function SettlementPage({ params }: { params: Promise<{ id:
           )}
         </section>
 
-        {/* Explanation */}
-        <section className="card-elevated p-5 space-y-3">
-          <h3 className="text-[15px] font-semibold">Explanation</h3>
-          <pre className="text-[13px] bg-elevated p-4 rounded-[20px] overflow-x-auto whitespace-pre-wrap font-mono text-muted">
-            {explanation}
-          </pre>
+        {/* Why this is fair */}
+        <section className="space-y-1">
+          <h3 className="section-label">Why this is fair</h3>
+          <div className="ledger">
+            {memberBalances.map(b => {
+              const isMe = b.userId === session.userId;
+              const who = isMe ? "You" : b.displayName;
+              return (
+                <div key={b.userId} className="py-2.5 text-[14px] leading-relaxed">
+                  {b.netBalance === 0 ? (
+                    <span><strong className="font-semibold">{who}</strong> {isMe ? "are" : "is"} settled up — paid exactly {isMe ? "your" : "their"} share of <span className="money font-semibold">{formatDH(b.totalResponsibility)}</span>.</span>
+                  ) : b.netBalance < 0 ? (
+                    <span><strong className="font-semibold">{who}</strong> paid <span className="money font-semibold">{formatDH(b.totalPaid)}</span>, and {isMe ? "your" : "their"} share was <span className="money font-semibold">{formatDH(b.totalResponsibility)}</span>, so {isMe ? "you owe" : "they owe"} <span className="money font-semibold text-danger">{formatDH(-b.netBalance)}</span>.</span>
+                  ) : (
+                    <span><strong className="font-semibold">{who}</strong> paid <span className="money font-semibold">{formatDH(b.totalPaid)}</span>, and {isMe ? "your" : "their"} share was <span className="money font-semibold">{formatDH(b.totalResponsibility)}</span>, so {isMe ? "you get back" : "they get back"} <span className="money font-semibold text-success">{formatDH(b.netBalance)}</span>.</span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
         </section>
 
         {/* Mark Transfer Paid */}
