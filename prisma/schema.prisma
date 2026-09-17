@@ -41,6 +41,9 @@ model User {
   lineItems              LineItem[]            @relation("UserLineItems")
   correctionRequests     CorrectionRequest[]        @relation("CorrectionRequester")
   correctionDecisions    CorrectionRequest[]      @relation("CorrectionDecider")
+  wallet                 Wallet?
+  walletTransactionsFrom WalletTransaction[]      @relation("TransactionFrom")
+  walletTransactionsTo   WalletTransaction[]      @relation("TransactionTo")
 
   @@index([email])
   @@index([publicId])
@@ -422,4 +425,44 @@ model ActivityEvent {
   @@index([actorId])
   @@index([eventType])
   @@index([outingId])
+}
+
+// ──────────────────────────────────────────────────
+// WALLET — user balances + transaction history
+// ──────────────────────────────────────────────────
+
+model Wallet {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  balanceCt Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user         User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactions WalletTransaction[] @relation("TransactionWallet")
+
+  @@index([userId])
+}
+
+model WalletTransaction {
+  id             String   @id @default(cuid())
+  walletId       String
+  type           String   // DEPOSIT, CONTRIBUTION, PAYMENT, REFUND
+  amountCt       Int
+  balanceBeforeCt Int
+  balanceAfterCt  Int
+  description    String?
+  referenceType  String?  // "INVITE", "OUTING", "TRANSFER"
+  referenceId    String?
+  createdAt      DateTime @default(now())
+
+  wallet   Wallet @relation("TransactionWallet", fields: [walletId], references: [id], onDelete: Cascade)
+  fromUser User?  @relation("TransactionFrom", fields: [fromUserId], references: [id])
+  toUser   User?  @relation("TransactionTo", fields: [toUserId], references: [id])
+  fromUserId String?
+  toUserId   String?
+
+  @@index([walletId])
+  @@index([type])
+  @@index([createdAt])
 }

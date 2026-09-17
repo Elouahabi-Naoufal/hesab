@@ -2,7 +2,8 @@
 import { Link, usePathname } from "@/i18n/navigation";
 import { useTranslations } from "next-intl";
 import { logoutAction } from "@/server/auth/actions";
-import { IconUsers, IconQr, IconPlus } from "@/components/icons";
+import { IconUsers, IconQr, IconPlus, IconWallet } from "@/components/icons";
+import ThemeToggle from "@/components/ThemeToggle";
 
 export type ShellUser = {
   displayName: string;
@@ -44,6 +45,7 @@ export default function AppShell({
   const groupsActive = isGroupsActive(pathname);
   const scanActive = pathname.startsWith("/scan");
   const profileActive = pathname.startsWith("/profile");
+  const walletActive = pathname.startsWith("/wallet");
 
   const navRow = (active: boolean) =>
     `flex items-center gap-2.5 h-9 px-2.5 rounded-[12px] text-[14px] font-medium transition-colors ${
@@ -60,7 +62,7 @@ export default function AppShell({
             <span className="font-extrabold text-[15px] tracking-tight">PoolSplit</span>
           </Link>
         </div>
-        <div className="px-4 pb-3">
+        <div className="px-4 pb-3 flex gap-2">
           <Link href="/dashboard#new-group" className="btn-primary btn-sm w-full">
             <IconPlus size={14} />{t("new")}
           </Link>
@@ -68,6 +70,9 @@ export default function AppShell({
         <nav aria-label={t("mainNav")} className="flex-1 overflow-y-auto px-3 pb-3 space-y-0.5">
           <Link href="/dashboard" className={navRow(groupsActive)}>
             <IconUsers size={16} />{t("groups")}
+          </Link>
+          <Link href="/wallet" className={navRow(walletActive)}>
+            <IconWallet size={16} />{t("wallet")}
           </Link>
           <Link href="/scan" className={navRow(scanActive)}>
             <IconQr size={16} />{t("scan")}
@@ -102,26 +107,29 @@ export default function AppShell({
             </div>
           )}
         </nav>
-        <div className="p-3 border-t border-border">
+        <div className="p-3 border-t border-border space-y-2">
           {user.isAdmin && (
-            <Link href="/admin" className="tag bg-warn-subtle text-warn mb-2">{t("admin")}</Link>
+            <Link href="/admin" className="tag bg-warn-subtle text-warn mb-2 w-full text-center block">{t("admin")}</Link>
           )}
-          <div className="flex items-center gap-2.5">
-            <Link href="/profile" className="w-8 h-8 rounded-full overflow-hidden bg-brand-subtle text-brand flex items-center justify-center text-[13px] font-bold flex-shrink-0">
-              {user.avatarUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={user.avatarUrl} alt={user.displayName} className="w-full h-full object-cover" />
-              ) : (
-                user.displayName[0]?.toUpperCase()
-              )}
-            </Link>
-            <div className="flex-1 min-w-0">
-              <div className="text-[13px] font-semibold truncate">{user.displayName}</div>
-              <div className="text-[11px] text-muted font-mono truncate">{user.publicId}</div>
+          <div className="flex items-center justify-between">
+            <ThemeToggle />
+            <div className="flex items-center gap-2.5 min-w-0 flex-1 ms-2">
+              <Link href="/profile" className="w-8 h-8 rounded-full overflow-hidden bg-brand-subtle text-brand flex items-center justify-center text-[13px] font-bold flex-shrink-0">
+                {user.avatarUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={user.avatarUrl} alt={user.displayName} className="w-full h-full object-cover" />
+                ) : (
+                  user.displayName[0]?.toUpperCase()
+                )}
+              </Link>
+              <div className="flex-1 min-w-0">
+                <div className="text-[13px] font-semibold truncate">{user.displayName}</div>
+                <div className="text-[11px] text-muted font-mono truncate">{user.publicId}</div>
+              </div>
+              <form action={logoutAction}>
+                <button className="btn-ghost text-[12px] px-2" title={t("logout")}>{t("logout")}</button>
+              </form>
             </div>
-            <form action={logoutAction}>
-              <button className="btn-ghost text-[12px] px-2" title={t("logout")}>{t("logout")}</button>
-            </form>
           </div>
         </div>
       </aside>
@@ -134,6 +142,7 @@ export default function AppShell({
             <span className="font-extrabold text-[15px] tracking-tight">PoolSplit</span>
           </Link>
           <div className="flex-1" />
+          <ThemeToggle />
           <Link href="/profile" aria-label="Profile" className="w-8 h-8 rounded-full overflow-hidden bg-brand-subtle text-brand flex items-center justify-center text-[13px] font-bold">
             {user.avatarUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
@@ -149,16 +158,19 @@ export default function AppShell({
       <div className="flex-1 min-w-0 pb-24 lg:pb-0">{children}</div>
 
       {/* Mobile tab bar */}
-      <nav aria-label={t("mainNav")} className="lg:hidden fixed bottom-0 inset-x-0 z-40 bg-surface border-t border-border">
-        <div className="grid grid-cols-4 h-[60px] px-2">
+      <nav aria-label={t("mainNav")} className="lg:hidden fixed bottom-0 inset-x-0 z-40 bg-surface border-t border-border safe-bottom">
+        <div className="grid grid-cols-5 h-[60px] px-2">
           <Link href="/dashboard" className={`flex flex-col items-center justify-center gap-0.5 text-[11px] font-semibold ${groupsActive ? "text-action" : "text-muted"}`}>
             <IconUsers size={20} />{t("groups")}
           </Link>
+          <Link href="/wallet" className={`flex flex-col items-center justify-center gap-0.5 text-[11px] font-semibold ${walletActive ? "text-action" : "text-muted"}`}>
+            <IconWallet size={20} />{t("wallet")}
+          </Link>
+          <Link href="/dashboard#new-group" className="flex flex-col items-center justify-center gap-0.5 text-[11px] font-semibold text-muted relative -top-2">
+            <span className="w-11 h-8 rounded-full bg-action text-white flex items-center justify-center shadow-md"><IconPlus size={18} /></span>
+          </Link>
           <Link href="/scan" className={`flex flex-col items-center justify-center gap-0.5 text-[11px] font-semibold ${scanActive ? "text-action" : "text-muted"}`}>
             <IconQr size={20} />{t("scan")}
-          </Link>
-          <Link href="/dashboard#new-group" className="flex flex-col items-center justify-center gap-0.5 text-[11px] font-semibold text-muted">
-            <span className="w-10 h-7 rounded-full bg-action text-white flex items-center justify-center"><IconPlus size={16} /></span>{t("new")}
           </Link>
           <Link href="/profile" className={`flex flex-col items-center justify-center gap-0.5 text-[11px] font-semibold ${profileActive ? "text-action" : "text-muted"}`}>
             {user.avatarUrl ? (

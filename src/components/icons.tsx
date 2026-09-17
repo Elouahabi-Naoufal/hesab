@@ -135,3 +135,56 @@ export function IconGlobe({ size, className }: IconProps) {
     </Base>
   );
 }
+
+export function IconSun({ size, className }: IconProps) {
+  return (
+    <Base size={size} className={className}>
+      <circle cx="12" cy="12" r="5" />
+      <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" />
+    </Base>
+  );
+}
+
+export function IconMoon({ size, className }: IconProps) {
+  return (
+    <Base size={size} className={className}>
+      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+    </Base>
+  );
+}
+
+export function IconSearch({ size, className }: IconProps) {
+  return (
+    <Base size={size} className={className}>
+      <circle cx="11" cy="11" r="8" />
+      <path d="M21 21l-4.35-4.35" />
+    </Base>
+  );
+}
+
+export function IconFilter({ size, className }: IconProps) {
+  return (
+    <Base size={size} className={className}>
+      <path d="M3 6h18M6 12h12M10 18h4" />
+    </Base>
+  );
+}
+
+export function IconDownload({ size, className }: IconProps) {
+  return (
+    <Base size={size} className={className}>
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" />
+    </Base>
+  );
+}
+
+export function IconShare({ size, className }: IconProps) {
+  return (
+    <Base size={size} className={className}>
+      <circle cx="18" cy="5" r="3" />
+      <circle cx="6" cy="12" r="3" />
+      <circle cx="18" cy="19" r="3" />
+      <path d="M8.59 13.51l6.83 3.98M15.41 6.51l-6.82 3.98" />
+    </Base>
+  );
+}

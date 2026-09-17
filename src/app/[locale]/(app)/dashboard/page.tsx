@@ -5,7 +5,7 @@ import { Link } from "@/i18n/navigation";
 import { acceptInvitationAction, declineInvitationAction } from "@/server/groups/actions";
 import SubmitButton from "@/app/components/SubmitButton";
 import { formatDH } from "@/lib/utils";
-import { IconUsers } from "@/components/icons";
+import { IconUsers, IconWallet } from "@/components/icons";
 import { getTranslations } from "next-intl/server";
 import type { AppLocale } from "@/i18n/routing";
 
@@ -142,24 +142,67 @@ export default async function Dashboard({ params }: { params: Promise<{ locale: 
     })
   );
 
+  // ---- Wallet balance ----
+  const wallet = await prisma.wallet.findUnique({ where: { userId: session.userId } });
+  const walletBalance = wallet?.balanceCt ?? 0;
+
+  // ---- Activity feed ----
+  const myGroupIds = memberships.map(m => m.group.id);
+  const recentEvents = myGroupIds.length > 0
+    ? await prisma.activityEvent.findMany({
+        where: { groupId: { in: myGroupIds } },
+        orderBy: { createdAt: "desc" },
+        take: 10,
+        include: { actor: { select: { displayName: true } } },
+      })
+    : [];
+
+  const eventLabels: Record<string, string> = {
+    GROUP_CREATED: "created group",
+    MEMBER_INVITED: "invited a member",
+    MEMBER_JOINED: "joined",
+    MEMBER_REMOVED: "removed a member",
+    OUTING_CREATED: "created outing",
+    OUTING_ACTIVATED: "activated outing",
+    ACTIVITY_CREATED: "created activity",
+    ACTIVITY_CLOSED: "closed activity",
+    SETTLEMENT_GENERATED: "generated settlement",
+    SETTLEMENT_FINALIZED: "finalized settlement",
+    TRANSFER_MARKED_PAID: "marked transfer paid",
+    TRANSFER_CONFIRMED: "confirmed transfer",
+  };
+
   return (
     <main className="mx-auto max-w-5xl px-4 sm:px-6 py-6 sm:py-8 space-y-8">
-      {/* Balance band — borderless, hairlines only */}
+      {/* Balance band */}
       <section>
-        <div className="text-[13px] text-muted">{t("netBalance")}</div>
-        <div className={`money-hero text-[40px] font-extrabold ${netBalance > 0 ? "text-success" : netBalance < 0 ? "text-danger" : ""}`}>
-          {netBalance > 0 ? "+" : ""}{formatDH(netBalance)}
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+          <div>
+            <div className="text-[13px] text-muted">{t("netBalance")}</div>
+            <div className={`money-hero text-[40px] font-extrabold ${netBalance > 0 ? "text-success" : netBalance < 0 ? "text-danger" : ""}`}>
+              {netBalance > 0 ? "+" : ""}{formatDH(netBalance)}
+            </div>
+            <div className="flex items-center gap-5 mt-3 text-[14px]">
+              <span className="text-muted">{t("owedToYou")} <span className="money font-bold text-success ms-1">{formatDH(owedToMe)}</span></span>
+              <span className="w-px h-4 bg-border" aria-hidden="true"></span>
+              <span className="text-muted">{t("youOwe")} <span className="money font-bold text-danger ms-1">{formatDH(iOwe)}</span></span>
+            </div>
+            {spark.length > 1 && (
+              <svg viewBox="0 0 100 32" className="w-full h-9 mt-4 max-w-xs" preserveAspectRatio="none" aria-hidden="true">
+                <polyline points={sparkPoints} fill="none" stroke="var(--action)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" opacity="0.85" />
+              </svg>
+            )}
+          </div>
+          <Link href="/wallet" className="card-elevated p-4 flex items-center gap-3 hover:shadow-md transition-shadow flex-shrink-0">
+            <div className="w-10 h-10 rounded-[14px] bg-success-subtle text-success flex items-center justify-center">
+              <IconWallet size={20} />
+            </div>
+            <div>
+              <div className="text-[12px] text-muted">{t("wallet")}</div>
+              <div className="money text-[16px] font-bold">{walletBalance > 0 ? formatDH(walletBalance) : "0 DH"}</div>
+            </div>
+          </Link>
         </div>
-        <div className="flex items-center gap-5 mt-3 text-[14px]">
-          <span className="text-muted">{t("owedToYou")} <span className="money font-bold text-success ms-1">{formatDH(owedToMe)}</span></span>
-          <span className="w-px h-4 bg-border" aria-hidden="true"></span>
-          <span className="text-muted">{t("youOwe")} <span className="money font-bold text-danger ms-1">{formatDH(iOwe)}</span></span>
-        </div>
-        {spark.length > 1 && (
-          <svg viewBox="0 0 100 32" className="w-full h-9 mt-4" preserveAspectRatio="none" aria-hidden="true">
-            <polyline points={sparkPoints} fill="none" stroke="var(--action)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" opacity="0.85" />
-          </svg>
-        )}
         <div className="divider mt-6"></div>
       </section>
 
@@ -264,6 +307,29 @@ export default async function Dashboard({ params }: { params: Promise<{ locale: 
                       </div>
                       <span className="money text-[14px] font-semibold ms-3">{formatDH(r.total)}</span>
                     </Link>
+                  ))}
+                </div>
+              </section>
+            )}
+            {/* Activity feed */}
+            {recentEvents.length > 0 && (
+              <section className="space-y-3">
+                <h2 className="text-[15px] font-semibold">{t("activityFeed")}</h2>
+                <div className="ledger">
+                  {recentEvents.map(e => (
+                    <div key={e.id} className="flex items-center gap-2.5 py-2 text-[13px]">
+                      <span className={`w-2 h-2 rounded-full flex-shrink-0 ${
+                        e.eventType.includes("CREATED") || e.eventType.includes("JOINED") ? "bg-success" :
+                        e.eventType.includes("FINALIZED") || e.eventType.includes("CONFIRMED") ? "bg-brand" :
+                        e.eventType.includes("REMOVED") || e.eventType.includes("CLOSED") ? "bg-muted" : "bg-action"
+                      }`} />
+                      <span className="min-w-0 truncate flex-1">
+                        {e.actor && <span className="font-medium">{e.actor.displayName}</span>} {eventLabels[e.eventType] || e.eventType.toLowerCase()}
+                      </span>
+                      <span className="text-[11px] text-muted flex-shrink-0">
+                        {new Date(e.createdAt).toLocaleDateString(locale === "ar" ? "ar-MA" : locale, { month: "short", day: "numeric" })}
+                      </span>
+                    </div>
                   ))}
                 </div>
               </section>

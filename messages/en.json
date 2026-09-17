@@ -9,7 +9,9 @@
     "profile": "Profile",
     "new": "New",
     "admin": "Admin",
-    "logout": "Logout"
+    "logout": "Logout",
+    "wallet": "Wallet",
+    "walletShort": "Wallet"
   },
   "common": {
     "breadcrumb": "Breadcrumb",
@@ -82,9 +84,11 @@
   },
   "dashboard": {
     "netBalance": "Net balance",
+    "wallet": "Wallet balance",
     "owedToYou": "Owed to you",
     "youOwe": "You owe",
     "recentMovement": "Recent movement",
+    "activityFeed": "Activity",
     "newGroup": "New group",
     "newGroupSub": "Planning something? Get your people together.",
     "groupNamePh": "New group name",
@@ -275,6 +279,16 @@
     "subtitle": "Point your camera at a PoolSplit QR code to join a group or outing",
     "backHome": "Back to home"
   },
+  "wallet": {
+    "title": "Wallet",
+    "yourBalance": "Your balance",
+    "addFunds": "Add funds",
+    "depositBtn": "Deposit",
+    "history": "Transaction history",
+    "noTransactions": "No transactions yet. Deposit some funds to get started!",
+    "depositSuccess": "Funds added successfully!",
+    "depositError": "Could not deposit funds. Please try again."
+  },
   "public": {
     "title": "Settlement",
     "expenses": "Expenses",
@@ -397,8 +411,6 @@
     "cantRemoveSelf": "You cannot remove yourself.",
     "ownerCantLeave": "The owner cannot leave.",
     "notPlanning": "Outing is not in planning.",
-    "onlyOwnerFinalize": "Only the owner can finalize.",
-    "groupNameLen": "Group name must be 2–100 characters.",
-    "groupDescLen": "Description must be under 500 characters."
+    "onlyOwnerFinalize": "Only the owner can finalize."
   }
 }

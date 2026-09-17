@@ -32,7 +32,6 @@ export default async function SettlementPage({ params }: { params: Promise<{ id:
   const settlement = await prisma.settlement.findFirst({ where: { outingId } });
   if (!settlement) {
     const openCount = await prisma.activity.count({ where: { outingId, status: "OPEN" } });
-    const canGenerate = isOwner && openCount === 0;
     return (
       <main className="mx-auto max-w-5xl px-4 sm:px-6 py-6 sm:py-8 space-y-8">
         <div>
@@ -170,34 +169,43 @@ export default async function SettlementPage({ params }: { params: Promise<{ id:
         {/* Transfers + confirmation flow */}
         <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
           <div className="min-w-0 order-1 space-y-6">
-        {/* Transfers */}
-        <section className="space-y-3">
-          <h3 className="section-label">{t("whoOwesWhom")}</h3>
-          {transfers.length === 0 ? (
-            <div className="text-center py-6 text-[14px] text-muted">{t("settledUp")}</div>
-          ) : (
-            <div className="ledger">
+        {/* Flow visualization */}
+        {transfers.length > 0 && (
+          <section className="surface-20 p-5 animate-in">
+            <h3 className="section-label mb-3">{t("whoOwesWhom")}</h3>
+            <div className="flex flex-wrap gap-3 items-center">
               {transfers.map((tr, i) => (
-                <div key={tr.id} className="flex items-center justify-between py-3">
-                  <div className="min-w-0">
-                    <div className="text-[14px] font-semibold">
-                      {userMap.get(tr.fromUserId) || "?"} <span className="text-navy mx-1">→</span> {userMap.get(tr.toUserId) || "?"}
+                <div key={tr.id} className="flex items-center gap-2 bg-surface rounded-[14px] px-3.5 py-2.5 border border-border">
+                  <div className="flex items-center gap-2 text-[14px]">
+                    <div className="flex flex-col items-center">
+                      <span className="font-semibold">{userMap.get(tr.fromUserId) || "?"}</span>
+                      <span className={`text-[11px] ${memberBalances.find(b => b.userId === tr.fromUserId)?.netBalance && (memberBalances.find(b => b.userId === tr.fromUserId)?.netBalance ?? 0) < 0 ? "text-danger" : "text-success"}`}>
+                        {formatDH(memberBalances.find(b => b.userId === tr.fromUserId)?.netBalance ?? 0)}
+                      </span>
                     </div>
-                    <div className="text-[12px] text-muted">{t("transferN", { n: i + 1 })}</div>
+                    <div className="flex flex-col items-center mx-1.5">
+                      <span className="text-[11px] text-muted">{t("transferN", { n: i + 1 })}</span>
+                      <span className="money text-[15px] font-bold text-navy">{formatDH(tr.amountCentimes)}</span>
+                    </div>
+                    <div className="flex flex-col items-center">
+                      <span className="font-semibold">{userMap.get(tr.toUserId) || "?"}</span>
+                      <span className={`text-[11px] ${(memberBalances.find(b => b.userId === tr.toUserId)?.netBalance ?? 0) > 0 ? "text-success" : "text-danger"}`}>
+                        {formatDH(memberBalances.find(b => b.userId === tr.toUserId)?.netBalance ?? 0)}
+                      </span>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2.5 flex-shrink-0 ms-3">
-                    <span className="money text-[16px] font-bold text-navy">{formatDH(tr.amountCentimes)}</span>
-                    {tr.status === "CONFIRMED" ? (
-                      <span className="tag bg-success-subtle text-success"><IconCheck size={12} />{t("confirmed")}</span>
-                    ) : tr.status === "PAID" ? (
-                      <span className="tag bg-success-subtle text-success"><IconCheck size={12} />{t("paidDone")}</span>
-                    ) : null}
-                  </div>
+                  {tr.status === "CONFIRMED" ? (
+                    <span className="tag bg-success-subtle text-success"><IconCheck size={11} /></span>
+                  ) : tr.status === "PAID" ? (
+                    <span className="tag bg-success-subtle text-success"><IconCheck size={11} /></span>
+                  ) : (
+                    <span className="tag bg-warn-subtle text-warn">···</span>
+                  )}
                 </div>
               ))}
             </div>
-          )}
-        </section>
+          </section>
+        )}
 
         {/* Why this is fair */}
         <section className="space-y-1">

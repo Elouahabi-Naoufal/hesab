@@ -89,6 +89,35 @@
   }
 }
 
+/* Manual dark mode override — user preference via ThemeToggle */
+:root.dark {
+  --background: #0F172A;
+  --foreground: #F8FAFC;
+  --surface: #172033;
+  --elevated: #1E293B;
+  --border-color: #2A3752;
+  --muted: #94A3B8;
+  --brand: #A5B4F5;
+  --brand-deep: #C3CFFA;
+  --brand-subtle: rgba(165, 180, 245, 0.13);
+  --action: #FF765C;
+  --action-deep: #FF8A70;
+  --action-subtle: rgba(255, 118, 92, 0.14);
+  --navy: #8EA0DC;
+  --happy: #FBBF24;
+  --happy-subtle: rgba(251, 191, 36, 0.13);
+  --warn: #FBBF24;
+  --warn-subtle: rgba(251, 191, 36, 0.13);
+  --success: #34D399;
+  --success-subtle: rgba(52, 211, 153, 0.13);
+  --mint: #34D399;
+  --danger: #F87171;
+  --danger-subtle: rgba(248, 113, 113, 0.13);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 8px 30px rgba(0, 0, 0, 0.35), 0 1px 3px rgba(0, 0, 0, 0.25);
+  --shadow-lg: 0 16px 44px rgba(0, 0, 0, 0.45), 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
 * { box-sizing: border-box; }
 
 html { scroll-behavior: smooth; }
@@ -473,3 +502,44 @@ a.ledger-row:hover {
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
 }
+
+/* Animations */
+@keyframes fade-in-up {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes scale-in {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+.animate-in { animation: fade-in-up 200ms ease-out; }
+.animate-scale-in { animation: scale-in 150ms ease-out; }
+
+/* Skeleton loading */
+.skeleton {
+  background: linear-gradient(90deg, var(--elevated) 25%, var(--border-color) 50%, var(--elevated) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: var(--radius-input);
+}
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* Split visualization */
+.flow-arrow { display: inline-flex; align-items: center; gap: 4px; }
+.flow-arrow::after { content: "→"; color: var(--muted); font-size: 13px; }
+
+/* Mobile safe area */
+.safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* Scrollable horizontal containers */
+.scroll-x {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.scroll-x::-webkit-scrollbar { display: none; }
