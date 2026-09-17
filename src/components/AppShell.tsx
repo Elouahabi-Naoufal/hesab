@@ -1,7 +1,7 @@
 "use client";
 import { Link, usePathname } from "@/i18n/navigation";
 import { useTranslations } from "next-intl";
-import { logoutAction } from "@/server/auth/actions";
+import { logoutAction } from "@/server/auth/logout-action";
 import { IconUsers, IconQr, IconPlus, IconWallet } from "@/components/icons";
 import ThemeToggle from "@/components/ThemeToggle";
 
