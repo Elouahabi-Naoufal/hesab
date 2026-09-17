@@ -4,6 +4,7 @@ import { useTranslations } from "next-intl";
 import { logoutAction } from "@/server/auth/logout-action";
 import { IconUsers, IconQr, IconPlus, IconWallet } from "@/components/icons";
 import ThemeToggle from "@/components/ThemeToggle";
+import FriendshipModeToggle from "@/components/FriendshipModeToggle";
 
 export type ShellUser = {
   displayName: string;
@@ -58,7 +59,7 @@ export default function AppShell({
       <aside className="hidden lg:flex w-60 flex-shrink-0 flex-col bg-surface border-e border-border sticky top-0 h-screen">
         <div className="px-4 pt-4 pb-3">
           <Link href="/dashboard" className="flex items-center gap-2.5">
-            <div className="brand-mark">P</div>
+            <div className="brand-mark"><img src="/logo.jpeg" alt="PoolSplit" /></div>
             <span className="font-extrabold text-[15px] tracking-tight">PoolSplit</span>
           </Link>
         </div>
@@ -111,9 +112,10 @@ export default function AppShell({
           {user.isAdmin && (
             <Link href="/admin" className="tag bg-warn-subtle text-warn mb-2 w-full text-center block">{t("admin")}</Link>
           )}
-          <div className="flex items-center justify-between">
+          <div className="flex items-center gap-1">
+            <FriendshipModeToggle />
             <ThemeToggle />
-            <div className="flex items-center gap-2.5 min-w-0 flex-1 ms-2">
+            <div className="flex items-center gap-2.5 min-w-0 flex-1 ms-1">
               <Link href="/profile" className="w-8 h-8 rounded-full overflow-hidden bg-brand-subtle text-brand flex items-center justify-center text-[13px] font-bold flex-shrink-0">
                 {user.avatarUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
@@ -138,10 +140,11 @@ export default function AppShell({
       <div className="lg:hidden sticky top-0 z-40 bg-surface border-b border-border">
         <div className="px-4 h-14 flex items-center gap-2.5">
           <Link href="/dashboard" className="flex items-center gap-2">
-            <div className="brand-mark">P</div>
+            <div className="brand-mark"><img src="/logo.jpeg" alt="PoolSplit" /></div>
             <span className="font-extrabold text-[15px] tracking-tight">PoolSplit</span>
           </Link>
           <div className="flex-1" />
+          <FriendshipModeToggle />
           <ThemeToggle />
           <Link href="/profile" aria-label="Profile" className="w-8 h-8 rounded-full overflow-hidden bg-brand-subtle text-brand flex items-center justify-center text-[13px] font-bold">
             {user.avatarUrl ? (

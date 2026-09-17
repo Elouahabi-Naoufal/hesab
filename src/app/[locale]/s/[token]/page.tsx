@@ -29,7 +29,7 @@ export default async function PublicSettlementPage({ params }: { params: Promise
     <div className="min-h-screen flex items-center justify-center p-5">
       <div className="w-full max-w-md surface-20 p-6 space-y-6">
         <div className="text-center">
-          <div className="brand-mark mx-auto mb-3">P</div>
+          <div className="brand-mark mx-auto mb-3"><img src="/logo.jpeg" alt="PoolSplit" /></div>
           <h1 className="text-[22px] font-bold tracking-tight">{t("title")}</h1>
           {outing && <p className="text-[13px] text-muted mt-1">{outing.name}</p>}
         </div>

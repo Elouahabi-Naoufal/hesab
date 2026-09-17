@@ -32,47 +32,106 @@
 }
 
 :root {
-  --background: #FFF9F2;
-  --foreground: #172033;
+  /* Friendship™ Default — warm, inviting, for everyone */
+  --background: #FFFBEB;
+  --foreground: #292524;
   --surface: #FFFFFF;
-  --elevated: #FFF3E8;
-  --border-color: #E9E1D3;
-  --muted: #64748B;
-  --brand: #172554;
-  --brand-deep: #1E3A8A;
-  --brand-subtle: #E9EDF7;
-  --action: #FF6B4A;
-  --action-deep: #E14E2F;
-  --action-subtle: #FFECE5;
-  --navy: #172554;
+  --elevated: #FEF9C3;
+  --border-color: #E7E5E4;
+  --muted: #78716C;
+  --brand: #7C3AED;
+  --brand-deep: #6D28D9;
+  --brand-subtle: #EDE9FE;
+  --action: #F97316;
+  --action-deep: #EA580C;
+  --action-subtle: #FFF7ED;
+  --navy: #1E3A5F;
   --happy: #FBBF24;
-  --happy-subtle: #FDF3D7;
-  --warn: #B45309;
-  --warn-subtle: #FDF0DC;
+  --happy-subtle: #FEF3C7;
+  --warn: #D97706;
+  --warn-subtle: #FEF3C7;
+  --success: #10B981;
+  --success-subtle: #D1FAE5;
+  --mint: #34D399;
+  --danger: #EF4444;
+  --danger-subtle: #FEE2E2;
+  --shadow-sm: 0 1px 2px rgba(124, 58, 237, 0.06);
+  --shadow-md: 0 8px 30px rgba(124, 58, 237, 0.08), 0 1px 3px rgba(124, 58, 237, 0.04);
+  --shadow-lg: 0 16px 44px rgba(124, 58, 237, 0.12), 0 2px 8px rgba(124, 58, 237, 0.06);
+}
+
+/* Guys Mode — cool, energetic, confident */
+:root.guys {
+  --background: #F0F9FF;
+  --foreground: #0F172A;
+  --surface: #FFFFFF;
+  --elevated: #E0F2FE;
+  --border-color: #CBD5E1;
+  --muted: #64748B;
+  --brand: #2563EB;
+  --brand-deep: #1D4ED8;
+  --brand-subtle: #DBEAFE;
+  --action: #059669;
+  --action-deep: #047857;
+  --action-subtle: #D1FAE5;
+  --navy: #1E3A8A;
+  --happy: #F59E0B;
+  --happy-subtle: #FEF3C7;
+  --warn: #D97706;
+  --warn-subtle: #FEF3C7;
   --success: #059669;
-  --success-subtle: #E2F4EA;
+  --success-subtle: #D1FAE5;
   --mint: #34D399;
   --danger: #DC2626;
-  --danger-subtle: #FCEAEA;
-  --shadow-sm: 0 1px 2px rgba(23, 37, 84, 0.05);
-  --shadow-md: 0 8px 30px rgba(23, 37, 84, 0.08), 0 1px 3px rgba(23, 37, 84, 0.05);
-  --shadow-lg: 0 16px 44px rgba(23, 37, 84, 0.14), 0 2px 8px rgba(23, 37, 84, 0.07);
+  --danger-subtle: #FEE2E2;
+  --shadow-sm: 0 1px 2px rgba(37, 99, 235, 0.06);
+  --shadow-md: 0 8px 30px rgba(37, 99, 235, 0.08), 0 1px 3px rgba(37, 99, 235, 0.04);
+  --shadow-lg: 0 16px 44px rgba(37, 99, 235, 0.12), 0 2px 8px rgba(37, 99, 235, 0.06);
+}
+
+/* Girls Mode — warm, vibrant, playful */
+:root.girls {
+  --background: #FFF5F7;
+  --foreground: #1F1F2E;
+  --surface: #FFFFFF;
+  --elevated: #FCE7F3;
+  --border-color: #E5E0E3;
+  --muted: #8B7280;
+  --brand: #DB2777;
+  --brand-deep: #BE185D;
+  --brand-subtle: #FCE7F3;
+  --action: #F43F5E;
+  --action-deep: #E11D48;
+  --action-subtle: #FFE4E6;
+  --navy: #581C87;
+  --happy: #F59E0B;
+  --happy-subtle: #FEF3C7;
+  --warn: #D97706;
+  --warn-subtle: #FEF3C7;
+  --success: #10B981;
+  --success-subtle: #D1FAE5;
+  --mint: #34D399;
+  --danger: #EF4444;
+  --danger-subtle: #FEE2E2;
+  --shadow-sm: 0 1px 2px rgba(219, 39, 119, 0.06);
+  --shadow-md: 0 8px 30px rgba(219, 39, 119, 0.08), 0 1px 3px rgba(219, 39, 119, 0.04);
+  --shadow-lg: 0 16px 44px rgba(219, 39, 119, 0.12), 0 2px 8px rgba(219, 39, 119, 0.06);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0F172A;
-    --foreground: #F8FAFC;
-    --surface: #172033;
-    --elevated: #1E293B;
-    --border-color: #2A3752;
-    --muted: #94A3B8;
-    --brand: #A5B4F5;
-    --brand-deep: #C3CFFA;
-    --brand-subtle: rgba(165, 180, 245, 0.13);
-    --action: #FF765C;
-    --action-deep: #FF8A70;
-    --action-subtle: rgba(255, 118, 92, 0.14);
+    --background: #1C1917;
+    --foreground: #FAF5F0;
+    --surface: #292524;
+    --elevated: #3A3532;
+    --border-color: #44403C;
+    --muted: #A8A29E;
+    --brand: #A78BFA;
+    --brand-deep: #C4B5FD;
+    --brand-subtle: rgba(167, 139, 250, 0.13);
+    --action: #FB923C;
+    --action-deep: #FDBA74;
+    --action-subtle: rgba(251, 146, 60, 0.14);
     --navy: #8EA0DC;
     --happy: #FBBF24;
     --happy-subtle: rgba(251, 191, 36, 0.13);
@@ -89,20 +148,19 @@
   }
 }
 
-/* Manual dark mode override — user preference via ThemeToggle */
 :root.dark {
-  --background: #0F172A;
-  --foreground: #F8FAFC;
-  --surface: #172033;
-  --elevated: #1E293B;
-  --border-color: #2A3752;
-  --muted: #94A3B8;
-  --brand: #A5B4F5;
-  --brand-deep: #C3CFFA;
-  --brand-subtle: rgba(165, 180, 245, 0.13);
-  --action: #FF765C;
-  --action-deep: #FF8A70;
-  --action-subtle: rgba(255, 118, 92, 0.14);
+  --background: #1C1917;
+  --foreground: #FAF5F0;
+  --surface: #292524;
+  --elevated: #3A3532;
+  --border-color: #44403C;
+  --muted: #A8A29E;
+  --brand: #A78BFA;
+  --brand-deep: #C4B5FD;
+  --brand-subtle: rgba(167, 139, 250, 0.13);
+  --action: #FB923C;
+  --action-deep: #FDBA74;
+  --action-subtle: rgba(251, 146, 60, 0.14);
   --navy: #8EA0DC;
   --happy: #FBBF24;
   --happy-subtle: rgba(251, 191, 36, 0.13);
@@ -116,6 +174,33 @@
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
   --shadow-md: 0 8px 30px rgba(0, 0, 0, 0.35), 0 1px 3px rgba(0, 0, 0, 0.25);
   --shadow-lg: 0 16px 44px rgba(0, 0, 0, 0.45), 0 2px 8px rgba(0, 0, 0, 0.3);
+}:root.dark.guys {
+  --background: #0F172A;
+  --foreground: #F8FAFC;
+  --surface: #1E293B;
+  --elevated: #334155;
+  --border-color: #475569;
+  --muted: #94A3B8;
+  --brand: #60A5FA;
+  --brand-deep: #93C5FD;
+  --brand-subtle: rgba(96, 165, 250, 0.13);
+  --action: #34D399;
+  --action-deep: #6EE7B7;
+  --action-subtle: rgba(52, 211, 153, 0.13);
+}
+:root.dark.girls {
+  --background: #1F1F2E;
+  --foreground: #FAF5F0;
+  --surface: #2D2A3D;
+  --elevated: #3D3550;
+  --border-color: #4C445C;
+  --muted: #A89FB8;
+  --brand: #F472B6;
+  --brand-deep: #F9A8D4;
+  --brand-subtle: rgba(244, 114, 182, 0.13);
+  --action: #FB7185;
+  --action-deep: #FDA4AF;
+  --action-subtle: rgba(251, 113, 133, 0.13);
 }
 
 * { box-sizing: border-box; }
@@ -381,7 +466,7 @@ input[type="checkbox"].accent-brand { accent-color: var(--brand); width: 16px; h
   width: 32px;
   height: 32px;
   border-radius: 12px;
-  background: var(--navy);
+  background: var(--brand);
   color: #fff;
   display: inline-flex;
   align-items: center;
@@ -389,6 +474,13 @@ input[type="checkbox"].accent-brand { accent-color: var(--brand); width: 16px; h
   font-weight: 800;
   font-size: 14px;
   flex-shrink: 0;
+  overflow: hidden;
+}
+.brand-mark img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
 }
 
 /* ---------- Tags (pills only for status/tags) ---------- */
@@ -492,9 +584,9 @@ a.ledger-row:hover {
 /* ---------- Misc ---------- */
 .divider { height: 1px; background: var(--border-color); }
 
-/* Deep-navy CTA band: fixed ink in both modes, coral button on top */
+/* Deep-brand CTA band */
 .cta-band {
-  background: #172554;
+  background: var(--brand-deep);
   color: #fff;
 }
 .cta-band p { color: rgba(255, 255, 255, 0.8); }
