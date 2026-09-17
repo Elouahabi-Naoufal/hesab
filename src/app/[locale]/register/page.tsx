@@ -33,10 +33,6 @@ export default async function RegisterPage({ params }: { params: Promise<{ local
             <input name="username" required placeholder="naoufal" className="input" />
           </div>
           <div className="space-y-1.5">
-            <label className="text-[13px] font-medium text-muted">{t("email")}</label>
-            <input name="email" type="email" required placeholder="naoufal@example.com" className="input" />
-          </div>
-          <div className="space-y-1.5">
             <label className="text-[13px] font-medium text-muted">{t("password")}</label>
             <input name="password" type="password" required className="input" />
           </div>

@@ -8,32 +8,19 @@ const prisma = new PrismaClient();
 async function main() {
   console.log("Seeding...");
 
-  // Admin user
-  const adminExists = await prisma.user.findUnique({ where: { email: "admin@hesab.local" } });
-  if (!adminExists) {
-    const hash = await bcrypt.hash("admin123", 10);
-    await prisma.user.create({
-      data: {
-        publicId: generatePublicUserId(),
-        username: "admin",
-        email: "admin@hesab.local",
-        passwordHash: hash,
-        displayName: "Admin",
-        isAdmin: true,
-      },
-    });
-    console.log("Created admin: admin@hesab.local / admin123");
-  }
-
-  // Demo group
-  const admin = await prisma.user.findUnique({ where: { email: "admin@hesab.local" } });
-  if (admin) {
-    const group = await prisma.group.create({
-      data: { name: "Demo Group", ownerId: admin.id, status: "PLANNING", publicToken: generatePublicUserId() },
-    });
-    await prisma.groupMember.create({ data: { groupId: group.id, userId: admin.id, role: "OWNER" } });
-    console.log("Created demo group");
-  }
+  const hash = await bcrypt.hash("admin123", 10);
+  await prisma.user.upsert({
+    where: { username: "admin" },
+    update: {},
+    create: {
+      publicId: generatePublicUserId(),
+      username: "admin",
+      passwordHash: hash,
+      displayName: "Admin",
+      isAdmin: true,
+    },
+  });
+  console.log("Admin user ready — login with admin / admin123");
 
   console.log("Seeding done");
 }

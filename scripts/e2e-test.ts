@@ -31,18 +31,17 @@ async function main() {
 
   // Create users
   const users = [];
-  for (const [username, displayName, email] of [
-    ["naoufal_test", "Naoufal", "naoufal_test@example.com"],
-    ["mohamed_test", "Mohamed", "mohamed_test@example.com"],
-    ["yassine_test", "Yassine", "yassine_test@example.com"],
-    ["anour_test", "Anour", "anour_test@example.com"],
+  for (const [username, displayName] of [
+    ["naoufal_test", "Naoufal"],
+    ["mohamed_test", "Mohamed"],
+    ["yassine_test", "Yassine"],
+    ["anour_test", "Anour"],
   ] as const) {
     const u = await prisma.user.create({
       data: {
         publicId: pub(),
         username,
         displayName,
-        email,
         passwordHash: await bcrypt.hash("test123", 10),
       }
     });

@@ -1646,8 +1646,8 @@ describe("§22 Activity Closure Validation", () => {
     await prisma.$executeRaw`DELETE FROM "User"`;
 
     const hash = "hashedtest123";
-    const alice = await prisma.user.create({ data: { publicId: `usr_ALICE_${nanoid(4)}`, username: `alice_${nanoid(4)}`, email: `alice_${nanoid(4)}@t.local`, passwordHash: hash, displayName: "Alice", isAdmin: true } });
-    const bob = await prisma.user.create({ data: { publicId: `usr_BOB_${nanoid(4)}`, username: `bob_${nanoid(4)}`, email: `bob_${nanoid(4)}@t.local`, passwordHash: hash, displayName: "Bob", isAdmin: false } });
+    const alice = await prisma.user.create({ data: { publicId: `usr_ALICE_${nanoid(4)}`, username: `alice_${nanoid(4)}`, passwordHash: hash, displayName: "Alice", isAdmin: true } });
+    const bob = await prisma.user.create({ data: { publicId: `usr_BOB_${nanoid(4)}`, username: `bob_${nanoid(4)}`, passwordHash: hash, displayName: "Bob", isAdmin: false } });
 
     const group = await prisma.group.create({ data: { name: "Closure Test Group", ownerId: alice.id, status: "ACTIVE", publicToken: `token-${nanoid(8)}` } });
     const outing = await prisma.outing.create({ data: { groupId: group.id, name: "Test Outing", status: "ACTIVE", createdBy: alice.id, publicToken: `token-${nanoid(8)}` } });
@@ -1683,7 +1683,7 @@ describe("§22 Activity Closure Validation", () => {
     // The closeActivityAction validates totalPaid === totalResponsibility
     // Since they don't match, closure should be blocked
     const { createSession } = await import("@/server/auth/session");
-    const sessionToken = await createSession({ userId: alice.id, publicId: alice.publicId, email: alice.email, displayName: alice.displayName, isAdmin: true });
+    const sessionToken = await createSession({ userId: alice.id, publicId: alice.publicId, displayName: alice.displayName, isAdmin: true });
 
     // Manually verify the validation by checking the close logic
     // closeActivityAction requires session auth — we verify the validation
@@ -2373,8 +2373,8 @@ describe("§30 Integration: Edit Invalidation", () => {
     await prisma.$executeRaw`DELETE FROM "User"`;
 
     const hash = "hashedtest123";
-    const alice = await prisma.user.create({ data: { publicId: `usr_A_${nanoid(4)}`, username: `a_${nanoid(4)}`, email: `a_${nanoid(4)}@t.local`, passwordHash: hash, displayName: "Alice", isAdmin: true } });
-    const bob = await prisma.user.create({ data: { publicId: `usr_B_${nanoid(4)}`, username: `b_${nanoid(4)}`, email: `b_${nanoid(4)}@t.local`, passwordHash: hash, displayName: "Bob", isAdmin: false } });
+    const alice = await prisma.user.create({ data: { publicId: `usr_A_${nanoid(4)}`, username: `a_${nanoid(4)}`, passwordHash: hash, displayName: "Alice", isAdmin: true } });
+    const bob = await prisma.user.create({ data: { publicId: `usr_B_${nanoid(4)}`, username: `b_${nanoid(4)}`, passwordHash: hash, displayName: "Bob", isAdmin: false } });
 
     const group = await prisma.group.create({ data: { name: "G", ownerId: alice.id, status: "ACTIVE", publicToken: `tok-${nanoid(8)}` } });
     const outing = await prisma.outing.create({ data: { groupId: group.id, name: "O", status: "ACTIVE", createdBy: alice.id, publicToken: `tok-${nanoid(8)}` } });
@@ -2458,7 +2458,7 @@ describe("§30 Integration: Edit Invalidation", () => {
     await prisma.$executeRaw`DELETE FROM "User"`;
 
     const hash = "hashedtest123";
-    const alice = await prisma.user.create({ data: { publicId: `usr_A_${nanoid(4)}`, username: `a_${nanoid(4)}`, email: `a_${nanoid(4)}@t.local`, passwordHash: hash, displayName: "Alice", isAdmin: true } });
+    const alice = await prisma.user.create({ data: { publicId: `usr_A_${nanoid(4)}`, username: `a_${nanoid(4)}`, passwordHash: hash, displayName: "Alice", isAdmin: true } });
     const group = await prisma.group.create({ data: { name: "G", ownerId: alice.id, status: "ACTIVE", publicToken: `tok-${nanoid(8)}` } });
     const outing = await prisma.outing.create({ data: { groupId: group.id, name: "O", status: "ACTIVE", createdBy: alice.id, publicToken: `tok-${nanoid(8)}` } });
     const activity = await prisma.activity.create({ data: { outingId: outing.id, name: "Pool", pricingModel: "FIXED", status: "OPEN", createdBy: alice.id } });
@@ -2516,7 +2516,7 @@ describe("§30 Integration: Edit Invalidation", () => {
     await prisma.$executeRaw`DELETE FROM "User"`;
 
     const hash = "hashedtest123";
-    const alice = await prisma.user.create({ data: { publicId: `usr_A_${nanoid(4)}`, username: `a_${nanoid(4)}`, email: `a_${nanoid(4)}@t.local`, passwordHash: hash, displayName: "Alice", isAdmin: true } });
+    const alice = await prisma.user.create({ data: { publicId: `usr_A_${nanoid(4)}`, username: `a_${nanoid(4)}`, passwordHash: hash, displayName: "Alice", isAdmin: true } });
     const group = await prisma.group.create({ data: { name: "G", ownerId: alice.id, status: "ACTIVE", publicToken: `tok-${nanoid(8)}` } });
     const outing = await prisma.outing.create({ data: { groupId: group.id, name: "O", status: "ACTIVE", createdBy: alice.id, publicToken: `tok-${nanoid(8)}` } });
     await prisma.outingParticipant.create({ data: { outingId: outing.id, userId: alice.id, role: "OWNER" } });
@@ -2574,7 +2574,7 @@ describe("§30 Integration: Edit Invalidation", () => {
     await prisma.$executeRaw`DELETE FROM "User"`;
 
     const hash = "hashedtest123";
-    const alice = await prisma.user.create({ data: { publicId: `usr_A_${nanoid(4)}`, username: `a_${nanoid(4)}`, email: `a_${nanoid(4)}@t.local`, passwordHash: hash, displayName: "Alice", isAdmin: true } });
+    const alice = await prisma.user.create({ data: { publicId: `usr_A_${nanoid(4)}`, username: `a_${nanoid(4)}`, passwordHash: hash, displayName: "Alice", isAdmin: true } });
     const group = await prisma.group.create({ data: { name: "G", ownerId: alice.id, status: "ACTIVE", publicToken: `tok-${nanoid(8)}` } });
     const outing = await prisma.outing.create({ data: { groupId: group.id, name: "O", status: "ACTIVE", createdBy: alice.id, publicToken: `tok-${nanoid(8)}` } });
     const activity = await prisma.activity.create({ data: { outingId: outing.id, name: "Pool", pricingModel: "FIXED", status: "OPEN", createdBy: alice.id } });
@@ -2636,8 +2636,8 @@ describe("§30 Integration: Edit Invalidation", () => {
     await prisma.$executeRaw`DELETE FROM "User"`;
 
     const hash = "hashedtest123";
-    const alice = await prisma.user.create({ data: { publicId: `usr_A_${nanoid(4)}`, username: `a_${nanoid(4)}`, email: `a_${nanoid(4)}@t.local`, passwordHash: hash, displayName: "Alice", isAdmin: true } });
-    const bob = await prisma.user.create({ data: { publicId: `usr_B_${nanoid(4)}`, username: `b_${nanoid(4)}`, email: `b_${nanoid(4)}@t.local`, passwordHash: hash, displayName: "Bob", isAdmin: false } });
+    const alice = await prisma.user.create({ data: { publicId: `usr_A_${nanoid(4)}`, username: `a_${nanoid(4)}`, passwordHash: hash, displayName: "Alice", isAdmin: true } });
+    const bob = await prisma.user.create({ data: { publicId: `usr_B_${nanoid(4)}`, username: `b_${nanoid(4)}`, passwordHash: hash, displayName: "Bob", isAdmin: false } });
     const group = await prisma.group.create({ data: { name: "G", ownerId: alice.id, status: "ACTIVE", publicToken: `tok-${nanoid(8)}` } });
     const outing = await prisma.outing.create({ data: { groupId: group.id, name: "O", status: "ACTIVE", createdBy: alice.id, publicToken: `tok-${nanoid(8)}` } });
     const activity = await prisma.activity.create({ data: { outingId: outing.id, name: "Pool", pricingModel: "FIXED", status: "OPEN", createdBy: alice.id } });
@@ -2698,7 +2698,7 @@ describe("§30 Integration: Edit Invalidation", () => {
     await prisma.$executeRaw`DELETE FROM "User"`;
 
     const hash = "hashedtest123";
-    const alice = await prisma.user.create({ data: { publicId: `usr_A_${nanoid(4)}`, username: `a_${nanoid(4)}`, email: `a_${nanoid(4)}@t.local`, passwordHash: hash, displayName: "Alice", isAdmin: true } });
+    const alice = await prisma.user.create({ data: { publicId: `usr_A_${nanoid(4)}`, username: `a_${nanoid(4)}`, passwordHash: hash, displayName: "Alice", isAdmin: true } });
     const group = await prisma.group.create({ data: { name: "G", ownerId: alice.id, status: "ACTIVE", publicToken: `tok-${nanoid(8)}` } });
     const outing = await prisma.outing.create({ data: { groupId: group.id, name: "O", status: "ACTIVE", createdBy: alice.id, publicToken: `tok-${nanoid(8)}` } });
     const activity = await prisma.activity.create({ data: { outingId: outing.id, name: "Pool", pricingModel: "FIXED", status: "CLOSED", createdBy: alice.id } });
@@ -2758,8 +2758,8 @@ describe("§30 Integration: Edit Invalidation", () => {
     await prisma.$executeRaw`DELETE FROM "User"`;
 
     const hash = "hashedtest123";
-    const alice = await prisma.user.create({ data: { publicId: `usr_A_${nanoid(4)}`, username: `a_${nanoid(4)}`, email: `a_${nanoid(4)}@t.local`, passwordHash: hash, displayName: "Alice", isAdmin: false } });
-    const bob = await prisma.user.create({ data: { publicId: `usr_B_${nanoid(4)}`, username: `b_${nanoid(4)}`, email: `b_${nanoid(4)}@t.local`, passwordHash: hash, displayName: "Bob", isAdmin: false } });
+    const alice = await prisma.user.create({ data: { publicId: `usr_A_${nanoid(4)}`, username: `a_${nanoid(4)}`, passwordHash: hash, displayName: "Alice", isAdmin: false } });
+    const bob = await prisma.user.create({ data: { publicId: `usr_B_${nanoid(4)}`, username: `b_${nanoid(4)}`, passwordHash: hash, displayName: "Bob", isAdmin: false } });
     const group = await prisma.group.create({ data: { name: "G", ownerId: alice.id, status: "ACTIVE", publicToken: `tok-${nanoid(8)}` } });
     const outing = await prisma.outing.create({ data: { groupId: group.id, name: "O", status: "ACTIVE", createdBy: alice.id, publicToken: `tok-${nanoid(8)}` } });
     const activity = await prisma.activity.create({ data: { outingId: outing.id, name: "Dinner", pricingModel: "VARIABLE", status: "OPEN", createdBy: alice.id } });
@@ -2819,8 +2819,8 @@ describe("§30 Integration: Edit Invalidation", () => {
     await prisma.$executeRaw`DELETE FROM "User"`;
 
     const hash = "hashedtest123";
-    const alice = await prisma.user.create({ data: { publicId: `usr_A_${nanoid(4)}`, username: `a_${nanoid(4)}`, email: `a_${nanoid(4)}@t.local`, passwordHash: hash, displayName: "Alice", isAdmin: true } });
-    const bob = await prisma.user.create({ data: { publicId: `usr_B_${nanoid(4)}`, username: `b_${nanoid(4)}`, email: `b_${nanoid(4)}@t.local`, passwordHash: hash, displayName: "Bob", isAdmin: false } });
+    const alice = await prisma.user.create({ data: { publicId: `usr_A_${nanoid(4)}`, username: `a_${nanoid(4)}`, passwordHash: hash, displayName: "Alice", isAdmin: true } });
+    const bob = await prisma.user.create({ data: { publicId: `usr_B_${nanoid(4)}`, username: `b_${nanoid(4)}`, passwordHash: hash, displayName: "Bob", isAdmin: false } });
     const group = await prisma.group.create({ data: { name: "G", ownerId: alice.id, status: "ACTIVE", publicToken: `tok-${nanoid(8)}` } });
     const outing = await prisma.outing.create({ data: { groupId: group.id, name: "O", status: "ACTIVE", createdBy: alice.id, publicToken: `tok-${nanoid(8)}` } });
     const activity = await prisma.activity.create({ data: { outingId: outing.id, name: "Pool", pricingModel: "FIXED", status: "OPEN", createdBy: alice.id } });

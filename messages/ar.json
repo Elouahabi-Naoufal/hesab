@@ -42,7 +42,7 @@
   "auth": {
     "welcomeBack": "مرحباً بعودتك",
     "loginSubtitle": "سجّل الدخول إلى حساب PoolSplit",
-    "emailOrUsername": "البريد أو اسم المستخدم",
+    "username": "اسم المستخدم",
     "password": "كلمة المرور",
     "login": "تسجيل الدخول",
     "noAccount": "ليس لديك حساب؟",
@@ -51,7 +51,6 @@
     "createSubtitle": "انضم إلى PoolSplit — سيُستخدم معرّفك العام للدعوات",
     "displayName": "الاسم المعروض",
     "username": "اسم المستخدم",
-    "email": "البريد الإلكتروني",
     "createBtn": "إنشاء الحساب",
     "haveAccount": "لديك حساب؟",
     "loginLink": "تسجيل الدخول"
@@ -232,11 +231,9 @@
     "expEvenMe": "أنت متساوٍ — دفعت حصتك كاملة وهي {share}.",
     "expEvenOther": "{name} متساوٍ — دفع حصته كاملة وهي {share}."
   },
-  "profile": {
+"profile": {
     "title": "الحساب",
     "publicId": "المعرّف العام",
-    "username": "اسم المستخدم",
-    "email": "البريد الإلكتروني",
     "editProfile": "تعديل الحساب",
     "displayName": "الاسم المعروض",
     "save": "حفظ",
@@ -360,7 +357,7 @@
     "avatarTooBig": "يجب أن تكون الصورة أقل من 500 KB.",
     "invalidCredentials": "بيانات الدخول غير صحيحة.",
     "invalidInput": "إدخال غير صالح.",
-    "userExists": "يوجد مستخدم بهذا البريد أو الاسم.",
+    "userExists": "يوجد مستخدم بهذا الاسم.",
     "usernameChars": "حروف وأرقام وشرطة سفلية فقط.",
     "closedDisputed": "{label} متنازع عليه — حُلّ النزاع قبل الإغلاق.",
     "closedPending": "{label} ما زال يحتاج تأكيد {count, plural, one {شخص} other {# أشخاص}}.",

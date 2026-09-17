@@ -33,8 +33,8 @@ export default async function LoginPage({
         >
           {returnUrl && <input type="hidden" name="returnUrl" value={returnUrl} />}
           <div className="space-y-1.5">
-            <label className="text-[13px] font-medium text-muted">{t("emailOrUsername")}</label>
-            <input name="emailOrUsername" required className="input" placeholder="naoufal@example.com" />
+            <label className="text-[13px] font-medium text-muted">{t("username")}</label>
+            <input name="username" required className="input" placeholder="naoufal" />
           </div>
           <div className="space-y-1.5">
             <label className="text-[13px] font-medium text-muted">{t("password")}</label>

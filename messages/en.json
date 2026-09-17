@@ -44,7 +44,7 @@
   "auth": {
     "welcomeBack": "Welcome back",
     "loginSubtitle": "Login to your PoolSplit account",
-    "emailOrUsername": "Email or Username",
+    "username": "Username",
     "password": "Password",
     "login": "Login",
     "noAccount": "No account?",
@@ -53,7 +53,6 @@
     "createSubtitle": "Join PoolSplit — your public ID will be used for invites",
     "displayName": "Display Name",
     "username": "Username",
-    "email": "Email",
     "createBtn": "Create account",
     "haveAccount": "Already have account?",
     "loginLink": "Login"
@@ -240,7 +239,6 @@
     "title": "Profile",
     "publicId": "Public ID",
     "username": "Username",
-    "email": "Email",
     "editProfile": "Edit Profile",
     "displayName": "Display Name",
     "save": "Save",
@@ -374,7 +372,7 @@
     "avatarTooBig": "Profile picture must be under 500 KB.",
     "invalidCredentials": "Invalid credentials.",
     "invalidInput": "Invalid input.",
-    "userExists": "A user with this email or username already exists.",
+    "userExists": "A user with this username already exists.",
     "usernameChars": "Only letters, numbers and underscore.",
     "closedDisputed": "{label} is disputed — resolve it before closing.",
     "closedPending": "{label} still needs confirmation from {count, plural, one {# person} other {# people}}.",

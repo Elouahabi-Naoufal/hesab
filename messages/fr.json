@@ -42,7 +42,7 @@
   "auth": {
     "welcomeBack": "Bon retour",
     "loginSubtitle": "Connecte-toi à ton compte PoolSplit",
-    "emailOrUsername": "Email ou pseudo",
+    "username": "Nom d'utilisateur",
     "password": "Mot de passe",
     "login": "Se connecter",
     "noAccount": "Pas de compte ?",
@@ -51,7 +51,6 @@
     "createSubtitle": "Rejoins PoolSplit — ton ID public servira pour les invitations",
     "displayName": "Nom affiché",
     "username": "Pseudo",
-    "email": "Email",
     "createBtn": "Créer le compte",
     "haveAccount": "Déjà un compte ?",
     "loginLink": "Se connecter"
@@ -232,11 +231,10 @@
     "expEvenMe": "Tu es en règle — tu as payé exactement ta part de {share}.",
     "expEvenOther": "{name} est en règle — a payé exactement sa part de {share}."
   },
-  "profile": {
+"profile": {
     "title": "Profil",
-    "publicId": "ID public",
-    "username": "Pseudo",
-    "email": "Email",
+    "publicId": "ID Public",
+    "username": "Nom d'utilisateur",
     "editProfile": "Modifier le profil",
     "displayName": "Nom affiché",
     "save": "Enregistrer",
@@ -360,7 +358,7 @@
     "avatarTooBig": "La photo doit faire moins de 500 Ko.",
     "invalidCredentials": "Identifiants invalides.",
     "invalidInput": "Saisie invalide.",
-    "userExists": "Un utilisateur avec cet email ou pseudo existe déjà.",
+    "userExists": "Un utilisateur avec ce pseudo existe déjà.",
     "usernameChars": "Lettres, chiffres et underscore uniquement.",
     "closedDisputed": "{label} est contesté — résous le litige avant de clôturer.",
     "closedPending": "{label} attend encore la confirmation de {count, plural, one {# personne} other {# personnes}}.",

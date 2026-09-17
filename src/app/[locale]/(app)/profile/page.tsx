@@ -30,10 +30,6 @@ export default async function ProfilePage({ params }: { params: Promise<{ locale
               <span className="text-muted w-20">{t("username")}</span>
               <span>{user.username}</span>
             </div>
-            <div className="flex items-center gap-3">
-              <span className="text-muted w-20">{t("email")}</span>
-              <span>{user.email}</span>
-            </div>
           </div>
         </div>
 

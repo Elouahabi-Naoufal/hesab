@@ -18,7 +18,6 @@ const alg = "HS256";
 export interface SessionPayload {
   userId: string;
   publicId: string;
-  email: string;
   displayName: string;
   isAdmin: boolean;
   iat?: number;

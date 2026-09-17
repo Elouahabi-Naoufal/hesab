@@ -1,4 +1,3 @@
-"use server";
 import { prisma } from "@/lib/prisma";
 import { generatePublicUserId } from "@/lib/utils";
 import bcrypt from "bcryptjs";
@@ -10,13 +9,12 @@ import { getTranslations } from "next-intl/server";
 
 const registerSchema = z.object({
   username: z.string().min(3).max(30).regex(/^[a-zA-Z0-9_]+$/, "Only alphanumeric and underscore"),
-  email: z.string().email(),
   password: z.string().min(6).max(100),
   displayName: z.string().min(2).max(50),
 });
 
 const loginSchema = z.object({
-  emailOrUsername: z.string().min(1),
+  username: z.string().min(1),
   password: z.string().min(1),
 });
 
@@ -24,7 +22,6 @@ export async function registerAction(formData: FormData) {
   const t = await getTranslations("errors");
   const raw = {
     username: formData.get("username") as string,
-    email: formData.get("email") as string,
     password: formData.get("password") as string,
     displayName: formData.get("displayName") as string,
   };
@@ -36,10 +33,10 @@ export async function registerAction(formData: FormData) {
     if (field === "displayName") return { error: t("displayNameLen") };
     return { error: t("invalidInput") };
   }
-  const { username, email, password, displayName } = parsed.data;
+  const { username, password, displayName } = parsed.data;
 
-  const existing = await prisma.user.findFirst({
-    where: { OR: [{ email }, { username }] },
+  const existing = await prisma.user.findUnique({
+    where: { username },
   });
   if (existing) {
     return { error: t("userExists") };
@@ -49,13 +46,12 @@ export async function registerAction(formData: FormData) {
   const publicId = generatePublicUserId();
 
   const user = await prisma.user.create({
-    data: { username, email, passwordHash, displayName, publicId },
+    data: { username, passwordHash, displayName, publicId },
   });
 
   const token = await createSession({
     userId: user.id,
     publicId: user.publicId,
-    email: user.email,
     displayName: user.displayName,
     isAdmin: user.isAdmin,
   });
@@ -75,17 +71,17 @@ export async function registerAction(formData: FormData) {
 export async function loginAction(formData: FormData) {
   const t = await getTranslations("errors");
   const raw = {
-    emailOrUsername: formData.get("emailOrUsername") as string,
+    username: formData.get("username") as string,
     password: formData.get("password") as string,
   };
   const parsed = loginSchema.safeParse(raw);
   if (!parsed.success) {
     return { error: t("invalidInput") };
   }
-  const { emailOrUsername, password } = parsed.data;
+  const { username, password } = parsed.data;
 
-  const user = await prisma.user.findFirst({
-    where: { OR: [{ email: emailOrUsername }, { username: emailOrUsername }] },
+  const user = await prisma.user.findUnique({
+    where: { username },
   });
   if (!user) return { error: t("invalidCredentials") };
 
@@ -95,7 +91,6 @@ export async function loginAction(formData: FormData) {
   const token = await createSession({
     userId: user.id,
     publicId: user.publicId,
-    email: user.email,
     displayName: user.displayName,
     isAdmin: user.isAdmin,
   });
@@ -109,19 +104,11 @@ export async function loginAction(formData: FormData) {
     maxAge: 60 * 60 * 24 * 7,
   });
 
-  redirect(safeReturnUrl(formData.get("returnUrl")));
+  redirect("/dashboard");
 }
 
 export async function logoutAction() {
   const cookieStore = await cookies();
   cookieStore.delete("session");
   redirect("/login");
-}
-
-function safeReturnUrl(value: unknown): string {
-  if (typeof value !== "string") return "/dashboard";
-  // Locale-prefixed (/en/...) or plain internal paths only — never external.
-  if (!value.startsWith("/")) return "/dashboard";
-  if (value.startsWith("//")) return "/dashboard";
-  return value || "/dashboard";
 }
