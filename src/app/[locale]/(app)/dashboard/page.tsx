@@ -111,51 +111,66 @@ export default async function Dashboard({ params }: { params: Promise<{ locale: 
     return `${x.toFixed(1)},${y.toFixed(1)}`;
   }).join(" ");
 
-  const groupsWithStats = await Promise.all(
-    memberships.map(async (m) => {
-      const memberCount = await prisma.groupMember.count({ where: { groupId: m.group.id } });
-      const outings = await prisma.outing.findMany({
-        where: { groupId: m.group.id },
-        include: {
-          activities: {
-            include: {
-              payments: true,
-              usageRecords: { include: { participants: true } },
-              lineItems: true,
-            },
-          },
-        },
-      });
-      const outingCount = outings.length;
-      const settledCount = outings.filter(o => o.status === "SETTLED").length;
-      let expenseTotal = 0;
-      let myPaid = 0;
-      let myResp = 0;
-      for (const o of outings) {
-        for (const a of o.activities) {
-          expenseTotal += activityTotal(a);
-          myPaid += (a.payments ?? []).filter((p: any) => p.userId === session.userId).reduce((s: number, p: any) => s + p.amountCentimes, 0);
-          myResp += myResponsibility(a, session.userId);
-        }
-      }
-      return { membership: m, memberCount, outingCount, settledCount, expenseTotal, myNet: myPaid - myResp };
-    })
-  );
-
-  // ---- Wallet balance ----
-  const wallet = await prisma.wallet.findUnique({ where: { userId: session.userId } });
-  const walletBalance = wallet?.balanceCt ?? 0;
-
-  // ---- Activity feed ----
+  // ---- Batched group stats ----
   const myGroupIds = memberships.map(m => m.group.id);
-  const recentEvents = myGroupIds.length > 0
-    ? await prisma.activityEvent.findMany({
-        where: { groupId: { in: myGroupIds } },
-        orderBy: { createdAt: "desc" },
-        take: 10,
-        include: { actor: { select: { displayName: true } } },
+  const [memberCounts, allOutings, wallet, recentEvents] = await Promise.all([
+    myGroupIds.length > 0
+      ? prisma.groupMember.groupBy({ by: ["groupId"], where: { groupId: { in: myGroupIds } }, _count: true })
+      : [],
+    myGroupIds.length > 0
+      ? prisma.outing.findMany({
+          where: { groupId: { in: myGroupIds } },
+          include: { _count: { select: { participants: true } } },
+          orderBy: { createdAt: "desc" },
+        })
+      : [],
+    prisma.wallet.findUnique({ where: { userId: session.userId } }),
+    myGroupIds.length > 0
+      ? prisma.activityEvent.findMany({
+          where: { groupId: { in: myGroupIds } },
+          orderBy: { createdAt: "desc" },
+          take: 10,
+          include: { actor: { select: { displayName: true } } },
+        })
+      : [],
+  ]);
+
+  const memberCountMap = new Map(memberCounts.map(m => [m.groupId, m._count]));
+  const outingIds = allOutings.map(o => o.id);
+  const allActivities = outingIds.length > 0
+    ? await prisma.activity.findMany({
+        where: { outingId: { in: outingIds } },
+        select: {
+          id: true, outingId: true, pricingModel: true,
+          payments: { select: { userId: true, amountCentimes: true } },
+          usageRecords: { select: { totalCentimes: true, status: true, participants: { select: { userId: true } } } },
+          lineItems: { select: { userId: true, priceCentimes: true } },
+        },
       })
     : [];
+
+  const outingActivityMap = new Map<string, typeof allActivities>();
+  for (const a of allActivities) {
+    const list = outingActivityMap.get(a.outingId!) ?? [];
+    list.push(a);
+    outingActivityMap.set(a.outingId!, list);
+  }
+
+  const groupsWithStats = memberships.map(m => {
+    const outings = allOutings.filter(o => o.groupId === m.group.id);
+    const activities = outings.flatMap(o => outingActivityMap.get(o.id) ?? []);
+    const outingCount = outings.length;
+    const settledCount = outings.filter(o => o.status === "SETTLED").length;
+    let expenseTotal = 0, myPaid = 0, myResp = 0;
+    for (const a of activities) {
+      expenseTotal += activityTotal(a);
+      myPaid += (a.payments ?? []).filter((p: any) => p.userId === session.userId).reduce((s: number, p: any) => s + p.amountCentimes, 0);
+      myResp += myResponsibility(a, session.userId);
+    }
+    return { membership: m, memberCount: memberCountMap.get(m.group.id) ?? 0, outingCount, settledCount, expenseTotal, myNet: myPaid - myResp };
+  });
+
+  const walletBalance = wallet?.balanceCt ?? 0;
 
   const eventLabels: Record<string, string> = {
     GROUP_CREATED: "created group",
