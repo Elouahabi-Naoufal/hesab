@@ -19,7 +19,7 @@ export default async function LoginPage({
     <div className="min-h-screen flex items-center justify-center px-5 py-10">
       <div className="w-full max-w-sm space-y-8">
         <div className="text-center space-y-3">
-          <div className="w-12 h-12 mx-auto rounded-[20px] bg-brand overflow-hidden flex items-center justify-center"><img src="/logo.png" alt="PoolSplit" className="w-full h-full object-cover" /></div>
+          <div className="w-12 h-12 mx-auto rounded-[20px] bg-brand overflow-hidden flex items-center justify-center"><img src="/logo.webp" alt="PoolSplit" className="w-full h-full object-cover" /></div>
           <h1 className="text-[26px] font-bold tracking-tight">{t("welcomeBack")}</h1>
           <p className="text-[14px] text-muted">{t("loginSubtitle")}</p>
         </div>
