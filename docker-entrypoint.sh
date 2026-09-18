@@ -8,6 +8,9 @@ mkdir -p /app/data
 chown -R nextjs:nodejs /app/data 2>/dev/null || true
 chmod -R 775 /app/data 2>/dev/null || true
 
+# Ensure public dir is readable by nextjs
+chown -R nextjs:nodejs /app/public 2>/dev/null || true
+
 # Ensure symlink
 if [ ! -L /app/prisma/data ]; then
   rm -rf /app/prisma/data
