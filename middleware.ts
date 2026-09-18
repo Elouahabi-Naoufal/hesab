@@ -47,7 +47,8 @@ export async function middleware(request: NextRequest) {
     path.startsWith("/api/") ||
     path === "/" ||
     path.startsWith("/_next") ||
-    path === "/favicon.ico"
+    path === "/favicon.webp" ||
+    path === "/logo.webp"
   ) {
     return intlMiddleware(request);
   }
