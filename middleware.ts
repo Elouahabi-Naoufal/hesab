@@ -46,9 +46,9 @@ export async function middleware(request: NextRequest) {
     path.startsWith("/s/") ||
     path.startsWith("/api/") ||
     path === "/" ||
-    path.startsWith("/_next") ||
     path === "/favicon.png" ||
-    path === "/logo.png"
+    path === "/logo.png" ||
+    path.startsWith("/_next")
   ) {
     return intlMiddleware(request);
   }

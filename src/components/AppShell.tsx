@@ -59,7 +59,7 @@ export default function AppShell({
       <aside className="hidden lg:flex w-60 flex-shrink-0 flex-col bg-surface border-e border-border sticky top-0 h-screen">
         <div className="px-4 pt-4 pb-3">
           <Link href="/dashboard" className="flex items-center gap-2.5">
-            <div className="brand-mark"><img src="/logo.png" alt="PoolSplit" /></div>
+            <div className="brand-mark"><img src="/logo.png?v=1" alt="PoolSplit" /></div>
             <span className="font-extrabold text-[15px] tracking-tight">PoolSplit</span>
           </Link>
         </div>
@@ -140,7 +140,7 @@ export default function AppShell({
       <div className="lg:hidden sticky top-0 z-40 bg-surface border-b border-border">
         <div className="px-4 h-14 flex items-center gap-2.5">
           <Link href="/dashboard" className="flex items-center gap-2">
-            <div className="brand-mark"><img src="/logo.png" alt="PoolSplit" /></div>
+            <div className="brand-mark"><img src="/logo.png?v=1" alt="PoolSplit" /></div>
             <span className="font-extrabold text-[15px] tracking-tight">PoolSplit</span>
           </Link>
           <div className="flex-1" />

@@ -36,7 +36,7 @@ export async function generateMetadata({
   return {
     title: t("title"),
     description: t("description"),
-    icons: { icon: "/favicon.png", apple: "/logo.png" },
+    icons: { icon: "/favicon.png?v=1", apple: "/logo.png?v=1" },
   };
 }
 
