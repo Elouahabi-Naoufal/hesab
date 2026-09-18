@@ -77,8 +77,8 @@ function JoinContent() {
   }, [token]);
 
   const handleLoginRedirect = () => {
-    const returnUrl = encodeURIComponent(`/${locale}/join?token=${token}&type=${type}`);
-    router.push(`/login?returnUrl=${returnUrl}`);
+    const returnUrl = `/${locale}/join?token=${token}&type=${type}`;
+    router.push(`/login?returnUrl=${encodeURIComponent(returnUrl)}`);
   };
 
   if (status === "loading") {

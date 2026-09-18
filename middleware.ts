@@ -38,6 +38,12 @@ function stripLocale(pathname: string): { locale: string | null; path: string } 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
+  // API routes need NextResponse.next() — intlMiddleware redirects /api/... to /en/api/... (404)
+  const apiCheck = stripLocale(pathname).path;
+  if (apiCheck.startsWith("/api/")) {
+    return NextResponse.next();
+  }
+
   // Static files must bypass intlMiddleware — it redirects /logo.png to /en/logo.png (404)
   const barePath = stripLocale(pathname).path;
   if (barePath === "/favicon.png" || barePath === "/logo.png") {
@@ -50,7 +56,6 @@ export async function middleware(request: NextRequest) {
     path.startsWith("/login") ||
     path.startsWith("/register") ||
     path.startsWith("/s/") ||
-    path.startsWith("/api/") ||
     path === "/" ||
     path.startsWith("/_next")
   ) {

@@ -12,7 +12,8 @@ export default async function LoginPage({
   searchParams: Promise<{ returnUrl?: string }>;
 }) {
   const { locale } = await params;
-  const { returnUrl } = await searchParams;
+  const { returnUrl: rawReturnUrl } = await searchParams;
+  const returnUrl = rawReturnUrl ? decodeURIComponent(rawReturnUrl) : undefined;
   const t = await getTranslations({ locale: locale as AppLocale, namespace: "auth" });
 
   return (
