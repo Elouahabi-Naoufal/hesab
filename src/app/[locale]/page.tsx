@@ -24,7 +24,7 @@ export default async function Home({ params }: { params: Promise<{ locale: strin
       <header className="header">
         <div className="header-inner justify-between">
           <div className="flex items-center gap-2.5">
-            <div className="brand-mark"><img src="/logo.jpeg" alt="PoolSplit" /></div>
+            <div className="brand-mark"><img src="/logo.png" alt="PoolSplit" /></div>
             <span className="font-semibold tracking-tight text-[15px]">PoolSplit</span>
           </div>
           <div className="flex gap-2">
