@@ -158,7 +158,7 @@ export default function JoinPage() {
       <div className="w-full max-w-sm">
         <div className="text-center mb-6">
           <Link href="/" className="inline-flex items-center gap-2">
-            <div className="brand-mark"><img src="/logo.webp" alt="PoolSplit" /></div>
+            <div className="brand-mark"><img src="/logo.png" alt="PoolSplit" /></div>
             <span className="font-bold text-[15px]">PoolSplit</span>
           </Link>
         </div>
