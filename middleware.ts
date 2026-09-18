@@ -38,6 +38,12 @@ function stripLocale(pathname: string): { locale: string | null; path: string } 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
+  // Static files must bypass intlMiddleware — it redirects /logo.png to /en/logo.png (404)
+  const barePath = stripLocale(pathname).path;
+  if (barePath === "/favicon.png" || barePath === "/logo.png") {
+    return NextResponse.next();
+  }
+
   // Allow public paths (locale-aware)
   const { locale, path } = stripLocale(pathname);
   if (
@@ -46,8 +52,6 @@ export async function middleware(request: NextRequest) {
     path.startsWith("/s/") ||
     path.startsWith("/api/") ||
     path === "/" ||
-    path === "/favicon.png" ||
-    path === "/logo.png" ||
     path.startsWith("/_next")
   ) {
     return intlMiddleware(request);
@@ -68,5 +72,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|.*\\.png).*)"],
 };
