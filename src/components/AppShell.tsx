@@ -2,7 +2,7 @@
 import { Link, usePathname } from "@/i18n/navigation";
 import { useTranslations } from "next-intl";
 import { logoutAction } from "@/server/auth/logout-action";
-import { IconUsers, IconQr, IconPlus, IconWallet } from "@/components/icons";
+import { IconUsers, IconQr, IconPlus } from "@/components/icons";
 import ThemeToggle from "@/components/ThemeToggle";
 import FriendshipModeToggle from "@/components/FriendshipModeToggle";
 
@@ -46,7 +46,6 @@ export default function AppShell({
   const groupsActive = isGroupsActive(pathname);
   const scanActive = pathname.startsWith("/scan");
   const profileActive = pathname.startsWith("/profile");
-  const walletActive = pathname.startsWith("/wallet");
 
   const navRow = (active: boolean) =>
     `flex items-center gap-2.5 h-9 px-2.5 rounded-[12px] text-[14px] font-medium transition-colors ${
@@ -71,9 +70,6 @@ export default function AppShell({
         <nav aria-label={t("mainNav")} className="flex-1 overflow-y-auto px-3 pb-3 space-y-0.5">
           <Link href="/dashboard" className={navRow(groupsActive)}>
             <IconUsers size={16} />{t("groups")}
-          </Link>
-          <Link href="/wallet" className={navRow(walletActive)}>
-            <IconWallet size={16} />{t("wallet")}
           </Link>
           <Link href="/scan" className={navRow(scanActive)}>
             <IconQr size={16} />{t("scan")}
@@ -162,18 +158,15 @@ export default function AppShell({
 
       {/* Mobile tab bar */}
       <nav aria-label={t("mainNav")} className="lg:hidden fixed bottom-0 inset-x-0 z-40 bg-surface border-t border-border safe-bottom">
-        <div className="grid grid-cols-5 h-[60px] px-2">
+        <div className="grid grid-cols-4 h-[60px] px-2">
           <Link href="/dashboard" className={`flex flex-col items-center justify-center gap-0.5 text-[11px] font-semibold ${groupsActive ? "text-action" : "text-muted"}`}>
             <IconUsers size={20} />{t("groups")}
           </Link>
-          <Link href="/wallet" className={`flex flex-col items-center justify-center gap-0.5 text-[11px] font-semibold ${walletActive ? "text-action" : "text-muted"}`}>
-            <IconWallet size={20} />{t("wallet")}
+          <Link href="/scan" className={`flex flex-col items-center justify-center gap-0.5 text-[11px] font-semibold ${groupsActive ? "text-action" : "text-muted"}`}>
+            <IconQr size={20} />{t("scan")}
           </Link>
           <Link href="/dashboard#new-group" className="flex flex-col items-center justify-center gap-0.5 text-[11px] font-semibold text-muted relative -top-2">
             <span className="w-11 h-8 rounded-full bg-action text-white flex items-center justify-center shadow-md"><IconPlus size={18} /></span>
-          </Link>
-          <Link href="/scan" className={`flex flex-col items-center justify-center gap-0.5 text-[11px] font-semibold ${scanActive ? "text-action" : "text-muted"}`}>
-            <IconQr size={20} />{t("scan")}
           </Link>
           <Link href="/profile" className={`flex flex-col items-center justify-center gap-0.5 text-[11px] font-semibold ${profileActive ? "text-action" : "text-muted"}`}>
             {user.avatarUrl ? (

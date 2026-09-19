@@ -8,6 +8,8 @@ import { avatarSrc } from "@/lib/avatar";
 import { getTranslations } from "next-intl/server";
 import type { AppLocale } from "@/i18n/routing";
 
+const MAX_AVATAR_MB = 2;
+
 export default async function ProfilePage({ params }: { params: Promise<{ locale: string }> }) {
   const { locale } = await params;
   const session = await getSession();
@@ -42,6 +44,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ locale
             changeLabel={t("changePic")}
             removeLabel={t("removePic")}
             hint={t("picHint")}
+            maxMB={MAX_AVATAR_MB}
           />
           <div className="space-y-1.5">
             <label className="text-[13px] font-medium text-muted">{t("displayName")}</label>

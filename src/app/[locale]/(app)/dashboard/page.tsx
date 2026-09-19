@@ -5,7 +5,7 @@ import { Link } from "@/i18n/navigation";
 import { acceptInvitationAction, declineInvitationAction } from "@/server/groups/actions";
 import SubmitButton from "@/app/components/SubmitButton";
 import { formatDH } from "@/lib/utils";
-import { IconUsers, IconWallet } from "@/components/icons";
+import { IconUsers } from "@/components/icons";
 import { getTranslations } from "next-intl/server";
 import type { AppLocale } from "@/i18n/routing";
 
@@ -113,7 +113,7 @@ export default async function Dashboard({ params }: { params: Promise<{ locale: 
 
   // ---- Batched group stats ----
   const myGroupIds = memberships.map(m => m.group.id);
-  const [memberCounts, allOutings, wallet, recentEvents] = await Promise.all([
+  const [memberCounts, allOutings, recentEvents] = await Promise.all([
     myGroupIds.length > 0
       ? prisma.groupMember.groupBy({ by: ["groupId"], where: { groupId: { in: myGroupIds } }, _count: true })
       : [],
@@ -124,7 +124,6 @@ export default async function Dashboard({ params }: { params: Promise<{ locale: 
           orderBy: { createdAt: "desc" },
         })
       : [],
-    prisma.wallet.findUnique({ where: { userId: session.userId } }),
     myGroupIds.length > 0
       ? prisma.activityEvent.findMany({
           where: { groupId: { in: myGroupIds } },
@@ -170,8 +169,6 @@ export default async function Dashboard({ params }: { params: Promise<{ locale: 
     return { membership: m, memberCount: memberCountMap.get(m.group.id) ?? 0, outingCount, settledCount, expenseTotal, myNet: myPaid - myResp };
   });
 
-  const walletBalance = wallet?.balanceCt ?? 0;
-
   const eventLabels: Record<string, string> = {
     GROUP_CREATED: "created group",
     MEMBER_INVITED: "invited a member",
@@ -191,9 +188,8 @@ export default async function Dashboard({ params }: { params: Promise<{ locale: 
     <main className="mx-auto max-w-5xl px-4 sm:px-6 py-6 sm:py-8 space-y-8">
       {/* Balance band */}
       <section>
-        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
-          <div>
-            <div className="text-[13px] text-muted">{t("netBalance")}</div>
+        <div>
+          <div className="text-[13px] text-muted">{t("netBalance")}</div>
             <div className={`money-hero text-[40px] font-extrabold ${netBalance > 0 ? "text-success" : netBalance < 0 ? "text-danger" : ""}`}>
               {netBalance > 0 ? "+" : ""}{formatDH(netBalance)}
             </div>
@@ -208,17 +204,7 @@ export default async function Dashboard({ params }: { params: Promise<{ locale: 
               </svg>
             )}
           </div>
-          <Link href="/wallet" className="card-elevated p-4 flex items-center gap-3 hover:shadow-md transition-shadow flex-shrink-0">
-            <div className="w-10 h-10 rounded-[14px] bg-success-subtle text-success flex items-center justify-center">
-              <IconWallet size={20} />
-            </div>
-            <div>
-              <div className="text-[12px] text-muted">{t("wallet")}</div>
-              <div className="money text-[16px] font-bold">{walletBalance > 0 ? formatDH(walletBalance) : "0 DH"}</div>
-            </div>
-          </Link>
-        </div>
-        <div className="divider mt-6"></div>
+          <div className="divider mt-6"></div>
       </section>
 
         {/* Invitations */}

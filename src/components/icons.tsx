@@ -117,15 +117,6 @@ export function IconArrowRight({ size, className }: IconProps) {
   );
 }
 
-export function IconWallet({ size, className }: IconProps) {
-  return (
-    <Base size={size} className={className}>
-      <path d="M21 12V7H5a2 2 0 0 1 0-4h14v4" />
-      <path d="M3 5v14a2 2 0 0 0 2 2h16V7" />
-      <path d="M18 12a1 1 0 0 0 0 2h0a1 1 0 0 0 0-2h0z" />
-    </Base>
-  );
-}
 
 export function IconGlobe({ size, className }: IconProps) {
   return (

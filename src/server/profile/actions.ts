@@ -9,7 +9,7 @@ const updateProfileSchema = z.object({
   displayName: z.string().min(2).max(50),
 });
 
-const MAX_AVATAR_BYTES = 500 * 1024; // 500 KB — keeps the SQLite row lean
+const MAX_AVATAR_BYTES = 2 * 1024 * 1024; // 2 MB
 
 export async function updateProfileAction(formData: FormData) {
   const session = await requireSession();

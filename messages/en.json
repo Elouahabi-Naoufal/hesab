@@ -9,9 +9,7 @@
     "profile": "Profile",
     "new": "New",
     "admin": "Admin",
-    "logout": "Logout",
-    "wallet": "Wallet",
-    "walletShort": "Wallet"
+    "logout": "Logout"
   },
   "common": {
     "breadcrumb": "Breadcrumb",
@@ -83,7 +81,6 @@
   },
   "dashboard": {
     "netBalance": "Net balance",
-    "wallet": "Wallet balance",
     "owedToYou": "Owed to you",
     "youOwe": "You owe",
     "recentMovement": "Recent movement",
@@ -277,16 +274,6 @@
     "subtitle": "Point your camera at a PoolSplit QR code to join a group or outing",
     "backHome": "Back to home"
   },
-  "wallet": {
-    "title": "Wallet",
-    "yourBalance": "Your balance",
-    "addFunds": "Add funds",
-    "depositBtn": "Deposit",
-    "history": "Transaction history",
-    "noTransactions": "No transactions yet. Deposit some funds to get started!",
-    "depositSuccess": "Funds added successfully!",
-    "depositError": "Could not deposit funds. Please try again."
-  },
   "public": {
     "title": "Settlement",
     "expenses": "Expenses",
@@ -369,7 +356,7 @@
     "updateProductFailed": "Could not update this product. Please try again.",
     "acceptInviteFailed": "Could not accept this invitation. Please try again.",
     "avatarImageOnly": "Profile picture must be an image file.",
-    "avatarTooBig": "Profile picture must be under 500 KB.",
+    "avatarTooBig": "Profile picture must be under {maxMB} MB. Try taking a screenshot of the image and uploading that instead.",
     "invalidCredentials": "Invalid credentials.",
     "invalidInput": "Invalid input.",
     "userExists": "A user with this username already exists.",
