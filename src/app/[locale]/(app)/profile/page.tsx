@@ -8,7 +8,7 @@ import { avatarSrc } from "@/lib/avatar";
 import { getTranslations } from "next-intl/server";
 import type { AppLocale } from "@/i18n/routing";
 
-const MAX_AVATAR_MB = 2;
+const MAX_AVATAR_MB = 3;
 
 export default async function ProfilePage({ params }: { params: Promise<{ locale: string }> }) {
   const { locale } = await params;
