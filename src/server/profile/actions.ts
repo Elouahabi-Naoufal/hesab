@@ -11,8 +11,6 @@ const updateProfileSchema = z.object({
   displayName: z.string().min(2).max(50),
 });
 
-const MAX_AVATAR_BYTES = 3 * 1024 * 1024;
-
 function avatarPath(userId: string): string {
   return path.join(process.cwd(), "data", "avatars", `${userId}.png`);
 }
