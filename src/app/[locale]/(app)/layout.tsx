@@ -8,7 +8,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const session = await getSession();
   if (!session) redirect("/login");
 
-  const user = await prisma.user.findUnique({ where: { id: session.userId } });
+  const user = await prisma.user.findUnique({
+    where: { id: session.userId },
+    select: { id: true, displayName: true, publicId: true, avatar: true, isAdmin: true },
+  });
   if (!user) redirect("/login");
 
   const memberships = await prisma.groupMember.findMany({

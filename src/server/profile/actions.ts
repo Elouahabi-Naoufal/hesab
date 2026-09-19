@@ -4,12 +4,23 @@ import { requireSession } from "@/server/auth/session";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { getTranslations } from "next-intl/server";
+import fs from "fs";
+import path from "path";
 
 const updateProfileSchema = z.object({
   displayName: z.string().min(2).max(50),
 });
 
-const MAX_AVATAR_BYTES = 3 * 1024 * 1024; // 2 MB
+const MAX_AVATAR_BYTES = 3 * 1024 * 1024;
+
+function avatarPath(userId: string): string {
+  return path.join(process.cwd(), "data", "avatars", `${userId}.png`);
+}
+
+async function ensureAvatarDir() {
+  const dir = path.join(process.cwd(), "data", "avatars");
+  await fs.promises.mkdir(dir, { recursive: true });
+}
 
 export async function updateProfileAction(formData: FormData) {
   const session = await requireSession();
@@ -23,28 +34,23 @@ export async function updateProfileAction(formData: FormData) {
   const removeAvatar = formData.get("removeAvatar") === "on";
   const file = formData.get("avatarFile");
 
-  // Picture bytes live in the database (User.avatarData/avatarMime).
-  // `avatar` (legacy data-URL/remote-URL string) is only cleared, never written.
-  let clearAvatar = false;
-  let avatarData: Buffer | null | undefined;
-  let avatarMime: string | null | undefined;
   if (removeAvatar) {
-    clearAvatar = true;
-    avatarData = null;
-    avatarMime = null;
+    const p = avatarPath(session.userId);
+    try { await fs.promises.unlink(p); } catch {}
   } else if (file instanceof File && file.size > 0) {
     if (!file.type.startsWith("image/")) return { error: t("avatarImageOnly") };
     if (file.size > MAX_AVATAR_BYTES) return { error: t("avatarTooBig") };
-    avatarData = Buffer.from(await file.arrayBuffer());
-    avatarMime = file.type;
+    await ensureAvatarDir();
+    const buffer = Buffer.from(await file.arrayBuffer());
+    await fs.promises.writeFile(avatarPath(session.userId), buffer);
   }
 
   await prisma.user.update({
     where: { id: session.userId },
     data: {
       displayName: parsed.data.displayName,
-      ...(clearAvatar ? { avatar: null, avatarData: null, avatarMime: null } : {}),
-      ...(avatarData !== undefined ? { avatarData, avatarMime } : {}),
+      ...(removeAvatar ? { avatar: null } : {}),
+      ...(file instanceof File && file.size > 0 ? { avatar: `/api/avatar` } : {}),
     },
   });
 
@@ -55,7 +61,10 @@ export async function updateProfileAction(formData: FormData) {
 
 export async function getProfile() {
   const session = await requireSession();
-  const user = await prisma.user.findUnique({ where: { id: session.userId } });
+  const user = await prisma.user.findUnique({
+    where: { id: session.userId },
+    select: { id: true, username: true, displayName: true, publicId: true, avatar: true, isAdmin: true, createdAt: true },
+  });
   if (!user) throw new Error("User not found");
   return user;
 }

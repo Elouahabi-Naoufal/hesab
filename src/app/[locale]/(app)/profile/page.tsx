@@ -14,7 +14,10 @@ export default async function ProfilePage({ params }: { params: Promise<{ locale
   const { locale } = await params;
   const session = await getSession();
   if (!session) redirect("/login");
-  const user = await prisma.user.findUnique({ where: { id: session.userId } });
+  const user = await prisma.user.findUnique({
+    where: { id: session.userId },
+    select: { id: true, username: true, displayName: true, publicId: true, avatar: true, isAdmin: true, createdAt: true },
+  });
   if (!user) redirect("/login");
 
   const t = await getTranslations({ locale: locale as AppLocale, namespace: "profile" });
