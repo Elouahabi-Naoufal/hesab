@@ -1,5 +1,5 @@
 "use client";
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { useTranslations } from "next-intl";
 import { formatDH } from "@/lib/utils";
 import {
@@ -22,25 +22,64 @@ import {
   removeOutingParticipantAction, requestLeaveOutingAction, activateOutingAction,
 } from "@/server/outings/actions";
 import QrInvite from "@/components/QrInvite";
+import ConfirmDialog from "@/components/ConfirmDialog";
 import { Link } from "@/i18n/navigation";
 import { redirect } from "next/navigation";
-import { IconCheck, IconX, IconPencil, IconChevronRight, IconReceipt } from "@/components/icons";
+import { IconCheck, IconX, IconPencil, IconChevronRight, IconReceipt, IconChevronDown } from "@/components/icons";
 
 type AR = { error?: string };
 
-function WForm({ action, initialState, children, className }: {
+function WForm({ action, initialState, children, className, confirmMessage }: {
   action: (prevState: AR, formData: FormData) => Promise<AR>;
   initialState: AR;
   children: React.ReactNode;
   className?: string;
+  confirmMessage?: string;
 }) {
-  const [state, formAction] = useActionState(action, initialState);
+  const [state, formAction, pending] = useActionState(action, initialState);
   const hasError = state && state.error;
+  const [showConfirm, setShowConfirm] = useState(false);
+
+  const wrappedAction = confirmMessage
+    ? (formData: FormData) => {
+        if (!showConfirm) {
+          setShowConfirm(true);
+          setTimeout(() => setShowConfirm(false), 3000);
+          return state;
+        }
+        setShowConfirm(false);
+        return formAction(formData);
+      }
+    : formAction;
+
   return (
-    <form action={formAction} className={className}>
+    <form action={wrappedAction} className={className}>
       {children}
+      {pending && (
+        <div className="absolute inset-0 bg-surface/60 rounded-[inherit] flex items-center justify-center z-10">
+          <span className="w-5 h-5 border-2 border-border border-t-brand rounded-full animate-spin" />
+        </div>
+      )}
+      {showConfirm && confirmMessage && (
+        <div className="mt-2 p-2.5 rounded-[12px] bg-danger-subtle border border-danger/20 text-danger text-[13px] flex items-center gap-2">
+          <span>{confirmMessage}</span>
+          <button type="submit" className="btn-primary btn-sm text-[12px] px-3 py-1">Confirm</button>
+          <button type="button" onClick={() => setShowConfirm(false)} className="btn-ghost text-[12px]">Cancel</button>
+        </div>
+      )}
       {hasError && <div className="mt-2 p-2.5 rounded-[12px] bg-danger-subtle border border-danger/20 text-danger text-[13px]">{state.error}</div>}
     </form>
+  );
+}
+
+function SubmitBtn({ label, pending, variant = "primary" }: { label: string; pending?: boolean; variant?: "primary" | "danger" | "ghost" }) {
+  const cls = variant === "primary" ? "btn-primary" : variant === "danger" ? "btn-primary" : "btn-ghost";
+  const dangerStyle = variant === "danger" ? { background: "var(--danger)" } as React.CSSProperties : undefined;
+  return (
+    <button type="submit" disabled={pending} className={cls} style={dangerStyle}>
+      {pending ? <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin inline-block" /> : null}
+      {label}
+    </button>
   );
 }
 
@@ -83,6 +122,15 @@ export default function ClientOutingPage({
   const t = useTranslations("outing");
   const tc = useTranslations("common");
   const tn = useTranslations("nav");
+  const [expandedActivities, setExpandedActivities] = useState<Set<string>>(new Set());
+
+  const toggleActivity = (id: string) => {
+    setExpandedActivities(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
 
   return (
     <main className="mx-auto max-w-5xl px-4 sm:px-6 py-6 sm:py-8 space-y-8">
@@ -99,7 +147,7 @@ export default function ClientOutingPage({
           <div className="flex items-center gap-2 flex-shrink-0">
             {isOwner && outing.status === "PLANNING" && (
               <WForm action={async () => await activateOutingAction(outingId)} initialState={{}}>
-                <button className="btn-primary btn-sm">{t("activate")}</button>
+                <SubmitBtn label={t("activate")} />
               </WForm>
             )}
           {isOwner && allActivitiesClosed && outing.status !== "SETTLED" && !hasSettlement && (
@@ -112,7 +160,7 @@ export default function ClientOutingPage({
               }}
               initialState={{}}
             >
-              <button className="btn-navy btn-sm">{t("settleOuting")}</button>
+              <SubmitBtn label={t("settleOuting")} variant="primary" />
             </WForm>
           )}
             {isOwner && outing.status === "SETTLED" && (
@@ -122,7 +170,7 @@ export default function ClientOutingPage({
         </div>
         <p className="text-[13px] text-muted mt-1">{outing.status === "PLANNING" ? tc("planning") : outing.status === "ACTIVE" ? tc("activeTag") : outing.status === "SETTLED" ? tc("settledTag") : outing.status} · {t("headMeta", { p: participants.length, a: activities.length })}</p>
       </div>
-        {/* Live balances — borderless band */}
+        {/* Live balances */}
         <section>
           <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-4">
             <div>
@@ -143,26 +191,29 @@ export default function ClientOutingPage({
 
         <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
           <div className="min-w-0 order-1">
-        {/* Activities — timeline */}
+        {/* Activities */}
         <section className="space-y-4">
           <h2 className="text-[18px] font-semibold tracking-tight">{t("activities")}</h2>
-          {activities.length === 0 ? (
+          {activityStats.length === 0 ? (
             <div className="card border-dashed p-10 text-center">
               <div className="w-12 h-12 mx-auto rounded-[20px] bg-elevated text-muted flex items-center justify-center mb-3"><IconReceipt size={22} /></div>
               <p className="text-[14px] text-muted">{t("noActivities")}</p>
             </div>
           ) : (
-            <div className="timeline space-y-3">
-              <div className="timeline-rail" aria-hidden="true"></div>
+            <div className="space-y-3">
               {activityStats.map((a: any) => (
-                <div key={a.id} className="flex gap-3">
-                  <div className={`timeline-dot ${a.status === "CLOSED" ? "closed" : ""}`} aria-hidden="true">
-                    <span className={`w-2 h-2 rounded-full ${a.status === "OPEN" ? "bg-brand" : "bg-muted"}`}></span>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <ActivityCard activity={a} outingId={outingId} groupId={groupId} isOwner={isOwner} participants={participants} usersMap={usersMap} userId={sessionUserId} />
-                  </div>
-                </div>
+                <ActivityCard
+                  key={a.id}
+                  activity={a}
+                  outingId={outingId}
+                  groupId={groupId}
+                  isOwner={isOwner}
+                  participants={participants}
+                  usersMap={usersMap}
+                  userId={sessionUserId}
+                  expanded={expandedActivities.has(a.id)}
+                  onToggle={() => toggleActivity(a.id)}
+                />
               ))}
             </div>
           )}
@@ -178,7 +229,7 @@ export default function ClientOutingPage({
                   <option value="VARIABLE">{t("variableOpt")}</option>
                 </select>
                 <input name="notes" placeholder={t("notesPh")} className="input" />
-                <button className="btn-primary w-full py-2.5">{t("createActivity")}</button>
+                <SubmitBtn label={t("createActivity")} />
               </WForm>
             </div>
           )}
@@ -211,7 +262,7 @@ export default function ClientOutingPage({
               <h2 className="section-label mb-2">{t("participants")}</h2>
               <div className="flex flex-wrap items-center gap-2">
                 {participants.map((p: any) => (
-                  <span key={p.id} className="tag bg-elevated text-foreground">
+                  <span key={p.id} className="tag bg-elevated text-foreground relative">
                     {p.user.displayName}
                     {p.role === "OWNER" && <span className="tag bg-brand-subtle text-brand ms-1">{tc("owner")}</span>}
                     {isOwner && p.userId !== sessionUserId && (
@@ -255,9 +306,10 @@ function StatusTag({ status }: { status: string }) {
   );
 }
 
-function ActivityCard({ activity, outingId, groupId, isOwner, participants, usersMap, userId }: {
+function ActivityCard({ activity, outingId, groupId, isOwner, participants, usersMap, userId, expanded, onToggle }: {
   activity: any; outingId: string; groupId: string; isOwner: boolean;
   participants: any[]; usersMap: Map<string, string>; userId: string;
+  expanded: boolean; onToggle: () => void;
 }) {
   const t = useTranslations("outing");
   const tc = useTranslations("common");
@@ -266,324 +318,337 @@ function ActivityCard({ activity, outingId, groupId, isOwner, participants, user
   const canEdit = isOwner && activity.status === "OPEN";
 
   return (
-    <div className="card-elevated p-5 space-y-4">
-      {/* Header */}
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-[15px] font-semibold tracking-tight">{activity.name}</span>
-            <span className="tag bg-elevated text-muted">{isFixed ? tc("fixed") : tc("variable")}</span>
-            {activity.status === "OPEN" ? (
-              <span className="tag bg-success-subtle text-success"><span className="status-dot bg-success"></span>{tc("open")}</span>
-            ) : (
-              <span className="tag bg-elevated text-muted"><span className="status-dot bg-muted"></span>{activity.status === "CLOSED" ? tc("closed") : activity.status}</span>
-            )}
+    <div className="card-elevated overflow-hidden">
+      {/* Clickable header — always visible */}
+      <button onClick={onToggle} className="w-full text-start p-5 hover:bg-elevated/50 transition-colors cursor-pointer">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-[15px] font-semibold tracking-tight">{activity.name}</span>
+              <span className="tag bg-elevated text-muted">{isFixed ? tc("fixed") : tc("variable")}</span>
+              {activity.status === "OPEN" ? (
+                <span className="tag bg-success-subtle text-success"><span className="status-dot bg-success"></span>{tc("open")}</span>
+              ) : (
+                <span className="tag bg-elevated text-muted"><span className="status-dot bg-muted"></span>{activity.status === "CLOSED" ? tc("closed") : activity.status}</span>
+              )}
+            </div>
+            <div className="flex items-center gap-4 mt-2">
+              <span className="money text-[22px] font-bold">{formatDH(activity.responsibility)}</span>
+              <span className="text-[13px] text-muted">{t("paid")} <span className="money font-semibold text-foreground">{formatDH(activity.paid)}</span></span>
+              <span className={`text-[13px] ${activity.balance !== 0 ? (activity.balance > 0 ? "text-success" : "text-danger") : "text-muted"}`}>
+                {t("balance")} <span className="money font-semibold">{activity.balance > 0 ? "+" : ""}{formatDH(activity.balance)}</span>
+              </span>
+            </div>
           </div>
-          <div className="money text-[22px] font-bold mt-2">{formatDH(activity.responsibility)}</div>
-          <div className="flex items-center gap-3 mt-1.5 text-[13px] text-muted flex-wrap">
-            <span>{t("paid")} <span className="money font-semibold text-foreground">{formatDH(activity.paid)}</span></span>
-            <span className={activity.balance !== 0 ? (activity.balance > 0 ? "text-success" : "text-danger") : ""}>
-              {t("balance")} <span className="money font-semibold">{activity.balance > 0 ? "+" : ""}{formatDH(activity.balance)}</span>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            {canEdit && (
+              <>
+                <WForm action={async () => await closeActivityAction(activity.id)} initialState={{}}>
+                  <SubmitBtn label={tc("close")} variant="ghost" />
+                </WForm>
+                <WForm action={async () => await deleteActivityAction(activity.id)} initialState={{}} confirmMessage="Delete this activity forever?">
+                  <SubmitBtn label={tc("delete")} variant="ghost" />
+                </WForm>
+              </>
+            )}
+            <span className={`transition-transform duration-200 ${expanded ? "rotate-180" : ""}`}>
+              <IconChevronDown size={18} className="text-muted" />
             </span>
           </div>
         </div>
-        {canEdit && (
-          <div className="flex gap-1 flex-shrink-0">
-            <WForm action={async () => await closeActivityAction(activity.id)} initialState={{}}>
-              <button type="submit" className="btn-ghost text-warn">{tc("close")}</button>
-            </WForm>
-            <WForm action={async () => await deleteActivityAction(activity.id)} initialState={{}}>
-              <button type="submit" className="btn-ghost text-danger">{tc("delete")}</button>
-            </WForm>
-          </div>
-        )}
-      </div>
+      </button>
 
-      <SplitBar paid={activity.paid} responsibility={activity.responsibility} />
-
-      {/* FIXED: Products + usage as expense objects */}
-      {isFixed && (
-        <div className="space-y-4">
-          {activity.products.length > 0 && (
-            <div>
-              <div className="text-[12px] font-semibold text-muted mb-2 uppercase tracking-wide">{t("products")}</div>
-              <div className="space-y-1.5">
-                {activity.products.map((p: any) => (
-                  <div key={p.id} className="flex items-center justify-between py-2 px-3 rounded-[12px] bg-elevated">
-                    <span className="text-[14px] min-w-0">{p.name} <span className="text-muted">· {formatDH(p.pricePerUnitCt)}/{p.unit}</span></span>
-                    {canEdit && (
-                      <div className="flex items-center gap-1.5 flex-shrink-0 ms-2">
-                        <details className="relative">
-                          <summary className="cursor-pointer text-brand text-[12px] font-semibold hover:underline">{tc("edit")}</summary>
-                          <WForm action={async (prevState, formData) => {
-                            return await updateActivityProductAction(p.id, {
-                              name: formData.get("name") as string || undefined,
-                              unit: formData.get("unit") as string || undefined,
-                              pricePerUnitDH: formData.get("pricePerUnitDH") as string || undefined,
-                            });
-                          }} initialState={{}} className="absolute end-0 z-10 mt-1 p-3 rounded-[20px] bg-surface border border-border shadow-lg space-y-2 w-56">
-                            <input name="name" defaultValue={p.name} placeholder={t("namePh")} className="input text-[13px]" />
-                            <input name="unit" defaultValue={p.unit} placeholder={t("unitLabel")} className="input text-[13px]" />
-                            <input name="pricePerUnitDH" defaultValue={(p.pricePerUnitCt / 100).toFixed(2)} placeholder={t("pricePh")} className="input text-[13px]" />
-                            <button type="submit" className="btn-primary w-full py-2 text-[12px]">{tc("save")}</button>
-                          </WForm>
-                        </details>
-                        <WForm action={async () => await deleteActivityProductAction(p.id)} initialState={{}} className="inline">
-                          <button type="submit" aria-label={t("deleteItem", { name: p.name })} className="inline-flex items-center text-danger/60 hover:text-danger transition-colors"><IconX size={12} /></button>
-                        </WForm>
+      {/* Expanded details */}
+      {expanded && (
+        <div className="px-5 pb-5 space-y-4 animate-in border-t border-border pt-4">
+          <SplitBar paid={activity.paid} responsibility={activity.responsibility} />
+          {activity.usageRecords.filter((r: any) => r.status !== "CONFIRMED" && r.status !== "DISPUTED").length > 0 && (
+            <div className="flex gap-2 flex-wrap">
+              {isOwner && (
+                <WForm action={async () => {
+                  const pending = activity.usageRecords.filter((r: any) => r.status === "PENDING");
+                  for (const r of pending) {
+                    await confirmUsageRecordAction(r.id);
+                  }
+                  return {};
+                }} initialState={{}}>
+                  <SubmitBtn label="Confirm all pending" variant="primary" />
+                </WForm>
+              )}
+            </div>
+          )}
+          {isFixed && (
+            <div className="space-y-4">
+              {activity.products.length > 0 && (
+                <div>
+                  <div className="text-[12px] font-semibold text-muted mb-2 uppercase tracking-wide">{t("products")}</div>
+                  <div className="space-y-1.5">
+                    {activity.products.map((p: any) => (
+                      <div key={p.id} className="flex items-center justify-between py-2 px-3 rounded-[12px] bg-elevated">
+                        <span className="text-[14px] min-w-0">{p.name} <span className="text-muted">· {formatDH(p.pricePerUnitCt)}/{p.unit}</span></span>
+                        {canEdit && (
+                          <div className="flex items-center gap-1.5 flex-shrink-0 ms-2">
+                            <details className="relative">
+                              <summary className="cursor-pointer text-brand text-[12px] font-semibold hover:underline">{tc("edit")}</summary>
+                              <WForm action={async (prevState, formData) => {
+                                return await updateActivityProductAction(p.id, {
+                                  name: formData.get("name") as string || undefined,
+                                  unit: formData.get("unit") as string || undefined,
+                                  pricePerUnitDH: formData.get("pricePerUnitDH") as string || undefined,
+                                });
+                              }} initialState={{}} className="absolute end-0 z-10 mt-1 p-3 rounded-[20px] bg-surface border border-border shadow-lg space-y-2 w-56">
+                                <input name="name" defaultValue={p.name} placeholder={t("namePh")} className="input text-[13px]" />
+                                <input name="unit" defaultValue={p.unit} placeholder={t("unitLabel")} className="input text-[13px]" />
+                                <input name="pricePerUnitDH" defaultValue={(p.pricePerUnitCt / 100).toFixed(2)} placeholder={t("pricePh")} className="input text-[13px]" />
+                                <SubmitBtn label={tc("save")} />
+                              </WForm>
+                            </details>
+                            <WForm action={async () => await deleteActivityProductAction(p.id)} initialState={{}} confirmMessage="Delete this product?">
+                              <button type="submit" aria-label={t("deleteItem", { name: p.name })} className="inline-flex items-center text-danger/60 hover:text-danger transition-colors"><IconX size={12} /></button>
+                            </WForm>
+                          </div>
+                        )}
                       </div>
-                    )}
+                    ))}
+                  </div>
+                </div>
+              )}
+              {canEdit && (
+                <details className="rounded-[20px] border border-border p-3.5">
+                  <summary className="flex items-center gap-1 text-[13px] cursor-pointer text-muted font-semibold"><IconChevronRight size={13} className="chev" /> {t("addProduct")}</summary>
+                  <WForm action={async (prevState, formData) => await createActivityProductAction(formData)} initialState={{}} className="space-y-2.5 mt-3">
+                    <input type="hidden" name="activityId" value={activity.id} />
+                    <input name="name" placeholder={t("productNamePh")} required className="input text-[13px]" />
+                    <input name="unit" placeholder={t("unitPh")} className="input text-[13px]" />
+                    <input name="pricePerUnitDH" placeholder={t("pricePh")} required className="input text-[13px]" />
+                    <SubmitBtn label={t("addProductBtn")} />
+                  </WForm>
+                </details>
+              )}
+
+              {activity.usageRecords.length > 0 && (
+                <div>
+                  <div className="text-[12px] font-semibold text-muted mb-2 uppercase tracking-wide">{t("usage")}</div>
+                  <div className="space-y-2">
+                    {activity.usageRecords.map((r: any) => {
+                      const product = activity.products.find((p: any) => p.id === r.productId);
+                      const n = r.participants.length || 1;
+                      const each = Math.floor((r.totalCentimes ?? 0) / n);
+                      const imIn = r.participants.some((pp: any) => pp.userId === userId);
+                      const myShare = imIn ? each : 0;
+                      return (
+                        <div key={r.id} className="rounded-[12px] bg-elevated p-3.5 space-y-2.5">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0">
+                              <div className="text-[14px] font-medium">{r.quantity} × {product?.name || "?"}</div>
+                              <div className="money text-[18px] font-bold mt-0.5">{formatDH(r.totalCentimes)}</div>
+                            </div>
+                            <StatusTag status={r.status} />
+                          </div>
+                          <div className="split-bar" aria-hidden="true">
+                            {r.participants.map((pp: any) => (
+                              <span key={pp.userId} style={{ width: `${100 / n}%`, background: pp.userId === userId ? "var(--brand)" : "var(--muted)", opacity: pp.userId === userId ? 1 : 0.45 }} />
+                            ))}
+                          </div>
+                          <div className="grid grid-cols-3 gap-2 text-center">
+                            <div className="rounded-[12px] bg-surface p-2">
+                              <div className="text-[11px] text-muted">{t("each")}</div>
+                              <div className="money text-[13px] font-bold">{formatDH(each)}</div>
+                            </div>
+                            <div className="rounded-[12px] bg-surface p-2">
+                              <div className="text-[11px] text-muted">{t("yourShare")}</div>
+                              <div className="money text-[13px] font-bold">{formatDH(myShare)}</div>
+                            </div>
+                            <div className="rounded-[12px] bg-surface p-2">
+                              <div className="text-[11px] text-muted">{t("split")}</div>
+                              <div className="text-[13px] font-bold">{t("splitN", { count: n })}</div>
+                            </div>
+                          </div>
+                          <div className="text-[12px] text-muted">
+                            {r.participants.map((pp: any) => usersMap.get(pp.userId) || pp.userId).join(" · ")}
+                          </div>
+                          {r.status !== "CONFIRMED" && (
+                            <div className="flex gap-2 flex-wrap">
+                              <WForm action={async () => await confirmUsageRecordAction(r.id)} initialState={{}}>
+                                <SubmitBtn label={tc("confirm")} variant="primary" />
+                              </WForm>
+                              <WForm action={async (prevState, formData) => {
+                                const notes = formData.get("notes") as string;
+                                return await disputeUsageRecordAction(r.id, notes);
+                              }} initialState={{}}>
+                                <SubmitBtn label={t("dispute")} variant="danger" />
+                              </WForm>
+                            </div>
+                          )}
+                          {canEdit && (
+                            <div className="flex gap-2 items-center pt-1">
+                              <details className="relative">
+                                <summary className="cursor-pointer text-brand text-[12px] font-semibold hover:underline">{tc("edit")}</summary>
+                                <WForm action={async (prevState, formData) => {
+                                  const qty = parseInt(formData.get("quantity") as string, 10);
+                                  return await updateUsageRecordAction(r.id, { quantity: qty });
+                                }} initialState={{}} className="absolute start-0 z-10 mt-1 p-3 rounded-[20px] bg-surface border border-border shadow-lg flex gap-2 items-center">
+                                  <input name="quantity" type="number" min="1" defaultValue={r.quantity} className="input text-[13px] w-20" />
+                                  <SubmitBtn label={tc("save")} />
+                                </WForm>
+                              </details>
+                              <WForm action={async () => await deleteUsageRecordAction(r.id)} initialState={{}} confirmMessage="Delete this usage record?">
+                                <button type="submit" className="text-[12px] text-danger hover:underline">{tc("delete")}</button>
+                              </WForm>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+              {canEdit && (
+                <details className="rounded-[20px] border border-border p-3.5">
+                  <summary className="flex items-center gap-1 text-[13px] cursor-pointer text-muted font-semibold"><IconChevronRight size={13} className="chev" /> {t("recordUsage")}</summary>
+                  <WForm action={async (prevState, formData) => await createUsageRecordAction(formData)} initialState={{}} className="space-y-2.5 mt-3">
+                    <input type="hidden" name="activityId" value={activity.id} />
+                    <select name="productId" required className="input text-[13px]">
+                      <option value="">{t("selectProduct")}</option>
+                      {activity.products.map((p: any) => <option key={p.id} value={p.id}>{p.name} ({formatDH(p.pricePerUnitCt)}/{p.unit})</option>)}
+                    </select>
+                    <input name="quantity" type="number" min="1" placeholder={t("quantity")} required className="input text-[13px]" />
+                    <div className="text-[12px] font-medium text-muted">{t("selectParticipants")}</div>
+                    <div className="space-y-1">
+                      {participants.map((p: any) => (
+                        <label key={p.userId} className="flex items-center gap-2 text-[13px] py-1 cursor-pointer">
+                          <input type="checkbox" name="participantIds" value={p.userId} className="accent-action" />
+                          {p.user.displayName}
+                        </label>
+                      ))}
+                    </div>
+                    <SubmitBtn label={t("recordUsageBtn")} />
+                  </WForm>
+                </details>
+              )}
+            </div>
+          )}
+
+          {isVariable && (
+            <div className="space-y-3">
+              {activity.lineItems.length > 0 && (
+                <div>
+                  <div className="text-[12px] font-semibold text-muted mb-2 uppercase tracking-wide">{t("items")}</div>
+                  <div className="space-y-2">
+                    {activity.lineItems.map((l: any) => {
+                      const canEditItem = l.userId === userId || isOwner;
+                      const isMine = l.userId === userId;
+                      return (
+                        <div key={l.id} className="rounded-[12px] bg-elevated p-3.5 space-y-1.5">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0">
+                              <div className="text-[14px] font-medium">{l.description}</div>
+                              <div className="text-[12px] text-muted">{t("paidBy")} {usersMap.get(l.userId) || "?"}{isMine ? ` ${t("youSuffix")}` : ""}</div>
+                            </div>
+                            <div className="money text-[18px] font-bold flex-shrink-0">{formatDH(l.priceCentimes)}</div>
+                          </div>
+                          {canEditItem && canEdit && (
+                            <div className="flex items-center gap-1.5">
+                              <details className="relative">
+                                <summary className="cursor-pointer text-brand text-[12px] font-semibold hover:underline">{tc("edit")}</summary>
+                                <WForm action={async (prevState, formData) => {
+                                  return await updateLineItemAction(l.id, {
+                                    description: formData.get("description") as string || undefined,
+                                    priceDH: formData.get("priceDH") as string || undefined,
+                                  });
+                                }} initialState={{}} className="absolute end-0 z-10 mt-1 p-3 rounded-[20px] bg-surface border border-border shadow-lg space-y-2 w-56">
+                                  <input name="description" defaultValue={l.description} placeholder={t("descPh")} className="input text-[13px]" />
+                                  <input name="priceDH" defaultValue={(l.priceCentimes / 100).toFixed(2)} placeholder={t("priceItemPh")} className="input text-[13px]" />
+                                  <SubmitBtn label={tc("save")} />
+                                </WForm>
+                              </details>
+                              <WForm action={async () => await deleteLineItemAction(l.id)} initialState={{}} confirmMessage="Delete this item?">
+                                <button type="submit" aria-label={t("deleteItem", { name: l.description })} className="inline-flex items-center text-danger/60 hover:text-danger transition-colors"><IconX size={12} /></button>
+                              </WForm>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+              {activity.lineItems.length === 0 && <div className="text-[13px] text-muted italic">{t("noItems")}</div>}
+              {canEdit && (
+                <details className="rounded-[20px] border border-border p-3.5">
+                  <summary className="flex items-center gap-1 text-[13px] cursor-pointer text-muted font-semibold"><IconChevronRight size={13} className="chev" /> {t("addItem")}</summary>
+                  <WForm action={async (prevState, formData) => await createLineItemAction(formData)} initialState={{}} className="space-y-2.5 mt-3">
+                    <input type="hidden" name="activityId" value={activity.id} />
+                    <input type="hidden" name="userId" defaultValue={userId} className="hidden" />
+                    <input name="description" placeholder={t("descPh")} required className="input text-[13px]" />
+                    <input name="priceDH" placeholder={t("priceItemPh")} required className="input text-[13px]" />
+                    <SubmitBtn label={t("addItemBtn")} />
+                  </WForm>
+                </details>
+              )}
+              {!isOwner && activity.status === "OPEN" && (
+                <details className="rounded-[20px] border border-border p-3.5">
+                  <summary className="flex items-center gap-1 text-[13px] cursor-pointer text-muted font-semibold"><IconChevronRight size={13} className="chev" /> {t("addMyItem")}</summary>
+                  <WForm action={async (prevState, formData) => await createLineItemAction(formData)} initialState={{}} className="space-y-2.5 mt-3">
+                    <input type="hidden" name="activityId" value={activity.id} />
+                    <input type="hidden" name="userId" value={userId} className="hidden" />
+                    <input name="description" placeholder={t("descMinePh")} required className="input text-[13px]" />
+                    <input name="priceDH" placeholder={t("priceItemPh")} required className="input text-[13px]" />
+                    <SubmitBtn label={t("addItemBtn")} />
+                  </WForm>
+                </details>
+              )}
+            </div>
+          )}
+
+          {/* Payments */}
+          <div className="space-y-2">
+            <div className="text-[12px] font-semibold text-muted uppercase tracking-wide">{t("payments")}</div>
+            {activity.payments.length > 0 && (
+              <div className="space-y-1.5">
+                {activity.payments.map((p: any) => (
+                  <div key={p.id} className="flex items-center justify-between py-2 px-3 rounded-[12px] bg-elevated">
+                    <span className="text-[14px]">{usersMap.get(p.userId) || "?"}{p.userId === userId ? ` ${t("youSuffix")}` : ""}</span>
+                    <span className="flex items-center gap-2">
+                      <span className="money text-[15px] font-semibold">{formatDH(p.amountCentimes)}</span>
+                      {canEdit && (
+                        <span className="flex items-center gap-1">
+                          <details className="relative">
+                            <summary className="cursor-pointer text-brand text-[12px] font-semibold hover:underline">{tc("edit")}</summary>
+                            <WForm action={async (prevState, formData) => {
+                              return await updateActivityPaymentAction(p.id, formData.get("amountDH") as string);
+                            }} initialState={{}} className="absolute end-0 z-10 mt-1 p-3 rounded-[20px] bg-surface border border-border shadow-lg flex gap-2 items-center">
+                              <input name="amountDH" defaultValue={(p.amountCentimes / 100).toFixed(2)} placeholder={t("amountPh")} className="input text-[13px] w-24" />
+                              <SubmitBtn label={tc("save")} />
+                            </WForm>
+                          </details>
+                          <WForm action={async () => await deleteActivityPaymentAction(p.id)} initialState={{}} confirmMessage="Delete this payment?">
+                            <button type="submit" aria-label={t("deletePayment")} className="inline-flex items-center text-danger/60 hover:text-danger transition-colors"><IconX size={12} /></button>
+                          </WForm>
+                        </span>
+                      )}
+                    </span>
                   </div>
                 ))}
               </div>
-            </div>
-          )}
-          {canEdit && (
-            <details className="rounded-[20px] border border-border p-3.5">
-              <summary className="flex items-center gap-1 text-[13px] cursor-pointer text-muted font-semibold"><IconChevronRight size={13} className="chev" /> {t("addProduct")}</summary>
-              <WForm action={async (prevState, formData) => await createActivityProductAction(formData)} initialState={{}} className="space-y-2.5 mt-3">
-                <input type="hidden" name="activityId" value={activity.id} />
-                <input name="name" placeholder={t("productNamePh")} required className="input text-[13px]" />
-                <input name="unit" placeholder={t("unitPh")} className="input text-[13px]" />
-                <input name="pricePerUnitDH" placeholder={t("pricePh")} required className="input text-[13px]" />
-                <button className="btn-primary w-full py-2 text-[13px]">{t("addProductBtn")}</button>
-              </WForm>
-            </details>
-          )}
-
-          {/* Usage records as financial objects */}
-          {activity.usageRecords.length > 0 && (
-            <div>
-              <div className="text-[12px] font-semibold text-muted mb-2 uppercase tracking-wide">{t("usage")}</div>
-              <div className="space-y-2">
-                {activity.usageRecords.map((r: any) => {
-                  const product = activity.products.find((p: any) => p.id === r.productId);
-                  const n = r.participants.length || 1;
-                  const each = Math.floor((r.totalCentimes ?? 0) / n);
-                  const imIn = r.participants.some((pp: any) => pp.userId === userId);
-                  const myShare = imIn ? each : 0;
-                  return (
-                    <div key={r.id} className="rounded-[12px] bg-elevated p-3.5 space-y-2.5">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0">
-                          <div className="text-[14px] font-medium">{r.quantity} × {product?.name || "?"}</div>
-                          <div className="money text-[18px] font-bold mt-0.5">{formatDH(r.totalCentimes)}</div>
-                        </div>
-                        <StatusTag status={r.status} />
-                      </div>
-                      <div className="split-bar" aria-hidden="true">
-                        {r.participants.map((pp: any) => (
-                          <span key={pp.userId} style={{ width: `${100 / n}%`, background: pp.userId === userId ? "var(--brand)" : "var(--muted)", opacity: pp.userId === userId ? 1 : 0.45 }} />
-                        ))}
-                      </div>
-                      <div className="grid grid-cols-3 gap-2 text-center">
-                        <div className="rounded-[12px] bg-surface p-2">
-                          <div className="text-[11px] text-muted">{t("each")}</div>
-                          <div className="money text-[13px] font-bold">{formatDH(each)}</div>
-                        </div>
-                        <div className="rounded-[12px] bg-surface p-2">
-                          <div className="text-[11px] text-muted">{t("yourShare")}</div>
-                          <div className="money text-[13px] font-bold">{formatDH(myShare)}</div>
-                        </div>
-                        <div className="rounded-[12px] bg-surface p-2">
-                          <div className="text-[11px] text-muted">{t("split")}</div>
-                          <div className="text-[13px] font-bold">{t("splitN", { count: n })}</div>
-                        </div>
-                      </div>
-                      <div className="text-[12px] text-muted">
-                        {r.participants.map((pp: any) => usersMap.get(pp.userId) || pp.userId).join(" · ")}
-                      </div>
-                      {r.status !== "CONFIRMED" && (
-                        <div className="flex gap-2 flex-wrap">
-                          <WForm action={async () => await confirmUsageRecordAction(r.id)} initialState={{}}>
-                            <button type="submit" className="btn-ghost text-success">{tc("confirm")}</button>
-                          </WForm>
-                          <WForm action={async (prevState, formData) => {
-                            const notes = formData.get("notes") as string;
-                            return await disputeUsageRecordAction(r.id, notes);
-                          }} initialState={{}}>
-                            <button type="submit" className="btn-ghost text-danger">{t("dispute")}</button>
-                          </WForm>
-                          {isOwner && r.participants.filter((pp: any) => {
-                            const conf = r.confirmations.find((c: any) => c.userId === pp.userId);
-                            return conf && conf.status === "PENDING";
-                          }).map((pp: any) => (
-                            <WForm key={pp.userId} action={async () => await adminConfirmUsageRecordAction(r.id, pp.userId)} initialState={{}}>
-                            <button type="submit" className="btn-ghost text-brand" title={t("confirmOnBehalf", { name: usersMap.get(pp.userId) || pp.userId })}>
-                              <IconCheck size={13} />{usersMap.get(pp.userId) || pp.userId}
-                            </button>
-                            </WForm>
-                          ))}
-                        </div>
-                      )}
-                      {canEdit && (
-                        <div className="flex gap-2 items-center pt-1">
-                          <details className="relative">
-                            <summary className="cursor-pointer text-brand text-[12px] font-semibold hover:underline">{tc("edit")}</summary>
-                            <WForm action={async (prevState, formData) => {
-                              const qty = parseInt(formData.get("quantity") as string, 10);
-                              return await updateUsageRecordAction(r.id, { quantity: qty });
-                            }} initialState={{}} className="absolute start-0 z-10 mt-1 p-3 rounded-[20px] bg-surface border border-border shadow-lg flex gap-2 items-center">
-                              <input name="quantity" type="number" min="1" defaultValue={r.quantity} className="input text-[13px] w-20" />
-                              <button type="submit" className="btn-primary py-2 px-3 text-[12px]">{tc("save")}</button>
-                            </WForm>
-                          </details>
-                          <WForm action={async () => await deleteUsageRecordAction(r.id)} initialState={{}}>
-                            <button type="submit" className="text-[12px] text-danger hover:underline">{tc("delete")}</button>
-                          </WForm>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-          {canEdit && (
-            <details className="rounded-[20px] border border-border p-3.5">
-              <summary className="flex items-center gap-1 text-[13px] cursor-pointer text-muted font-semibold"><IconChevronRight size={13} className="chev" /> {t("recordUsage")}</summary>
-              <WForm action={async (prevState, formData) => await createUsageRecordAction(formData)} initialState={{}} className="space-y-2.5 mt-3">
-                <input type="hidden" name="activityId" value={activity.id} />
-                <select name="productId" required className="input text-[13px]">
-                  <option value="">{t("selectProduct")}</option>
-                  {activity.products.map((p: any) => <option key={p.id} value={p.id}>{p.name} ({formatDH(p.pricePerUnitCt)}/{p.unit})</option>)}
-                </select>
-                <input name="quantity" type="number" min="1" placeholder={t("quantity")} required className="input text-[13px]" />
-                <div className="text-[12px] font-medium text-muted">{t("selectParticipants")}</div>
-                <div className="space-y-1">
-                  {participants.map((p: any) => (
-                    <label key={p.userId} className="flex items-center gap-2 text-[13px] py-1 cursor-pointer">
-                      <input type="checkbox" name="participantIds" value={p.userId} className="accent-action" />
-                      {p.user.displayName}
-                    </label>
-                  ))}
-                </div>
-                <button className="btn-primary w-full py-2 text-[13px]">{t("recordUsageBtn")}</button>
-              </WForm>
-            </details>
-          )}
-        </div>
-      )}
-
-      {/* VARIABLE: line items as expense objects */}
-      {isVariable && (
-        <div className="space-y-3">
-          {activity.lineItems.length > 0 && (
-            <div>
-              <div className="text-[12px] font-semibold text-muted mb-2 uppercase tracking-wide">{t("items")}</div>
-              <div className="space-y-2">
-                {activity.lineItems.map((l: any) => {
-                  const canEditItem = l.userId === userId || isOwner;
-                  const isMine = l.userId === userId;
-                  return (
-                    <div key={l.id} className="rounded-[12px] bg-elevated p-3.5 space-y-1.5">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0">
-                          <div className="text-[14px] font-medium">{l.description}</div>
-                          <div className="text-[12px] text-muted">{t("paidBy")} {usersMap.get(l.userId) || "?"}{isMine ? ` ${t("youSuffix")}` : ""}</div>
-                        </div>
-                        <div className="money text-[18px] font-bold flex-shrink-0">{formatDH(l.priceCentimes)}</div>
-                      </div>
-                      {canEditItem && canEdit && (
-                        <div className="flex items-center gap-1.5">
-                          <details className="relative">
-                            <summary className="cursor-pointer text-brand text-[12px] font-semibold hover:underline">{tc("edit")}</summary>
-                            <WForm action={async (prevState, formData) => {
-                              return await updateLineItemAction(l.id, {
-                                description: formData.get("description") as string || undefined,
-                                priceDH: formData.get("priceDH") as string || undefined,
-                              });
-                            }} initialState={{}} className="absolute end-0 z-10 mt-1 p-3 rounded-[20px] bg-surface border border-border shadow-lg space-y-2 w-56">
-                          <input name="description" defaultValue={l.description} placeholder={t("descPh")} className="input text-[13px]" />
-                          <input name="priceDH" defaultValue={(l.priceCentimes / 100).toFixed(2)} placeholder={t("priceItemPh")} className="input text-[13px]" />
-                              <button type="submit" className="btn-primary w-full py-2 text-[12px]">{tc("save")}</button>
-                            </WForm>
-                          </details>
-                          <WForm action={async () => await deleteLineItemAction(l.id)} initialState={{}}>
-                            <button type="submit" aria-label={t("deleteItem", { name: l.description })} className="inline-flex items-center text-danger/60 hover:text-danger transition-colors"><IconX size={12} /></button>
-                          </WForm>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-          {activity.lineItems.length === 0 && <div className="text-[13px] text-muted italic">{t("noItems")}</div>}
-          {canEdit && (
-            <details className="rounded-[20px] border border-border p-3.5">
-              <summary className="flex items-center gap-1 text-[13px] cursor-pointer text-muted font-semibold"><IconChevronRight size={13} className="chev" /> {t("addItem")}</summary>
-              <WForm action={async (prevState, formData) => await createLineItemAction(formData)} initialState={{}} className="space-y-2.5 mt-3">
-                <input type="hidden" name="activityId" value={activity.id} />
-                <input type="hidden" name="userId" defaultValue={userId} className="hidden" />
-                <input name="description" placeholder={t("descPh")} required className="input text-[13px]" />
-                <input name="priceDH" placeholder={t("priceItemPh")} required className="input text-[13px]" />
-                <button className="btn-primary w-full py-2 text-[13px]">{t("addItemBtn")}</button>
-              </WForm>
-            </details>
-          )}
-          {!isOwner && activity.status === "OPEN" && (
-            <details className="rounded-[20px] border border-border p-3.5">
-              <summary className="flex items-center gap-1 text-[13px] cursor-pointer text-muted font-semibold"><IconChevronRight size={13} className="chev" /> {t("addMyItem")}</summary>
-              <WForm action={async (prevState, formData) => await createLineItemAction(formData)} initialState={{}} className="space-y-2.5 mt-3">
-                <input type="hidden" name="activityId" value={activity.id} />
-                <input type="hidden" name="userId" value={userId} className="hidden" />
-                <input name="description" placeholder={t("descMinePh")} required className="input text-[13px]" />
-                <input name="priceDH" placeholder={t("priceItemPh")} required className="input text-[13px]" />
-                <button className="btn-primary w-full py-2 text-[13px]">{t("addItemBtn")}</button>
-              </WForm>
-            </details>
-          )}
-        </div>
-      )}
-
-      {/* Payments */}
-      <div className="space-y-2">
-        <div className="text-[12px] font-semibold text-muted uppercase tracking-wide">{t("payments")}</div>
-        {activity.payments.length > 0 && (
-          <div className="space-y-1.5">
-            {activity.payments.map((p: any) => (
-              <div key={p.id} className="flex items-center justify-between py-2 px-3 rounded-[12px] bg-elevated">
-                <span className="text-[14px]">{usersMap.get(p.userId) || "?"}{p.userId === userId ? ` ${t("youSuffix")}` : ""}</span>
-                <span className="flex items-center gap-2">
-                  <span className="money text-[15px] font-semibold">{formatDH(p.amountCentimes)}</span>
-                  {canEdit && (
-                    <span className="flex items-center gap-1">
-                      <details className="relative">
-                        <summary className="cursor-pointer text-brand text-[12px] font-semibold hover:underline">{tc("edit")}</summary>
-                        <WForm action={async (prevState, formData) => {
-                          return await updateActivityPaymentAction(p.id, formData.get("amountDH") as string);
-                        }} initialState={{}} className="absolute end-0 z-10 mt-1 p-3 rounded-[20px] bg-surface border border-border shadow-lg flex gap-2 items-center">
-                          <input name="amountDH" defaultValue={(p.amountCentimes / 100).toFixed(2)} placeholder={t("amountPh")} className="input text-[13px] w-24" />
-                          <button type="submit" className="btn-primary py-2 px-3 text-[12px]">{tc("save")}</button>
-                        </WForm>
-                      </details>
-                <WForm action={async () => await deleteActivityPaymentAction(p.id)} initialState={{}}>
-                  <button type="submit" aria-label={t("deletePayment")} className="inline-flex items-center text-danger/60 hover:text-danger transition-colors"><IconX size={12} /></button>
+            )}
+            {canEdit && (
+              <details className="rounded-[20px] border border-border p-3.5">
+                <summary className="flex items-center gap-1 text-[13px] cursor-pointer text-muted font-semibold"><IconChevronRight size={13} className="chev" /> {t("recordPayment")}</summary>
+                <WForm action={async (prevState, formData) => await recordActivityPaymentAction(formData)} initialState={{}} className="space-y-2.5 mt-3">
+                  <input type="hidden" name="activityId" value={activity.id} />
+                  <select name="userId" required className="input text-[13px]">
+                    <option value="">{t("whoPaid")}</option>
+                    {participants.map((p: any) => <option key={p.userId} value={p.userId}>{p.user.displayName}</option>)}
+                  </select>
+                  <input name="amountDH" placeholder={t("amountPh")} required className="input text-[13px]" />
+                  <SubmitBtn label={t("recordPaymentBtn")} />
                 </WForm>
-                    </span>
-                  )}
-                </span>
-              </div>
-            ))}
+              </details>
+            )}
           </div>
-        )}
-        {canEdit && (
-          <details className="rounded-[20px] border border-border p-3.5">
-            <summary className="flex items-center gap-1 text-[13px] cursor-pointer text-muted font-semibold"><IconChevronRight size={13} className="chev" /> {t("recordPayment")}</summary>
-            <WForm action={async (prevState, formData) => await recordActivityPaymentAction(formData)} initialState={{}} className="space-y-2.5 mt-3">
-              <input type="hidden" name="activityId" value={activity.id} />
-              <select name="userId" required className="input text-[13px]">
-                <option value="">{t("whoPaid")}</option>
-                {participants.map((p: any) => <option key={p.userId} value={p.userId}>{p.user.displayName}</option>)}
-              </select>
-              <input name="amountDH" placeholder={t("amountPh")} required className="input text-[13px]" />
-              <button className="btn-primary w-full py-2 text-[13px]">{t("recordPaymentBtn")}</button>
-            </WForm>
-          </details>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }
