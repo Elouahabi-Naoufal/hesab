@@ -50,7 +50,7 @@ export async function updateProfileAction(formData: FormData) {
     data: {
       displayName: parsed.data.displayName,
       ...(removeAvatar ? { avatar: null } : {}),
-      ...(file instanceof File && file.size > 0 ? { avatar: `/api/avatar` } : {}),
+      ...(file instanceof File && file.size > 0 ? { avatar: `/api/avatar/${session.userId}` } : {}),
     },
   });
 

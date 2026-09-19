@@ -1,13 +1,12 @@
 import { NextResponse } from "next/server";
 import fs from "fs";
 import path from "path";
-import { getSession } from "@/server/auth/session";
 
-export async function GET() {
-  const session = await getSession();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+export async function GET(_request: Request, { params }: { params: Promise<{ userId: string }> }) {
+  const { userId } = await params;
+  if (!userId) return NextResponse.json({ error: "Missing user ID" }, { status: 400 });
 
-  const filePath = path.join(process.cwd(), "data", "avatars", `${session.userId}.png`);
+  const filePath = path.join(process.cwd(), "data", "avatars", `${userId}.png`);
   try {
     const data = fs.readFileSync(filePath);
     return new NextResponse(data, {

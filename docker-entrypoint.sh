@@ -3,10 +3,10 @@ set -e
 
 echo ">> Hesab starting..."
 
-# Ensure data dir exists and is writable by nextjs (fix bind-mount root ownership)
-mkdir -p /app/data
-chown -R nextjs:nodejs /app/data 2>/dev/null || true
-chmod -R 775 /app/data 2>/dev/null || true
+# Ensure data dir exists and is writable by nextjs
+mkdir -p /app/data /app/data/avatars
+chown -R nextjs:nodejs /app/data /app/data/avatars 2>/dev/null || true
+chmod -R 775 /app/data /app/data/avatars 2>/dev/null || true
 
 # Ensure public dir is readable by nextjs
 chown -R nextjs:nodejs /app/public 2>/dev/null || true
