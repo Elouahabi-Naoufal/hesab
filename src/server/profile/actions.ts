@@ -38,11 +38,29 @@ export async function updateProfileAction(formData: FormData) {
     const p = avatarPath(session.userId);
     try { await fs.promises.unlink(p); } catch {}
   } else if (file instanceof File && file.size > 0) {
-    if (!file.type.startsWith("image/")) return { error: t("avatarImageOnly") };
-    if (file.size > MAX_AVATAR_BYTES) return { error: t("avatarTooBig") };
-    await ensureAvatarDir();
-    const buffer = Buffer.from(await file.arrayBuffer());
-    await fs.promises.writeFile(avatarPath(session.userId), buffer);
+    try {
+      if (!file.type.startsWith("image/")) return { error: t("avatarImageOnly") };
+      const mb = file.size / 1024 / 1024;
+      if (mb > 3) return { error: `Image is ${mb.toFixed(1)} MB — must be under 3 MB. Take a screenshot and upload that instead.` };
+      await ensureAvatarDir();
+      const chunks: Uint8Array[] = [];
+      const reader = file.stream().getReader();
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        chunks.push(value);
+      }
+      const totalLen = chunks.reduce((a, c) => a + c.length, 0);
+      const buffer = new Uint8Array(totalLen);
+      let offset = 0;
+      for (const chunk of chunks) {
+        buffer.set(chunk, offset);
+        offset += chunk.length;
+      }
+      await fs.promises.writeFile(avatarPath(session.userId), buffer);
+    } catch (e) {
+      return { error: "Could not save the image. Try taking a screenshot of it and uploading the screenshot instead." };
+    }
   }
 
   await prisma.user.update({
