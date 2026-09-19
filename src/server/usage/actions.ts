@@ -347,3 +347,37 @@ export async function resolveDisputeAction(usageRecordId: string, newQuantity: n
   revalidatePath(`/groups/${outing.groupId}/outings/${activity.outingId}`);
   return { success: true };
 }
+
+export async function batchConfirmAllAction(activityId: string) {
+  const session = await requireSession();
+  const activity = await prisma.activity.findUnique({ where: { id: activityId } });
+  if (!activity) return { error: "Activity not found" };
+
+  const outing = await prisma.outing.findUnique({ where: { id: activity.outingId! } });
+  if (!outing) return { error: "Outing not found" };
+
+  await prisma.$transaction(async (tx) => {
+    const records = await tx.usageRecord.findMany({
+      where: { activityId, status: "PENDING" },
+      include: { confirmations: { where: { status: "PENDING" } } },
+    });
+
+    for (const record of records) {
+      if (record.confirmations.length === 0) {
+        await tx.usageRecord.update({ where: { id: record.id }, data: { status: "CONFIRMED" } });
+        continue;
+      }
+      await tx.usageConfirmation.updateMany({
+        where: { usageRecordId: record.id, status: "PENDING" },
+        data: { status: "ADMIN_CONFIRMED" },
+      });
+      const remaining = await tx.usageConfirmation.count({ where: { usageRecordId: record.id, status: "PENDING" } });
+      if (remaining === 0) {
+        await tx.usageRecord.update({ where: { id: record.id }, data: { status: "CONFIRMED" } });
+      }
+    }
+  });
+
+  revalidatePath(`/groups/${outing.groupId}/outings/${activity.outingId}`);
+  return { success: true };
+}

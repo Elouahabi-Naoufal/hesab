@@ -11,6 +11,7 @@ import {
 import {
   createUsageRecordAction, updateUsageRecordAction, deleteUsageRecordAction,
   confirmUsageRecordAction, disputeUsageRecordAction, adminConfirmUsageRecordAction,
+  batchConfirmAllAction,
 } from "@/server/usage/actions";
 import {
   createLineItemAction, updateLineItemAction, deleteLineItemAction,
@@ -365,13 +366,7 @@ function ActivityCard({ activity, outingId, groupId, isOwner, participants, user
           {activity.usageRecords.filter((r: any) => r.status !== "CONFIRMED" && r.status !== "DISPUTED").length > 0 && (
             <div className="flex gap-2 flex-wrap">
               {isOwner && (
-                <WForm action={async () => {
-                  const pending = activity.usageRecords.filter((r: any) => r.status === "PENDING");
-                  for (const r of pending) {
-                    await confirmUsageRecordAction(r.id);
-                  }
-                  return {};
-                }} initialState={{}}>
+                <WForm action={async () => await batchConfirmAllAction(activity.id)} initialState={{}}>
                   <SubmitBtn label="Confirm all pending" variant="primary" />
                 </WForm>
               )}
